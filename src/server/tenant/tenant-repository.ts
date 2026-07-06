@@ -42,6 +42,8 @@ export async function updateTenantOperationalSettings(input: {
   enabledFeatures: string[];
   responseGuardrails: string[];
   brandVoice?: string;
+  /** OperatorKnowledgePack JSON. Omit to leave unchanged. */
+  operatorKnowledgePack?: unknown;
 }) {
   return prisma.tenant.update({
     where: { slug: input.tenantSlug },
@@ -60,7 +62,10 @@ export async function updateTenantOperationalSettings(input: {
           publicProductCatalog: input.publicProductCatalog as Prisma.InputJsonValue,
           bookingWriteEnabled: input.bookingWriteEnabled,
           enabledFeatures: input.enabledFeatures,
-          responseGuardrails: input.responseGuardrails
+          responseGuardrails: input.responseGuardrails,
+          ...(input.operatorKnowledgePack === undefined
+            ? {}
+            : { operatorKnowledgePack: input.operatorKnowledgePack as Prisma.InputJsonValue })
         }
       }
     },

@@ -7,6 +7,8 @@
  *
  *   npx tsx scripts/kai-chat.ts             interactive chat
  *   npx tsx scripts/kai-chat.ts --demo      scripted three-persona walkthrough
+ *   npx tsx scripts/kai-chat.ts --knowledge Kai interviews an operator, then
+ *                                           answers guests from the built pack
  */
 
 // Dummy datasource values so the Prisma client constructor is satisfied —
@@ -16,6 +18,10 @@ process.env.DIRECT_URL ??= process.env.DATABASE_URL;
 
 import { createInterface } from "node:readline/promises";
 import { handleBluePassMarketplaceMessage } from "../src/server/bluepass/bluepass-message-flow";
+import { handleTravellerBookingMessage } from "../src/core/booking/booking-orchestrator";
+import { MockPmsAdapter } from "../src/core/pms/mock-pms-adapter";
+import { advanceInterview } from "../src/core/knowledge/interview-engine";
+import { EMPTY_KNOWLEDGE_PACK, type OperatorKnowledgePack } from "../src/core/knowledge/types";
 
 const tenantId = "tenant_local_harness";
 const conversationId = `conversation_${Date.now()}`;
@@ -77,6 +83,11 @@ const DEMO: Array<{ label: string; messages: string[] }> = [
 ];
 
 async function main() {
+  if (process.argv.includes("--knowledge")) {
+    await knowledgeDemo();
+    return;
+  }
+
   if (process.argv.includes("--demo")) {
     for (const scene of DEMO) {
       priorTravellerMessages.length = 0;
@@ -99,6 +110,66 @@ async function main() {
   }
 
   rl.close();
+}
+
+// The operator's answers to Kai's onboarding interview, in question order.
+const OPERATOR_INTERVIEW_ANSWERS = [
+  "Full refund up to 48 hours before departure, 50% inside 48 hours.",
+  "If we cancel for weather you get a full refund or a free reschedule.",
+  "We take a 20% deposit to hold the date; the balance is due 7 days before.",
+  "Minimum age is 8 for the reef trip; under 12s must have a parent aboard.",
+  "We meet at the Labuan Bajo marina gate at 7am sharp.",
+  "Bring swimwear, a towel, reef-safe sunscreen and a light jacket.",
+  "Yes, free hotel transfers within Labuan Bajo town.",
+  "Our boat is a 25m phinisi: 12 guests max, 6 cabins, two bathrooms.",
+  "Price includes lunch, water, snorkel gear and an English-speaking guide.",
+  "Full day, about 8 hours, out to Padar, Pink Beach and Manta Point.",
+  "Best months are April to October; we don't operate in January or February.",
+  "Guests always rave about drifting with the mantas at Manta Point.",
+  "Ask our team on WhatsApp — we reply within the hour.",
+];
+
+const GUEST_QUESTIONS = [
+  "what's your cancellation policy?",
+  "can my 8 year old come along?",
+  "where do we meet and what time?",
+  "what's included in the price?",
+  "is there wheelchair access on board?", // policy-shaped, not in the pack → escalates
+];
+
+async function knowledgeDemo() {
+  console.log("\n══ Kai interviews the operator to build their knowledge pack ══\n");
+  let pack: OperatorKnowledgePack = structuredClone(EMPTY_KNOWLEDGE_PACK);
+
+  console.log("Operator: onboard me");
+  let advance = advanceInterview(pack, "onboard me");
+  pack = advance.pack;
+  if (advance.ask) console.log(`Kai: ${advance.ask.prompt}`);
+
+  for (const answer of OPERATOR_INTERVIEW_ANSWERS) {
+    console.log(`Operator: ${answer}`);
+    advance = advanceInterview(pack, answer);
+    pack = advance.pack;
+    if (advance.ask) console.log(`Kai: ${advance.ask.prompt}`);
+  }
+
+  console.log(
+    `\nPack built → ${pack.entries.length} answers, interview ${pack.interview.status}, ` +
+      `handoff line: "${pack.escalation.handoffMessage}"`,
+  );
+
+  console.log("\n══ Guests ask; Kai answers from THIS operator's pack ══");
+  const adapter = new MockPmsAdapter();
+  for (const question of GUEST_QUESTIONS) {
+    const result = await handleTravellerBookingMessage({
+      message: question,
+      pmsAdapter: adapter,
+      knowledgePack: pack,
+    });
+    console.log(`\nGuest: ${question}`);
+    console.log(`Kai [${result.action}]: ${result.reply}`);
+  }
+  console.log("");
 }
 
 main().catch((error) => {

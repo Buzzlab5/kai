@@ -105,6 +105,7 @@ model TenantConfig {
   bookingWriteEnabled Boolean    @default(false)
   pmsProvider        PmsProvider @default(MOCK)
   publicProductCatalog Json       @default("[]")
+  operatorKnowledgePack Json      @default("{}")
   escalationRules    String[]
   responseGuardrails String[]
   createdAt          DateTime    @default(now())
