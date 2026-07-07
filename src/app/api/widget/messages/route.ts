@@ -3,6 +3,7 @@ import { updateBookingMemoryState } from "@/core/booking/booking-memory";
 import { handleTravellerBookingMessage } from "@/core/booking/booking-orchestrator";
 import { MappedPmsAdapter } from "@/core/pms/mapped-pms-adapter";
 import { parsePublicProductCatalog } from "@/core/pms/public-product-catalog";
+import { parseKnowledgePack, summarizeKnowledgePack } from "@/core/knowledge/knowledge-matcher";
 import type { PmsProvider } from "@/core/tenant/types";
 import {
   createAssistantMessage,
@@ -249,6 +250,7 @@ export async function POST(request: NextRequest) {
     const publicProductCatalog = parsePublicProductCatalog(resolved.tenant.config?.publicProductCatalog);
     const pmsAdapter =
       publicProductCatalog.length > 0 ? new MappedPmsAdapter(sourcePmsAdapter, publicProductCatalog) : sourcePmsAdapter;
+    const knowledgePack = parseKnowledgePack(resolved.tenant.config?.operatorKnowledgePack);
     const products = await pmsAdapter.listProducts();
     const bookingState = updateBookingMemoryState({
       previousState: previousBookingState,
@@ -271,12 +273,14 @@ export async function POST(request: NextRequest) {
       bookingWriteEnabled: resolved.tenant.config?.bookingWriteEnabled ?? false,
       allowUnpaidExternalBooking: false,
       llmClient,
+      knowledgePack,
       tenantContext: {
         tenantName: resolved.tenant.name,
         brandVoice: resolved.tenant.branding?.brandVoice ?? null,
         pmsProvider: provider,
         responseGuardrails: resolved.tenant.config?.responseGuardrails ?? [],
-        productTitles: products.map((product) => product.title)
+        productTitles: products.map((product) => product.title),
+        knowledgeSummary: summarizeKnowledgePack(knowledgePack)
       }
     });
 
