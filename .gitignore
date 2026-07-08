@@ -13,3 +13,6 @@ kai-dev-*.log
 .env.*
 !.env.example
 .DS_Store
+
+# Local Netlify folder
+.netlify

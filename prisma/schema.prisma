@@ -1,11 +1,16 @@
 generator client {
   provider = "prisma-client-js"
+  // native = local dev; rhel-openssl-3.0.x = Netlify Functions (AWS Lambda).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // Netlify Database (Neon) injects NETLIFY_DATABASE_URL at build + runtime.
+  // Locally, .env sets these to the local Postgres, so the same schema works
+  // in both places.
+  url       = env("NETLIFY_DATABASE_URL")
+  directUrl = env("NETLIFY_DATABASE_URL_UNPOOLED")
 }
 
 enum TenantStatus {

@@ -1,0 +1,11 @@
+# Netlify config for the Kai test deploy (combined test branch).
+# Netlify Database (Neon) injects NETLIFY_DATABASE_URL / _UNPOOLED at build +
+# runtime, so migrations and seeds run here in the build where the URL exists.
+[build]
+  command = "npx prisma generate && npx prisma migrate deploy && node scripts/seed-first-tenant.mjs && node scripts/seed-knowledge-demo.mjs && npx next build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

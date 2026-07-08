@@ -18,7 +18,7 @@ const tenants = [
     slug: "kai-demo",
     name: "Kai Demo",
     widgetPublicKey: "pk_test_kai_demo",
-    allowedOrigins: ["http://localhost:3107", "http://127.0.0.1:3107"],
+    allowedOrigins: ["https://kai-test-bluepass.netlify.app", "http://localhost:3107", "http://127.0.0.1:3107"],
     defaultLocale: "en",
     branding: {
       logoUrl: null,
@@ -43,7 +43,7 @@ const tenants = [
     slug: "boattime",
     name: "Boattime Yacht Charters",
     widgetPublicKey: "pk_test_boattime",
-    allowedOrigins: ["http://localhost:3107", "http://127.0.0.1:3107"],
+    allowedOrigins: ["https://kai-test-bluepass.netlify.app", "http://localhost:3107", "http://127.0.0.1:3107"],
     defaultLocale: "en-AU",
     branding: {
       logoUrl: null,
@@ -113,6 +113,7 @@ const tenants = [
     name: "BluePass",
     widgetPublicKey: "pk_test_bluepass",
     allowedOrigins: [
+      "https://kai-test-bluepass.netlify.app",
       "https://bluepass.co",
       "https://www.bluepass.co",
       "http://localhost:3107",
