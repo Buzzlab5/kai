@@ -333,6 +333,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("cancellation policy", "refund", "guest cancels", "customer cancels", "no-show", "no show", "reschedule", "bad weather", "cancels a trip", "cancels their")) {
+    return {
+      reply:
+        "Your cancellation and refund terms are yours - you set them, and they show on your page so guests book knowing the rules. The team wires them in during setup, and I'll flag anything tricky to a human. Company name and email to start?"
+    };
+  }
+
   if (has("pause", "leave anytime", "opt out", "cancel anytime", "no lock", "lock-in", "tied in", "exclusive", "commitment")) {
     return {
       reply:

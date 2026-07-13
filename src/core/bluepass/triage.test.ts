@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("tells an operator their cancellation/refund terms are their own", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "what's the refund policy if a guest cancels?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/yours|you set/);
+  });
+
   it("is honest that booking volume isn't guaranteed, without deflating the offer", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "will i actually get any bookings?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/guarantee|no one can/);

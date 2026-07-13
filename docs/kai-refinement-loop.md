@@ -66,7 +66,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "is BluePass legit?" trust branch (real marketplace, keep 82%, nothing charged pre-claim).
 
 - [x] Operator: "will I actually get bookings / how much demand?" -> honest no-guarantee branch (real reach, no cost until earning).
-- [ ] Operator: "how are cancellations / refunds handled?" -> policy set with you, team handles, honest.
+- [x] Operator: "how are cancellations / refunds handled?" -> your own terms, shown on page, team wires in.
 - [ ] Operator: "can I list more than one boat / multiple trips?" -> yes, add listings under your page, capture.
 
 ## Log
@@ -103,3 +103,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter30: operator how-do-I-sign-up branch (3 concrete steps + capture), 66 green.
 - iter31: operator trust/legit branch; backlog emptied -> self-critique added 3 items, 67 green.
 - iter32: operator demand-expectation branch (no guarantees, honest), 68 green.
+- iter33: operator cancellation/refund branch (operator sets terms, team wires in), 69 green.
