@@ -41,7 +41,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "which regions/destinations?" -> honest Indonesia-first, Komodo + Raja live.
 - [x] Operator: "what does my page look like / a dashboard?" -> what-you-get answer + capture.
 
-- [ ] Operator: "can I set my own prices/rates?" -> you set your rate, keep 82%.
+- [x] Operator: "can I set my own prices/rates?" -> you set your rate, keep 82%.
 - [ ] Partner: "any cost / sign-up fee to join?" -> no cost, funded from operator side.
 - [ ] Operator: "can I pause / leave anytime?" -> no lock-in, honest, capture.
 
@@ -60,3 +60,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter11: trimmed 3 long replies, guard tightened to 320, 47 green.
 - iter12: added partner regions\/coverage branch (Indonesia-first), 48 green.
 - iter13: page/dashboard -> what-you-get; self-critique added 3 items, 49 green.
+- iter14: added operator own-pricing branch, 50 green.

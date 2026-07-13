@@ -251,6 +251,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("set my own", "my own rate", "my own price", "who sets the price", "control the price", "set prices", "set the rate", "i set the")) {
+    return {
+      reply:
+        "You set your own rate - it's your price, full stop. You keep 82% of it, and we never mark it up to your guests. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:

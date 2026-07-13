@@ -160,6 +160,12 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/page|inquiries|network/);
   });
 
+  it("tells operators they set their own rate and keep 82%", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I set my own prices?", pitched: true });
+    expect(result.reply).toContain("82%");
+    expect(result.reply.toLowerCase()).toMatch(/your (own )?rate|your price/);
+  });
+
   it("gives an honest no-timeline answer to approval-speed questions", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how long until I'm approved?", pitched: true });
     expect(result.reply).toContain("team");
