@@ -272,6 +272,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("my data", "guest data", "privacy", "private data", "gdpr", "who owns the data", "data protection", "confidential", "share my data", "sell my data")) {
+    return {
+      reply:
+        "Your guest data is yours - we don't sell it or share it beyond running the booking. For the fine print on data handling, the team will walk you through it. Company name and best email?"
+    };
+  }
+
   if (has("after a guest inquires", "what happens after", "how does handoff", "when do i take over", "after they inquire", "how do inquiries work", "guest reaches out", "after an inquiry")) {
     return {
       reply:

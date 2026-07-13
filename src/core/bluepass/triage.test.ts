@@ -160,6 +160,12 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/page|inquiries|network/);
   });
 
+  it("answers operator data/privacy questions honestly with a team handoff", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "who owns my guest data?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/data|privacy|yours/);
+    expect(result.reply.toLowerCase()).toContain("team");
+  });
+
   it("explains the inquiry handoff (Kai pre-qualifies, then hands to you)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what happens after a guest inquires?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/pre-qualif|hands|whatsapp/);
