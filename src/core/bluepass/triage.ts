@@ -461,6 +461,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("ballpark", "rough number", "roughly", "give me a number", "just a number", "typical rate", "average commission", "what's the rate", "whats the rate", "ballpark figure")) {
+    return {
+      reply:
+        "I won't guess a number I can't stand behind - your rate is set per-partner and confirmed with the team, funded from the operator's capped commission (never your client). Send company, market, and best email and they'll quote you real terms."
+    };
+  }
+
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
