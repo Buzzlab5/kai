@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBluePassHandoffReply,
+  buildBluePassLeadCapturedReply,
   buildBluePassOperatorReply,
   buildBluePassPartnerReply,
   buildBluePassTriageGreeting,
@@ -368,6 +370,30 @@ describe("buildBluePassPartnerReply", () => {
     for (const [msg, re] of partnerTraps) {
       expect(re.test(buildBluePassPartnerReply({ latestMessage: msg, pitched: true }).reply), `partner trap "${msg}"`).toBe(true);
     }
+  });
+
+  it("lead-captured + handoff replies obey the house rules (<=320, no-emoji, trimmed, honest %)", () => {
+    const EMOJI = /\p{Extended_Pictographic}/u;
+    const check = (reply: string) => {
+      expect(reply.length).toBeGreaterThan(0);
+      expect(reply.length).toBeLessThanOrEqual(320);
+      expect(reply).toBe(reply.trim());
+      expect(reply.includes("  ")).toBe(false);
+      expect(EMOJI.test(reply)).toBe(false);
+      for (const pct of reply.match(/(\d+)%/g) ?? []) {
+        expect(["3", "5", "18", "82"].includes(pct.replace("%", "")), `bad % in: ${reply}`).toBe(true);
+      }
+    };
+    const leads = [
+      {},
+      { company: "Acme Diving", region: "Komodo", email: "acme@example.com", phone: "+628123456789" },
+    ];
+    for (const persona of ["OPERATOR", "PARTNER"] as const) {
+      for (const lead of leads) {
+        check(buildBluePassLeadCapturedReply({ persona, lead }));
+      }
+    }
+    check(buildBluePassHandoffReply());
   });
 
   it("keeps replies tidy: no leading/trailing whitespace, no double spaces", () => {
