@@ -27,7 +27,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 ## Backlog
 - [x] Trim level-2 operator replies ~20% shorter without losing the honest numbers.
-- [ ] Trim level-2 partner replies ~20% shorter.
+- [x] Trim level-2 partner replies ~20% shorter.
 - [ ] Operator branch: "how long until approved?" → honest no-timeline + capture.
 - [ ] Operator branch: "do I need a license / Green Fins?" → vetting answer + capture.
 - [ ] Partner branch: "how do I get paid?" → mechanism (funded from operator side) + human handoff.
@@ -40,3 +40,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
+- iter2: trimmed partner replies ~20%, catalog flags + phrases intact, 39 green.

@@ -284,7 +284,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("komodo")) {
     return {
       reply:
-        "Komodo it is - mantas at Karang Makassar, the drift at Castle Rock, dragons on Rinca between dives. Season runs September to April, mantas peaking December to February. A couple I'd shortlist for clients are below - tell me their dates and group size and I'll narrow it.",
+        "Komodo it is - mantas at Karang Makassar, the drift at Castle Rock, dragons on Rinca between dives. Best September to April, mantas peaking December to February. A couple I'd shortlist for clients below - their dates and group size and I'll narrow it.",
       showCatalog: true,
       catalogDestination: "Komodo"
     };
@@ -293,7 +293,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("raja ampat", "raja")) {
     return {
       reply:
-        "Good taste - Raja Ampat is the richest reef system on the planet, best October to April. Longer runs, bigger boats, out of Sorong. A couple I'd shortlist for clients are below - give me dates and group size and I'll match properly.",
+        "Good taste - Raja Ampat is the planet's richest reef system, best October to April. Bigger boats, out of Sorong. A couple below for clients - dates and group size and I'll match properly.",
       showCatalog: true,
       catalogDestination: "Raja Ampat"
     };
@@ -302,21 +302,21 @@ export function buildBluePassPartnerReply(input: {
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
-        "5% of every booking funds verified conservation where your clients actually travel - reef restoration, mangrove nurseries, manta research. It's tracked per booking, so you can tell a client their trip funded something real - and it's yours to co-brand in your own marketing."
+        "5% of every booking funds verified conservation where your clients travel - reef restoration, mangrove nurseries, manta research. Tracked per booking, so you can tell a client their trip funded something real - and it's yours to co-brand."
     };
   }
 
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
-        "Simple mechanics: your client pays the operator's own rate - never a cent more. The operator pays BluePass a capped commission, and your cut comes out of that. So recommending us never costs your client anything, which makes it an easy sell. Exact percentages are set per partner and locked for founding members - the team confirms yours. Attribution runs off your link, plus a manual code for bookings you place yourself."
+        "Simple: your client pays the operator's own rate - never a cent more. The operator pays BluePass a capped commission, and your cut comes from that, so recommending us costs your client nothing. Exact rates are per-partner and locked for founding members - the team confirms yours. Attribution runs off your link, plus a manual code for bookings you place."
     };
   }
 
   if (has("catalogue", "catalog", "which operators", "what boats", "inventory")) {
     return {
       reply:
-        "Vetted liveaboards and dive operators across Komodo and Raja Ampat - from accessible Explorer boats up to flagship phinisi. Every one screened for safety, sustainability, and fair crew pay, so nothing in there embarrasses you in front of a client. A taste is below - want me to narrow by destination or budget?",
+        "Vetted liveaboards and dive operators across Komodo and Raja Ampat - from accessible Explorer boats to flagship phinisi, every one screened for safety, sustainability, and fair crew pay. A taste below - narrow by destination or budget?",
       showCatalog: true
     };
   }
@@ -324,33 +324,33 @@ export function buildBluePassPartnerReply(input: {
   if (has("founding", "terms", "lock")) {
     return {
       reply:
-        "Founding partners lock their commission terms before we scale, get a real say in which operators join the catalogue, and first pick of group-trip space. Small cohort, on purpose. Want in? Company, market, and best email - that's all I need."
+        "Founding partners lock their terms before we scale, get a say in which operators join, and first pick of group-trip space. Small cohort. Want in? Company, market, and best email."
     };
   }
 
   if (has("claim", "link")) {
     return {
       reply:
-        "If the team's already reached out, you'll have a personal link - it lands on a page pre-built for your business, one click to claim, no password. No link yet? Give me your company, market, and best email - or write partners@bluepass.co - and we'll mint one."
+        "If the team's reached out, you'll have a personal link - a page pre-built for your business, one click, no password. No link yet? Company, market, and best email - or partners@bluepass.co - and we'll mint one."
     };
   }
 
   if (has("book for a client", "book a trip for", "on behalf", "book now", "dates are set")) {
     return {
       reply:
-        "Let's do it - treat it like any trip brief, credited to you. Where are they headed, Komodo or Raja Ampat? Then dates and group size, and I'll line up the right boat. The team makes sure the booking's attributed to your outfit."
+        "Let's do it - treat it like any trip brief, credited to you. Komodo or Raja Ampat? Then dates and group size, and I'll line up the right boat. The team makes sure it's attributed to your outfit."
     };
   }
 
   if (input.pitched) {
     return {
       reply:
-        "Whatever's most useful - commissions, the catalogue, founding terms, or a live client brief. Or skip ahead: company, market, and best email, and the team sends your claim link."
+        "Whatever's most useful - commissions, catalogue, founding terms, or a live client brief. Or skip ahead: company, market, and best email, and the team sends your claim link."
     };
   }
 
   return {
     reply:
-      "Then we built this for you. You get a tracked link and a catalogue of vetted Indonesian liveaboards; your client pays the operator's own rate - never marked up - and your commission comes out of the operator's side, not your client's pocket. Every booking funds ocean impact you can put your name on. What kind of outfit are you - shop, agency, creator?"
+      "Then we built this for you. You get a tracked link and a catalogue of vetted Indonesian liveaboards; your client pays the operator's own rate - never marked up - and your commission comes from the operator's side, not your client's pocket. Every booking funds ocean impact you can put your name on. Shop, agency, or creator?"
   };
 }
