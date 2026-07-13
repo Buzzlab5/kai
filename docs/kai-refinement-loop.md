@@ -71,7 +71,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Partner: "how do I actually refer a client?" -> tracked-link mechanism, client books direct, auto-credited (60-day).
 - [x] Operator: "what do I need for my page (photos/details)?" -> low-lift, team builds it (placed before what-we-get so "my page" routes right).
-- [ ] Operator/Partner: "can I see a demo / example first?" -> yes, catalogue or sample page, no commitment.
+- [x] Operator/Partner: "can I see a demo / example first?" -> real/sample page, no commitment (both builders).
+
+- [ ] Operator: "who handles guest support / problems during the trip?" -> you run it; Kai + team handle pre-trip queries, honest.
+- [ ] Operator: "do you support Bahasa / do I need English?" -> Kai speaks both, guests handled in their language, capture.
+- [ ] Partner: "do you have an API / can I embed this on my site?" -> link + assets now, deeper integration is a team chat.
 
 ## Log
 - (iterations append here)
@@ -111,3 +115,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter34: operator multi-listing/fleet branch; backlog emptied -> self-critique added 3 items, 70 green.
 - iter35: partner referral-mechanism branch (tracked link, auto-credited), 71 green.
 - iter36: operator page-build-requirements branch (low-lift, team builds); ordered before what-we-get, 72 green.
+- iter37: operator+partner demo/example branches; backlog emptied -> self-critique added 3 items, 74 green.

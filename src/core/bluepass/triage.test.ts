@@ -291,6 +291,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("offers an operator a no-commitment demo/example page", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I see an example page first?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/no commitment/);
+  });
+
+  it("offers a partner a no-commitment demo/example page", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "got a demo I can see?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/no commitment/);
+  });
+
   it("tells an operator the page build is low-lift (team builds, few photos)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what do you need from me for my page? photos?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/team builds|build the page|few photos|barely/);

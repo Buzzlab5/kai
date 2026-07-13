@@ -246,6 +246,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("demo", "example page", "sample page", "see how it works", "show me a page", "see a page", "see it first", "kick the tyres", "before i decide")) {
+    return {
+      reply:
+        "Happy to - I can show you a real operator page so you see exactly what yours would look like, no commitment. Want me to pull one up? Then company and email whenever you're ready."
+    };
+  }
+
   if (has("what do i need", "what do you need from me", "photos", "photo", "images", "details do you need", "set up my page", "build my page", "prepare", "what to send")) {
     return {
       reply:
@@ -514,6 +521,13 @@ export function buildBluePassPartnerReply(input: {
     return {
       reply:
         "Simple: your client pays the operator's own rate - never a cent more, so recommending us costs them nothing. Your cut comes from the operator's capped commission to BluePass; exact rates are per-partner, locked for founding members. Ready to lock terms? Company, market, and best email."
+    };
+  }
+
+  if (has("demo", "example page", "sample page", "see how it works", "show me a page", "see a page", "see it first", "kick the tyres", "before i decide")) {
+    return {
+      reply:
+        "Of course - I can show you the live catalogue and a sample partner page so you see exactly what you'd be sharing, no commitment. Want a look? Then company, market, and email when you're ready."
     };
   }
 
