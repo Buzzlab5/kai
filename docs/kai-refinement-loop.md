@@ -129,6 +129,10 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Copy polish (round 3): tightened markup-refusal (253->~200), Komodo brief (251->~228), what-we-get (247->~223); assertions intact.
 - [x] Guard: whitespace tidiness - every reply trimmed, no double spaces (verified across battery).
 
+- [ ] Guard: extend house-rule guards (<=320, no-emoji, trimmed) to buildBluePassLeadCapturedReply (operator+partner) and buildBluePassHandoffReply - currently unguarded user-facing replies.
+- [ ] Robustness: buildBluePassLeadCapturedReply with degenerate captured fields (empty/odd email/name) never throws and stays clean.
+- [ ] Convergence checkpoint: if the next self-critique surfaces nothing meeting the bar, write CONVERGED and surface to the user for a decision (content + guards are saturated).
+
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
@@ -210,3 +214,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter77: no-emoji guard across replies + greeting, 116 green.
 - iter78: conciseness polish round 3 (3 more replies trimmed), 116 green.
 - iter79: whitespace-tidiness guard (trimmed, no double spaces), 117 green.
+- iter79: whitespace guard done; backlog emptied -> self-critique added 3 items (lead/handoff guards + convergence checkpoint); nearing convergence, 117 green.
