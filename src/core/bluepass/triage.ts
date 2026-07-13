@@ -539,6 +539,15 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  // Split/mixed-destination briefs must be caught before the single-destination
+  // Komodo/Raja branches, or "some want komodo" would route to Komodo alone.
+  if (has("split itinerary", "mixed group", "some want", "two destinations", "different destinations", "multi-leg", "multi leg", "split the group", "both komodo and raja", "komodo and raja ampat", "combine komodo")) {
+    return {
+      reply:
+        "Doable - the team can arrange a split or multi-leg hold so one group covers both waters, or run two linked bookings under your referral. Give me rough dates and headcounts per leg and they'll build it. Company, market, and best email?"
+    };
+  }
+
   // Destination first: "Komodo for my clients" is a book-on-behalf brief,
   // not a generic client question.
   if (has("komodo")) {

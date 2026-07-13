@@ -501,6 +501,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/early|founding cohort|won't drop names/);
   });
 
+  it("handles a partner split/mixed-destination itinerary (split hold, per-leg details)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "mixed group - some want komodo, some raja - can you split it?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/split|multi-leg|both waters/);
+  });
+
+  it("still routes a plain Komodo brief to the Komodo destination branch", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "komodo for my clients", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/karang makassar|castle rock|dragons/);
+  });
+
   it("answers a partner trip-type/scope question honestly (liveaboards + dive trips now)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you have day trips or liveaboards only?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/liveaboards|day trips|komodo/);

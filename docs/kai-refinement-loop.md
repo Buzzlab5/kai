@@ -115,7 +115,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Docs: synced docs/kai-triage-and-decision-tree.md (section 5a) with the level-2 FAQ branch inventory + invariant guards (spec<->impl parity).
 - [x] Operator: "day trips / snorkel, not a liveaboard - can I join?" -> yes, all real marine tourism welcome (needles narrowed so identity openers still get the pitch).
-- [ ] Partner: "mixed group - some want Komodo, some Raja - split itinerary?" -> team can arrange a split/multi-leg hold, capture.
+- [x] Partner: "mixed group - split itinerary?" -> team arranges split/multi-leg hold; caught before Komodo/Raja (+guard plain-Komodo still routes).
+
+- [ ] Copy polish: tighten the 3 longest operator/partner replies (near 320) ~10-15% for WhatsApp readability - preserve asserted substrings + honest numbers.
+- [ ] Guard: showCatalog invariant - only destination/catalogue branches attach preview cards; split/group/FAQ branches must not.
+- [ ] Operator: "can I run a promo / discount / special through you?" -> you control your rates and any promo, team wires it, honest, capture.
 
 ## Log
 - (iterations append here)
@@ -188,3 +192,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter67: partner client-fee branch; backlog emptied -> self-critique added 3 items (incl. doc-sync), 107 green.
 - iter68: doc sync - added section 5a level-2 FAQ inventory + guards to decision-tree spec, 107 green.
 - iter69: operator non-liveaboard-welcome branch; dropped broad "resort"/"dive centre" needles that shadowed the opener pitch, 108 green.
+- iter70: partner split-itinerary branch (before Komodo/Raja) +guard; backlog emptied -> self-critique added 3 items, 110 green.
