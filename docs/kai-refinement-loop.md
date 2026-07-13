@@ -113,7 +113,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "can I talk to other operators / references?" -> honest early cohort, no invented references; guard keeps competitor worry separate.
 - [x] Partner: "does my client pay any BluePass / booking fee?" -> none, client pays operator-direct rate, nothing added at checkout.
 
-- [ ] Docs: sync docs/kai-triage-decision-matrix.md with the operator+partner branches added across this loop (spec <-> implementation parity).
+- [x] Docs: synced docs/kai-triage-and-decision-tree.md (section 5a) with the level-2 FAQ branch inventory + invariant guards (spec<->impl parity).
 - [ ] Operator: "I run day trips / snorkel tours, not a liveaboard - can I still join?" -> honest, marine-tourism welcome, get on the list (mirror partner trip-type).
 - [ ] Partner: "mixed group - some want Komodo, some Raja - split itinerary?" -> team can arrange a split/multi-leg hold, capture.
 
@@ -186,3 +186,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter65: collision-trap routing guard (8 traps, op+partner), 104 green.
 - iter66: operator references/social-proof branch (before competitor) + competitor-routing guard, 106 green.
 - iter67: partner client-fee branch; backlog emptied -> self-critique added 3 items (incl. doc-sync), 107 green.
+- iter68: doc sync - added section 5a level-2 FAQ inventory + guards to decision-tree spec, 107 green.
