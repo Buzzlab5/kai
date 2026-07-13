@@ -265,6 +265,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("more than one boat", "multiple boats", "several boats", "two boats", "list more than", "multiple trips", "multiple listings", "more than one trip", "list all my", "add another boat", "whole fleet", "my fleet")) {
+    return {
+      reply:
+        "Yes - list your whole fleet and every trip type under one page, each with its own rate and calendar. Guests see your full range in one place. What do you run, and where?"
+    };
+  }
+
   if (has("integrate", "integration", "rezdy", "fareharbor", "bokun", "my booking system", "my pms", "my calendar", "sync my", "connect my")) {
     return {
       reply:

@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("confirms an operator can list a whole fleet / multiple trips under one page", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I list more than one boat?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/fleet|one page|each/);
+  });
+
   it("tells an operator their cancellation/refund terms are their own", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what's the refund policy if a guest cancels?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/yours|you set/);

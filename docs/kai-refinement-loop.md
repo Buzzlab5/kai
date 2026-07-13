@@ -67,7 +67,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Operator: "will I actually get bookings / how much demand?" -> honest no-guarantee branch (real reach, no cost until earning).
 - [x] Operator: "how are cancellations / refunds handled?" -> your own terms, shown on page, team wires in.
-- [ ] Operator: "can I list more than one boat / multiple trips?" -> yes, add listings under your page, capture.
+- [x] Operator: "can I list more than one boat / multiple trips?" -> yes, whole fleet + trip types under one page.
+
+- [ ] Partner: "how do I actually refer a client / send a booking?" -> share tracked link, client books direct, auto-credited.
+- [ ] Operator: "what do I need for my page (photos/details)?" -> team builds it with you, minimal lift, capture.
+- [ ] Operator/Partner: "can I see a demo / example first?" -> yes, catalogue or sample page, no commitment.
 
 ## Log
 - (iterations append here)
@@ -104,3 +108,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter31: operator trust/legit branch; backlog emptied -> self-critique added 3 items, 67 green.
 - iter32: operator demand-expectation branch (no guarantees, honest), 68 green.
 - iter33: operator cancellation/refund branch (operator sets terms, team wires in), 69 green.
+- iter34: operator multi-listing/fleet branch; backlog emptied -> self-critique added 3 items, 70 green.
