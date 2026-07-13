@@ -258,6 +258,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("integrate", "integration", "rezdy", "fareharbor", "bokun", "my booking system", "my pms", "my calendar", "sync my", "connect my")) {
+    return {
+      reply:
+        "Yes - we integrate with the major systems (Rezdy, FareHarbor, Bokun and more) so your availability and bookings sync. The team sets up the connection with you during onboarding. Company name and best email?"
+    };
+  }
+
   if (has("where do bookings come from", "send me guests", "how do i get guests", "where do guests come from", "how do you fill", "drive bookings", "who sends", "get customers", "get guests", "marketing")) {
     return {
       reply:
