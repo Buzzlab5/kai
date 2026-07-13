@@ -490,6 +490,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("minimum volume", "minimum bookings", "how many clients", "volume requirement", "minimum to join", "quota", "how many do i need", "minimum spend", "minimum number")) {
+    return {
+      reply:
+        "No minimum - one client a year or a hundred, you're welcome. Founding partners lock their terms early regardless of size. Company, market, and best email?"
+    };
+  }
+
   if (
     has(
       "no clients", "just starting", "just started", "new creator", "small audience",

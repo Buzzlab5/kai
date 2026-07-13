@@ -248,6 +248,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toContain("email");
   });
 
+  it("tells partners there's no minimum volume to join", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "is there a minimum volume to join?", pitched: true });
+    expect(result.reply.toLowerCase()).toContain("no minimum");
+    expect(result.reply.toLowerCase()).toContain("email");
+  });
+
   it("tells partners there's no cost to join, funded from the operator side", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "is there any cost to join?", pitched: true });
     expect(result.reply.toLowerCase()).toContain("no cost");
