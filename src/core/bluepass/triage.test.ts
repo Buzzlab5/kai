@@ -333,6 +333,21 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("attaches catalog cards only on destination/catalogue branches, never on FAQ/split/group", () => {
+    const withCards = ["komodo for my clients", "raja ampat trip", "what's in the catalogue?"];
+    for (const m of withCards) {
+      expect(buildBluePassPartnerReply({ latestMessage: m, pitched: true }).showCatalog, `expected cards for "${m}"`).toBe(true);
+    }
+    const noCards = [
+      "how do commissions work?", "any cost to join?", "which currency?", "do you poach my clients?",
+      "mixed group - some want komodo, some raja, split it?", "group booking for clients",
+      "can we book a call?", "is this legit?", "how do i refer a client?", "do you have an api?",
+    ];
+    for (const m of noCards) {
+      expect(buildBluePassPartnerReply({ latestMessage: m, pitched: true }).showCatalog, `unexpected cards for "${m}"`).toBeFalsy();
+    }
+  });
+
   it("routes substring-collision traps to the correct branch (guards fragile needles)", () => {
     // Each trap word embeds a shorter needle used by another branch.
     const opTraps: Array<[string, RegExp]> = [

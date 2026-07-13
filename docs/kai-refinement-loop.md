@@ -118,7 +118,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "mixed group - split itinerary?" -> team arranges split/multi-leg hold; caught before Komodo/Raja (+guard plain-Komodo still routes).
 
 - [x] Copy polish: tightened 3 longest replies (operator default 278->231, partner commission 286->253, demand-expectation 259->231); numbers + asserted substrings preserved.
-- [ ] Guard: showCatalog invariant - only destination/catalogue branches attach preview cards; split/group/FAQ branches must not.
+- [x] Guard: showCatalog invariant - cards only on komodo/raja/catalogue; FAQ/split/group branches verified card-free.
 - [ ] Operator: "can I run a promo / discount / special through you?" -> you control your rates and any promo, team wires it, honest, capture.
 
 ## Log
@@ -194,3 +194,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter69: operator non-liveaboard-welcome branch; dropped broad "resort"/"dive centre" needles that shadowed the opener pitch, 108 green.
 - iter70: partner split-itinerary branch (before Komodo/Raja) +guard; backlog emptied -> self-critique added 3 items, 110 green.
 - iter71: conciseness polish of 3 longest replies (~15-17% shorter), numbers intact, 110 green.
+- iter72: showCatalog invariant guard (cards only on destination/catalogue branches), 111 green.
