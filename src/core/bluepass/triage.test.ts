@@ -352,6 +352,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|82%/);
   });
 
+  it("tells an operator they control availability (calendar, no double-bookings)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do I manage availability if I'm fully booked?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/calendar|available|double-booking/);
+  });
+
   it("tells an operator they can manage from their phone (no app, browser + WhatsApp)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "is there an app to manage on my phone?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/phone|browser|whatsapp/);

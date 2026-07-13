@@ -293,6 +293,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("availability", "fully booked", "block out", "block dates", "manage dates", "sold out", "mark dates", "control my dates", "close dates", "when i'm full", "already booked")) {
+    return {
+      reply:
+        "You control your own calendar - open dates, block them, mark yourself full, and Kai only ever offers what's actually available. No double-bookings. What do you run, and where?"
+    };
+  }
+
   if (has("integrate", "integration", "rezdy", "fareharbor", "bokun", "my booking system", "my pms", "my calendar", "sync my", "connect my")) {
     return {
       reply:
