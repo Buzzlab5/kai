@@ -321,6 +321,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("guest support", "customer service", "who handles support", "who deals with", "problem on the trip", "issue on the trip", "goes wrong", "support my guests", "who looks after", "handle problems")) {
+    return {
+      reply:
+        "You run the experience on the water - that's yours. Before the trip, I handle guest questions and pre-qualify them, and the team backs you on anything tricky. Guests are never left hanging. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:
