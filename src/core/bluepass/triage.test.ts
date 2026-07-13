@@ -595,6 +595,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/claim/);
   });
 
+  it("confirms the partner's client pays no BluePass/booking fee (operator-direct rate)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "does my client pay a booking fee?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/no bluepass booking fee|operator's own rate|nothing added/);
+  });
+
   it("is honest a partner cannot mark up the client (operator-direct rate always)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "can I add my own markup on top for my client?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/operator's own rate|never a rupiah more|not from marking up/);

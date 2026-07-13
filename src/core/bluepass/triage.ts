@@ -629,6 +629,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("booking fee", "service fee", "does my client pay", "client pay a fee", "extra fee", "hidden fee", "surcharge", "fee for my client", "any fee to my client", "processing fee")) {
+    return {
+      reply:
+        "None - your client pays the operator's own rate, full stop. No BluePass booking fee, no service fee, nothing added at checkout. That's what makes you easy to recommend. Company, market, and best email?"
+    };
+  }
+
   if (has("markup", "mark up", "add my own", "my own margin", "charge my client more", "add margin", "my margin", "resell at", "sell it for more", "add commission on top", "add my margin")) {
     return {
       reply:
