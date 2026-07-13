@@ -324,6 +324,20 @@ export function buildBluePassPartnerReply(input: {
 
   if (needsHumanHandoff(message)) return { reply: buildBluePassHandoffReply() };
 
+  if (
+    has(
+      "which region", "which destination", "what destination", "what region",
+      "which regions", "which destinations", "where do you cover", "destinations do you",
+      "other destination", "besides komodo", "apart from", "maldives", "philippines",
+      "thailand", "fiji", "egypt",
+    )
+  ) {
+    return {
+      reply:
+        "Straight up: we're Indonesia-first, with Komodo and Raja Ampat live now and more waters coming. Your clients get two of the best reef destinations on the planet through one link. Want the catalogue, or your claim link moving?"
+    };
+  }
+
   // Destination first: "Komodo for my clients" is a book-on-behalf brief,
   // not a generic client question.
   if (has("komodo")) {

@@ -222,6 +222,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("answers a partner regions question honestly (Indonesia-first, two live)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "which destinations do you cover?", pitched: true });
+    expect(result.reply).toMatch(/Indonesia/i);
+    expect(result.reply).toContain("Raja Ampat");
+  });
+
   it("routes a destination brief to book-on-behalf with destination cards", () => {
     const komodo = buildBluePassPartnerReply({ latestMessage: "Komodo for my clients", pitched: true });
     const raja = buildBluePassPartnerReply({ latestMessage: "Raja Ampat instead", pitched: true });

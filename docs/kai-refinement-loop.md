@@ -38,7 +38,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
 
 - [x] Tighten concise ceiling to 320: partner home pitch + conservation + Bahasa opener trimmed.
-- [ ] Partner: "which regions/destinations?" -> honest Indonesia-first, Komodo + Raja Ampat live.
+- [x] Partner: "which regions/destinations?" -> honest Indonesia-first, Komodo + Raja live.
 - [ ] Operator: "what does my page look like / a dashboard?" -> what-you-get answer + capture.
 
 ## Log
@@ -54,3 +54,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter9: Bahasa Indonesia operator opener + classifier signals, 46 green.
 - iter10: concise-length guard (<=360) + trimmed commission; self-critique added 3 items, 47 green.
 - iter11: trimmed 3 long replies, guard tightened to 320, 47 green.
+- iter12: added partner regions\/coverage branch (Indonesia-first), 48 green.
