@@ -236,6 +236,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("how long", "how soon", "when will", "timeline", "how quickly", "turnaround")) {
+    return {
+      reply:
+        "Honest answer: I can't put a date on it - approval is a team call and I won't invent a timeline. What I can do is get you in front of them fast. Company name and best email?"
+    };
+  }
+
   if (has("vet", "green fins", "approval", "requirement", "qualify")) {
     return {
       reply:

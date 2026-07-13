@@ -124,6 +124,12 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toContain("won't promise");
   });
 
+  it("gives an honest no-timeline answer to approval-speed questions", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how long until I'm approved?", pitched: true });
+    expect(result.reply).toContain("team");
+    expect(result.reply).not.toMatch(/\d+\s*(day|week|hour)/i);
+  });
+
   it("hands payout and contract questions to humans", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "How do payouts work?", pitched: true });
 
