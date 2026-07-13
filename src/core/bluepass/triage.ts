@@ -599,7 +599,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
-        "5% of every booking funds verified conservation where your clients travel - reef work, mangrove nurseries, manta research. Tracked per booking, so you can show a client real impact, and it's yours to co-brand. Want the assets, or your claim link moving?"
+        "5% of every booking funds verified conservation where your clients travel - reef, mangrove and manta work, tracked per booking so you can show clients real impact. Yours to co-brand. Want the assets, or your claim link?"
     };
   }
 
@@ -774,7 +774,7 @@ export function buildBluePassPartnerReply(input: {
   ) {
     return {
       reply:
-        "Creators are first-class here - no client list needed to start. Your tracked link plus our co-brandable impact assets do the selling, and the operator side funds your commission, so there's nothing to front. Your handle, audience size, and best email?"
+        "Creators are first-class here - no client list needed. Your tracked link and co-brandable impact assets do the selling, and the operator side funds your commission - nothing to front. Your handle, audience size, and best email?"
     };
   }
 
@@ -801,6 +801,6 @@ export function buildBluePassPartnerReply(input: {
 
   return {
     reply:
-      "Then we built this for you: a tracked link and a catalogue of vetted Indonesian liveaboards. Your client pays the operator's own rate - never marked up - and your commission comes from the operator's side, not your client's pocket. Shop, agency, or creator?"
+      "Then we built this for you: a tracked link plus a catalogue of vetted Indonesian liveaboards. Your client pays the operator's own rate - never marked up - your commission comes from the operator's side, not theirs. Shop, agency, or creator?"
   };
 }
