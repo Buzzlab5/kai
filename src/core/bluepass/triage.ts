@@ -361,7 +361,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
-        "Simple: your client pays the operator's own rate - never a cent more. The operator pays BluePass a capped commission, and your cut comes from that, so recommending us costs your client nothing. Exact rates are per-partner and locked for founding members - the team confirms yours. Ready to lock founding terms? Company, market, and best email."
+        "Simple: your client pays the operator's own rate - never a cent more, so recommending us costs them nothing. Your cut comes from the operator's capped commission to BluePass; exact rates are per-partner, locked for founding members. Ready to lock terms? Company, market, and best email."
     };
   }
 

@@ -49,6 +49,30 @@ describe("classifyBluePassPersona", () => {
     expect(classifyBluePassPersona(["I'm a travel agent", "what's the best Komodo boat?"])).toBe("PARTNER");
   });
 
+  it("keeps every branch reply concise (WhatsApp-friendly length)", () => {
+    const CEIL = 360;
+    const opMsgs = [
+      "how does the 18% break down", "what do we get", "we're outside indonesia",
+      "we're in indonesia", "how long until approved", "do i need a license",
+      "how do payouts work", "send me the claim link", "ok", "i run a liveaboard",
+      "saya punya kapal di komodo", "there was an injury",
+    ];
+    const partnerMsgs = [
+      "how do i get paid", "how do commissions work", "what's in the catalogue",
+      "founding terms", "conservation impact", "send me my claim link",
+      "book for a client now", "just starting with a small audience", "komodo",
+      "raja ampat", "hello there", "my client wants to file a complaint",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of opMsgs) {
+        expect(buildBluePassOperatorReply({ latestMessage: m, pitched }).reply.length).toBeLessThanOrEqual(CEIL);
+      }
+      for (const m of partnerMsgs) {
+        expect(buildBluePassPartnerReply({ latestMessage: m, pitched }).reply.length).toBeLessThanOrEqual(CEIL);
+      }
+    }
+  });
+
   it("returns UNKNOWN for a bare greeting", () => {
     expect(classifyBluePassPersona(["hello"])).toBe("UNKNOWN");
     expect(classifyBluePassPersona([])).toBe("UNKNOWN");

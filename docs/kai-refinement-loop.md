@@ -35,7 +35,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Safety/medical/legal handoff added to operator+partner playbooks (traveller-flow variant = separate flow task).
 - [x] Every operator/partner reply points deeper into the same track (conservation + commission fixed).
 - [x] Bahasa Indonesia operator opener + classifier signals.
-- [ ] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
+- [x] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
+
+- [ ] Tighten concise ceiling to 320: trim partner home pitch + conservation + Bahasa opener.
+- [ ] Partner: "which regions/destinations?" -> honest Indonesia-first, Komodo + Raja Ampat live.
+- [ ] Operator: "what does my page look like / a dashboard?" -> what-you-get answer + capture.
 
 ## Log
 - (iterations append here)
@@ -48,3 +52,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter7: shared safety\/medical\/legal human-handoff in operator+partner playbooks, 44 green.
 - iter8: added same-track next-step to partner conservation + commission replies, 45 green.
 - iter9: Bahasa Indonesia operator opener + classifier signals, 46 green.
+- iter10: concise-length guard (<=360) + trimmed commission; self-critique added 3 items, 47 green.
