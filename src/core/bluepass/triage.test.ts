@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("reassures a partner their clients stay theirs (no poaching)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "do you poach my clients or go around me?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/stay yours|relationship is yours|keep the credit/);
+  });
+
   it("handles a partner API/embed ask honestly (link+assets now, deeper = team chat)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you have an API to embed on my site?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link|team conversation|won't overpromise/);

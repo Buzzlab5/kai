@@ -503,6 +503,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("poach", "steal my", "go around me", "own the client", "my clients mine", "my list", "cut me out", "keep my clients", "my relationship", "market to my", "own the relationship")) {
+    return {
+      reply:
+        "Your clients stay yours - the relationship is yours, and we don't market to them behind your back or cut you out on repeat trips. You bring them, you keep the credit. Company, market, and best email?"
+    };
+  }
+
   if (has("attribution", "referral window", "how is it tracked", "cookie", "lost cookie", "how are bookings attributed", "credited to me", "how do referrals work", "60 day", "60-day")) {
     return {
       reply:

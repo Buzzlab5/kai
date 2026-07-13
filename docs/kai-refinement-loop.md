@@ -77,7 +77,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "do you support Bahasa / do I need English?" -> Kai speaks both, guest in their own language (before indonesia catch).
 - [x] Partner: "do you have an API / can I embed this?" -> link+assets now, deeper integration a team chat (no overpromise).
 
-- [ ] Partner: "is my client list mine / do you poach my clients?" -> you own the relationship, we do not go around you, honest.
+- [x] Partner: "is my client list mine / do you poach my clients?" -> clients stay yours, no marketing behind your back, keep the credit.
 - [ ] Operator: "how do guests pay (card/transfer)?" -> payments handled securely by BluePass, you get paid out, honest.
 - [ ] Partner: "which currencies / how are payouts converted?" -> team handles currency + method, honest, capture.
 
@@ -123,3 +123,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter38: operator guest-support-split branch (you run trip, Kai+team pre-trip), 75 green.
 - iter39: operator language/Bahasa branch (no English needed, both languages); ordered before indonesia, 76 green.
 - iter40: partner API/embed branch (honest, no overpromise); backlog emptied -> self-critique added 3 items, 77 green.
+- iter41: partner client-ownership/no-poaching branch, 78 green.
