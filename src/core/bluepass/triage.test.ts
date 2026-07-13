@@ -225,6 +225,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).not.toMatch(/\byour commission is \d+%/i);
   });
 
+  it("explains referral attribution (60-day window + manual code)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "how does attribution work?", pitched: true });
+    expect(result.reply).toMatch(/60/);
+    expect(result.reply.toLowerCase()).toContain("code");
+  });
+
   it("shows partners the tracked-link dashboard for bookings/earnings", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do I track my bookings?", pitched: true });
     expect(result.reply.toLowerCase()).toContain("dashboard");

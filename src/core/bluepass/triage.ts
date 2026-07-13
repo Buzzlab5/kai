@@ -398,6 +398,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("attribution", "referral window", "how is it tracked", "cookie", "lost cookie", "how are bookings attributed", "credited to me", "how do referrals work", "60 day", "60-day")) {
+    return {
+      reply:
+        "Your link sets a 60-day attribution window, so a click today still credits you if they book weeks later. For book-on-behalf or a lost cookie, there's a manual referral code too - nothing slips. Company, market, and best email?"
+    };
+  }
+
   if (has("track my bookings", "track earnings", "see my earnings", "track commission", "my dashboard", "see my bookings", "how do i track", "reporting", "track clicks")) {
     return {
       reply:
