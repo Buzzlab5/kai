@@ -133,7 +133,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Robustness: buildBluePassLeadCapturedReply never throws on degenerate captured fields (empty/whitespace/400-char/odd/unicode), always non-empty.
 - [x] Convergence checkpoint: CONVERGED on operator/partner FAQ branches + guards (81 iters, 119 tests). No new content branch meets the bar. Loop -> maintenance mode (polish/coverage only).
 
-- [ ] Maintenance: final conciseness sweep - tighten any remaining reply over ~240 chars, preserving assertions + honest numbers.
+- [x] Maintenance: final conciseness sweep - payout (242->~205) + commission (253->~235); no non-Bahasa reply now exceeds 240 (Bahasa opener left as-is).
 - [ ] Coverage: pin the operator+partner default openers (pitched:false, unmatched) contain the core pitch (82% / operator-direct).
 - [ ] Coverage: assert the pitched:true generic fallback differs from the default opener (protects the "go deeper" behaviour).
 
@@ -222,3 +222,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter80: house-rule guard extended to lead-captured + handoff replies, 118 green.
 - iter81: lead-captured-reply robustness (degenerate fields, both personas), 119 green.
 - iter81b: CONVERGED on triage branches; loop -> maintenance mode; refilled 3 low-risk polish/coverage items.
+- iter82: final conciseness sweep (2 replies); all non-Bahasa replies <=240, 119 green.

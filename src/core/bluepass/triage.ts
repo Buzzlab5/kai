@@ -648,7 +648,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("get paid", "paid out", "payout", "when do i get paid", "how am i paid", "how do i get paid")) {
     return {
       reply:
-        "You get paid from the operator's commission to BluePass - never from your client's pocket. Payout timing and method are set with the team once you're active; I'll flag it and they confirm the details. Company, market, and best email to start?"
+        "You get paid from the operator's commission to BluePass - never from your client's pocket. Payout timing and method are set with the team once you're active. Company, market, and best email to start?"
     };
   }
 
@@ -683,7 +683,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
-        "Your client pays the operator's own rate - never a cent more, so recommending us costs them nothing. Your cut comes from the operator's capped commission; rates are per-partner, locked for founding members. Company, market, and best email to lock terms?"
+        "Your client pays the operator's own rate - never a cent more, so recommending us costs nothing. Your cut is the operator's capped commission; rates are per-partner, locked for founding members. Company, market, and best email to lock terms?"
     };
   }
 
