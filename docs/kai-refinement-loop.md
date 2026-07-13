@@ -87,7 +87,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Operator+Partner: "can I talk to a real person / book a call?" -> team hops on a call, capture email/WhatsApp (both builders).
 - [x] Operator: "I already list on an OTA - why BluePass?" -> not exclusive, operator-direct, keep 82%, conservation (before what-we-get).
-- [ ] Guard: test that representative operator+partner branch replies each end with a capture CTA (? / company / email).
+- [x] Guard: 40-input test asserts every operator+partner reply carries a capture CTA (?/company/email/whatsapp/handle/claim) - no dead-ends.
+
+- [ ] Partner: "who else uses this / any partners I would know / testimonials?" -> honest early founding cohort, no invented names, capture.
+- [ ] Operator: "is there an app / can I manage on my phone?" -> dashboard + WhatsApp work on your phone, capture.
+- [ ] Partner: "can I also refer operators / do you pay for operator intros?" -> honest, operator referrals a team chat, capture.
 
 ## Log
 - (iterations append here)
@@ -139,3 +143,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter46: partner trip-type/scope branch; backlog emptied -> self-critique added 3 items, 84 green.
 - iter47: operator+partner human-contact/book-a-call branches, 86 green.
 - iter48: operator OTA-differentiation branch (not exclusive, direct, 82%); ordered before what-we-get, 87 green.
+- iter49: no-dead-end CTA guard test (40 inputs, both verticals); backlog emptied -> self-critique added 3 items, 88 green.

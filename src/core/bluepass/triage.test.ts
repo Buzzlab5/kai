@@ -308,6 +308,33 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("never dead-ends: every representative operator+partner reply carries a capture CTA", () => {
+    const CTA = /\?|company|email|whatsapp|handle|claim/i;
+    const operatorInputs = [
+      "break down the 18%", "what do i get", "can I set my own prices", "do you integrate with Rezdy",
+      "where do bookings come from", "will i actually get any bookings", "who handles customer service",
+      "do you support bahasa", "how are cancellations handled", "can I pause anytime", "how do i sign up",
+      "how do reviews work", "will you list my competitors", "how do guests pay", "is this legit",
+      "I already list on Booking.com why bluepass", "can I talk to a real person", "what do you need from me",
+      "can I list more than one boat", "can I see an example page",
+    ];
+    const partnerInputs = [
+      "how does commission work", "just give me a ballpark", "any cost to join", "how do i get paid",
+      "which currency", "how do i refer a client", "which regions", "can I co-brand", "how is attribution tracked",
+      "where are the marketing assets", "is there a minimum volume", "how soon can I go live", "is this legit",
+      "do you have an API", "do you poach my clients", "day trips or liveaboards only", "can we book a call",
+      "I'm a creator with no clients yet", "book a trip for my client", "what's in the catalogue",
+    ];
+    for (const m of operatorInputs) {
+      const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
+      expect(CTA.test(r.reply), `operator reply dead-ended for "${m}": ${r.reply}`).toBe(true);
+    }
+    for (const m of partnerInputs) {
+      const r = buildBluePassPartnerReply({ latestMessage: m, pitched: true });
+      expect(CTA.test(r.reply), `partner reply dead-ended for "${m}": ${r.reply}`).toBe(true);
+    }
+  });
+
   it("differentiates vs an OTA honestly (not exclusive, operator-direct, keep 82%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "I already list on Booking.com, why BluePass?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|82%/);
