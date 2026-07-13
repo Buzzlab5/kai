@@ -167,6 +167,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).not.toMatch(/\byour commission is \d+%/i);
   });
 
+  it("explains partner payout mechanism and hands terms to the team", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "how do I get paid?", pitched: true });
+    expect(result.reply).toContain("operator");
+    expect(result.reply).toContain("team");
+  });
+
   it("shows catalog cards for the catalogue branch", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "What's in the catalogue?", pitched: true });
 

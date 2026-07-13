@@ -318,6 +318,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("get paid", "paid out", "payout", "when do i get paid", "how am i paid", "how do i get paid")) {
+    return {
+      reply:
+        "You get paid from the operator's commission to BluePass - never from your client's pocket. Payout timing and method are set with the team once you're active; I'll flag it and they confirm the details. Company, market, and best email to start?"
+    };
+  }
+
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:

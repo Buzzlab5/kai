@@ -30,7 +30,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Trim level-2 partner replies ~20% shorter.
 - [x] Operator branch: "how long until approved?" -> honest no-timeline + capture.
 - [x] Operator branch: "do I need a license / Green Fins?" -> vetting answer + capture.
-- [ ] Partner branch: "how do I get paid?" → mechanism (funded from operator side) + human handoff.
+- [x] Partner branch: "how do I get paid?" -> mechanism (funded from operator side) + human handoff.
 - [ ] Partner branch: creator with no clients yet → same track, reassure, capture.
 - [ ] Traveller-in-marketplace: "is it safe / refunds?" → human handoff, stay on track.
 - [ ] Every operator/partner reply's implicit next-step points deeper into the same track (audit + fix).
@@ -43,3 +43,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter2: trimmed partner replies ~20%, catalog flags + phrases intact, 39 green.
 - iter3: added operator no-timeline branch, 40 green.
 - iter4: license\/cert questions route to vetting answer, 41 green.
+- iter5: added partner payout branch (operator-funded + team handoff), 42 green.
