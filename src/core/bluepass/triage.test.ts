@@ -333,6 +333,28 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("routes substring-collision traps to the correct branch (guards fragile needles)", () => {
+    // Each trap word embeds a shorter needle used by another branch.
+    const opTraps: Array<[string, RegExp]> = [
+      ["will you undercut my price?", /never|your own rate|undercuts/i],   // "undercut" vs "cut" (18%)
+      ["how do i start?", /three steps|claim/i],                            // "start" vs "star" (reviews)
+      ["how do i get started?", /three steps|claim/i],
+      ["is there an app?", /no separate app|browser|whatsapp/i],            // "app" substring
+      ["how does the 18% break down?", /every point|5% conservation/i],     // 18% not stolen by undercut
+      ["will you list my competitors?", /curated marketplace|storefront/i],
+    ];
+    for (const [msg, re] of opTraps) {
+      expect(re.test(buildBluePassOperatorReply({ latestMessage: msg, pitched: true }).reply), `operator trap "${msg}"`).toBe(true);
+    }
+    const partnerTraps: Array<[string, RegExp]> = [
+      ["how do commissions work?", /capped commission|per-partner|founding members/i],
+      ["just give me a ballpark", /won't guess|per-partner|real terms/i],
+    ];
+    for (const [msg, re] of partnerTraps) {
+      expect(re.test(buildBluePassPartnerReply({ latestMessage: msg, pitched: true }).reply), `partner trap "${msg}"`).toBe(true);
+    }
+  });
+
   it("is robust to degenerate input: never throws, always a non-empty <=320 reply", () => {
     const weird = [
       "", "   ", "\n\t  \n", "!!!???...", "😀😀😀🌊⛵", "1234567890",
