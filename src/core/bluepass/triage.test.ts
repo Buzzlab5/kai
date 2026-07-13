@@ -377,6 +377,11 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("answers 'what's the catch / how do you make money' honestly (only capped 18% on bookings)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "what's the catch? how do you make money?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/no catch|18%|earn when you earn/);
+  });
+
   it("confirms no pay-per-lead / listing fees (only earns on completed bookings)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "do you charge me per lead?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/never charge|no listing fee|when a booking/);

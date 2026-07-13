@@ -279,6 +279,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("what's the catch", "whats the catch", "the catch", "how do you make money", "how do you earn", "what's in it for you", "whats in it for you", "how do you profit", "where's your money")) {
+    return {
+      reply:
+        "No catch - we make the capped 18% only when a booking completes, nothing else. No listing fees, no per-lead charges, no selling your data. We earn when you earn. What do you run, and where?"
+    };
+  }
+
   if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement")) {
     return {
       reply:
