@@ -68,12 +68,25 @@ describe("classifyBluePassPersona", () => {
       "we're in indonesia", "how long until approved", "do i need a license",
       "how do payouts work", "send me the claim link", "ok", "i run a liveaboard",
       "saya punya kapal di komodo", "there was an injury",
+      "will i actually get bookings", "who handles customer service", "do you support bahasa",
+      "how are cancellations handled", "can i pause anytime", "how do i sign up",
+      "how do reviews work", "will you list my competitors", "how do guests pay",
+      "is this legit", "i already list on booking.com why bluepass", "can i talk to a real person",
+      "what do you need from me", "can i list more than one boat", "can i see an example page",
+      "is there an app to manage on my phone", "how do i manage availability", "can i set my own prices",
+      "do you integrate with rezdy", "where do bookings come from",
     ];
     const partnerMsgs = [
       "how do i get paid", "how do commissions work", "what's in the catalogue",
       "founding terms", "conservation impact", "send me my claim link",
       "book for a client now", "just starting with a small audience", "komodo",
       "raja ampat", "hello there", "my client wants to file a complaint",
+      "just give me a ballpark", "any cost to join", "which currency",
+      "how do i refer a client", "which regions", "can i co-brand",
+      "how is attribution tracked", "where are the marketing assets", "is there a minimum volume",
+      "how soon can i go live", "is this legit", "do you have an api",
+      "do you poach my clients", "day trips or liveaboards only", "can we book a call",
+      "who else uses this", "can i refer operators", "what if the operator cancels on my client",
     ];
     for (const pitched of [false, true]) {
       for (const m of opMsgs) {

@@ -97,7 +97,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "what if the operator cancels on my client?" -> team steps in, rebook/refund per operator terms, credit protected.
 - [x] Operator: "how do I manage availability / fully booked?" -> you control your calendar, Kai offers only whats available, no double-bookings.
 
-- [ ] Guard: extend the concise <=320 length check to the full 40-input operator+partner battery (catch long replies in newer branches).
+- [x] Guard: concise <=320 length check now runs the full ~52-input battery across every newer branch - all pass.
 - [ ] Operator: "do you charge per lead / pay for leads?" -> no lead fees, we only earn on completed bookings (the capped 18%), capture.
 - [ ] Partner: "can I add my own markup on top for my client?" -> honest: client always pays operator-direct rate, your earnings come from operator side.
 
@@ -158,3 +158,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter53: track-lock invariant test (op-vs-partner, both orders + within-message), 93 green.
 - iter54: partner operator-cancels branch (team steps in, credit protected), 94 green.
 - iter55: operator availability-management branch; backlog emptied -> self-critique added 3 items, 95 green.
+- iter56: broadened length guard to ~52 inputs (every newer branch <=320), 95 green.
