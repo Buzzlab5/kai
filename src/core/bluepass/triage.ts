@@ -243,7 +243,12 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
-  if (has("vet", "green fins", "approval", "requirement", "qualify")) {
+  if (
+    has(
+      "vet", "green fins", "approval", "requirement", "qualify",
+      "license", "licence", "certified", "certification", "insured", "insurance",
+    )
+  ) {
     return {
       reply:
         "Three things: safety record, sustainability (Green Fins where it applies), and fair local pay. Approval is a team call - I won't promise it, but I'll get you in front of them. Company name and email?"

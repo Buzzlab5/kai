@@ -130,6 +130,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).not.toMatch(/\d+\s*(day|week|hour)/i);
   });
 
+  it("routes license/certification questions to the vetting answer", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "do I need a license to join?", pitched: true });
+    expect(result.reply).toContain("Green Fins");
+  });
+
   it("hands payout and contract questions to humans", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "How do payouts work?", pitched: true });
 
