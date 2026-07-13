@@ -274,6 +274,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Raja Ampat");
   });
 
+  it("handles partner group/charter requests with a team hold", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can I do group bookings for clients?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/group|charter/);
+    expect(result.reply.toLowerCase()).toContain("hold");
+  });
+
   it("routes a destination brief to book-on-behalf with destination cards", () => {
     const komodo = buildBluePassPartnerReply({ latestMessage: "Komodo for my clients", pitched: true });
     const raja = buildBluePassPartnerReply({ latestMessage: "Raja Ampat instead", pitched: true });

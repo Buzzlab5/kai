@@ -53,7 +53,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "do you integrate with my booking system / Rezdy?" -> team handles it, honest.
 - [x] Partner: "where do I get the marketing assets?" -> assets in dashboard, capture.
 
-- [ ] Partner: "can I do group / charter bookings for clients?" -> yes, group holds via team.
+- [x] Partner: "can I do group / charter bookings for clients?" -> yes, group holds via team.
 - [ ] Operator: "what happens after a guest inquires?" -> Kai pre-qualifies then hands to you.
 - [ ] Partner: "is there a minimum volume to join?" -> no minimum, capture.
 
@@ -81,3 +81,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter20: added partner attribution\/referral-window branch, 56 green.
 - iter21: added operator PMS-integration branch, 57 green.
 - iter22: partner marketing-assets branch; self-critique added 3 items, 58 green.
+- iter23: added partner group\/charter branch, 59 green.

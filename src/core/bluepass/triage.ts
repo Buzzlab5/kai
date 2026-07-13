@@ -469,6 +469,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("group booking", "charter for", "whole yacht", "private charter", "group trip", "book a group", "large group", "group hold", "group of clients")) {
+    return {
+      reply:
+        "Absolutely - group trips and whole-yacht charters for clients are our sweet spot. Tell me the destination, rough dates, and headcount and the team will hold space. Which region - Komodo or Raja Ampat?"
+    };
+  }
+
   if (has("book for a client", "book a trip for", "on behalf", "book now", "dates are set")) {
     return {
       reply:
