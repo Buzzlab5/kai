@@ -410,6 +410,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("real person", "talk to someone", "speak to someone", "talk to a human", "speak to a human", "book a call", "jump on a call", "get on a call", "schedule a call", "phone call", "call me", "talk to the team")) {
+    return {
+      reply:
+        "For sure - the team's happy to jump on a call. Drop your company and best email or WhatsApp and they'll set up a time, usually same day. Anything you want me to pass along first?"
+    };
+  }
+
   if (has("how do i sign up", "how do i start", "how do i get started", "get started", "how do i join", "how to sign up", "how to join", "how do i register", "how do i onboard", "next step", "sign me up")) {
     return {
       reply:
@@ -584,6 +591,13 @@ export function buildBluePassPartnerReply(input: {
     return {
       reply:
         "Of course - I can show you the live catalogue and a sample partner page so you see exactly what you'd be sharing, no commitment. Want a look? Then company, market, and email when you're ready."
+    };
+  }
+
+  if (has("real person", "talk to someone", "speak to someone", "talk to a human", "speak to a human", "book a call", "jump on a call", "get on a call", "schedule a call", "phone call", "call me", "talk to the team")) {
+    return {
+      reply:
+        "Of course - the team will happily hop on a call. Send your company, market, and best email or WhatsApp and they'll set up a time, usually same day. Anything you'd like me to flag ahead?"
     };
   }
 

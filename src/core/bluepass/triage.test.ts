@@ -296,6 +296,18 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/your currency|converted|with the team/);
   });
 
+  it("offers an operator a call with the team when they want a real person", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I talk to a real person?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/call|team/);
+    expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
+  });
+
+  it("offers a partner a call with the team when they want a real person", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can we book a call?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/call|team/);
+    expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
+  });
+
   it("answers how reviews work honestly (real guests, shown on your page)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how do reviews and ratings work?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/real guests|your page|earn, not buy/);
