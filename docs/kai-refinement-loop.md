@@ -93,7 +93,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "is there an app / can I manage on my phone?" -> no app, dashboard in-browser + WhatsApp, manage from phone.
 - [x] Partner: "can I also refer operators / do you pay for operator intros?" -> yes intro them, referral terms a team chat, no invented number (+guard).
 
-- [ ] Robustness: test track-lock first-signal-wins on a mixed operator+partner message (protects core invariant).
+- [x] Robustness: track-lock first-signal-wins on genuine operator-vs-partner competition (both orders + within-message precedence).
 - [ ] Partner: "what if the operator cancels on my client?" -> team steps in, rebook/refund per operator terms, honest, capture.
 - [ ] Operator: "how do I manage availability / what if I am fully booked?" -> you control your calendar, mark dates, capture.
 
@@ -151,3 +151,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter50: partner social-proof branch (early cohort, no invented names), 89 green.
 - iter51: operator app/phone branch (no app, browser + WhatsApp); avoided bare "app" substring, 90 green.
 - iter52: partner refer-operators branch (+guard for client-referral routing); backlog emptied -> self-critique added 3 items, 92 green.
+- iter53: track-lock invariant test (op-vs-partner, both orders + within-message), 93 green.

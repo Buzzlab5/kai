@@ -49,6 +49,18 @@ describe("classifyBluePassPersona", () => {
     expect(classifyBluePassPersona(["I'm a travel agent", "what's the best Komodo boat?"])).toBe("PARTNER");
   });
 
+  it("first-signal-wins even when operator and partner signals genuinely compete", () => {
+    const OP = "We operate three liveaboards out of Labuan Bajo";
+    const PARTNER = "I run a dive shop in Sydney and send divers to Indonesia";
+    // Across messages: whichever business signal lands first locks the track.
+    expect(classifyBluePassPersona([OP, PARTNER])).toBe("OPERATOR");
+    expect(classifyBluePassPersona([PARTNER, OP])).toBe("PARTNER");
+    // Within one message, partner identity nouns beat operator verbs.
+    expect(
+      classifyBluePassPersona(["We operate three liveaboards but also run a dive shop that sends divers"]),
+    ).toBe("PARTNER");
+  });
+
   it("keeps every branch reply concise (WhatsApp-friendly length)", () => {
     const CEIL = 320;
     const opMsgs = [
