@@ -239,7 +239,12 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
-  if (has("what do we get", "what do i get", "why join", "benefit", "what's included", "why bluepass")) {
+  if (
+    has(
+      "what do we get", "what do i get", "why join", "benefit", "what's included",
+      "why bluepass", "my page", "page look", "dashboard", "inbox", "manage bookings",
+    )
+  ) {
     return {
       reply:
         "A real page, inquiries over web and WhatsApp, and me pre-qualifying your guests so you talk to ready-to-book people, not tyre-kickers - plus a partner network sending you bookings and a conservation story on every trip. What do you run, and where?"

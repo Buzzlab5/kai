@@ -39,7 +39,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Tighten concise ceiling to 320: partner home pitch + conservation + Bahasa opener trimmed.
 - [x] Partner: "which regions/destinations?" -> honest Indonesia-first, Komodo + Raja live.
-- [ ] Operator: "what does my page look like / a dashboard?" -> what-you-get answer + capture.
+- [x] Operator: "what does my page look like / a dashboard?" -> what-you-get answer + capture.
+
+- [ ] Operator: "can I set my own prices/rates?" -> you set your rate, keep 82%.
+- [ ] Partner: "any cost / sign-up fee to join?" -> no cost, funded from operator side.
+- [ ] Operator: "can I pause / leave anytime?" -> no lock-in, honest, capture.
 
 ## Log
 - (iterations append here)
@@ -55,3 +59,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter10: concise-length guard (<=360) + trimmed commission; self-critique added 3 items, 47 green.
 - iter11: trimmed 3 long replies, guard tightened to 320, 47 green.
 - iter12: added partner regions\/coverage branch (Indonesia-first), 48 green.
+- iter13: page/dashboard -> what-you-get; self-critique added 3 items, 49 green.

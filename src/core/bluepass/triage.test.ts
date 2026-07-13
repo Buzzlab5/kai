@@ -155,6 +155,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toMatch(/menyimpan|perairan|dibatasi/);
   });
 
+  it("answers page/dashboard questions with the what-you-get pitch", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "do I get a dashboard?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/page|inquiries|network/);
+  });
+
   it("gives an honest no-timeline answer to approval-speed questions", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how long until I'm approved?", pitched: true });
     expect(result.reply).toContain("team");
