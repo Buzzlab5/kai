@@ -371,6 +371,13 @@ export function buildBluePassPartnerReply(input: {
 
   if (needsHumanHandoff(message)) return { reply: buildBluePassHandoffReply() };
 
+  if (has("legit", "trustworthy", "who's behind", "who runs", "scam", "is this real", "can i trust", "reputable")) {
+    return {
+      reply:
+        "Fair question - BluePass is a real marketplace of vetted Indonesian operators, every one screened for safety, sustainability, and fair pay. Your clients pay the operator direct, never marked up. Want the catalogue, or your claim link?"
+    };
+  }
+
   if (
     has(
       "which region", "which destination", "what destination", "what region",

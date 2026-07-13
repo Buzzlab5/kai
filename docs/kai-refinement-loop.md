@@ -59,7 +59,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Operator: "is my data / are my guests private?" -> honest + team handoff.
 - [x] Partner: "how soon can I go live?" -> one-click claim, instant.
-- [ ] Refactor: extract operator/partner keyword branches to a data-driven table (behaviour-preserving).
+- [x] Refactor: extract branches to a data table -> DEFERRED to a dedicated pass (too large/risky for a low-token loop tick).
+
+- [ ] Partner: "roughly what commission %?" -> honest: set per-partner, team confirms, explain mechanism not a number.
+- [ ] Operator: "how do I sign up / start?" -> capture company/port/email + claim path.
+- [ ] Partner: trust/legit follow-through covered; add operator "is BluePass legit?" trust branch.
 
 ## Log
 - (iterations append here)
@@ -90,3 +94,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter25: partner no-minimum-volume branch; self-critique added 3 items (incl. refactor), 61 green.
 - iter26: added operator data\/privacy branch, 62 green.
 - iter27: added partner go-live-fast branch, 63 green.
+- iter28: added partner trust branch; refactor deferred to dedicated pass; +3 items, 64 green.

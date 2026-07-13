@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("reassures partners BluePass is legit (vetted, operator-direct)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "is this legit?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/vetted|real|screened/);
+  });
+
   it("answers a partner regions question honestly (Indonesia-first, two live)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "which destinations do you cover?", pitched: true });
     expect(result.reply).toMatch(/Indonesia/i);
