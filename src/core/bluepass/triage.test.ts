@@ -370,6 +370,29 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("only ever states the honest percentages {3,5,18,82} - never invents a commission %", () => {
+    const ALLOWED = new Set(["3", "5", "18", "82"]);
+    const inputs = [
+      "break down the 18%", "what do i get", "how do guests pay", "whats the catch", "do you charge per lead",
+      "will i get bookings", "how do commissions work", "just give me a ballpark", "how do i get paid",
+      "any cost to join", "which currency", "can i add my own markup", "does my client pay a fee",
+      "conservation impact", "is this legit", "why bluepass vs booking.com", "can i run a promo",
+      "will you undercut me", "book for a client", "raja ampat", "komodo", "hello", "founding terms",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of inputs) {
+        for (const reply of [
+          buildBluePassOperatorReply({ latestMessage: m, pitched }).reply,
+          buildBluePassPartnerReply({ latestMessage: m, pitched }).reply,
+        ]) {
+          for (const pct of reply.match(/(\d+)%/g) ?? []) {
+            expect(ALLOWED.has(pct.replace("%", "")), `disallowed percentage ${pct} in: ${reply}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
   it("is robust to degenerate input: never throws, always a non-empty <=320 reply", () => {
     const weird = [
       "", "   ", "\n\t  \n", "!!!???...", "😀😀😀🌊⛵", "1234567890",
