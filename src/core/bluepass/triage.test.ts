@@ -370,6 +370,26 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("keeps replies tidy: no leading/trailing whitespace, no double spaces", () => {
+    const inputs = [
+      "18 breakdown", "what do i get", "how do guests pay", "is this legit", "how do i sign up",
+      "komodo", "raja ampat", "whats in the catalogue", "how do commissions work", "book a call",
+      "conservation impact", "do you poach my clients", "can i see a demo", "how soon can i go live",
+      "will you undercut me", "can i run a promo", "day trips not a liveaboard", "hello", "",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of inputs) {
+        for (const reply of [
+          buildBluePassOperatorReply({ latestMessage: m, pitched }).reply,
+          buildBluePassPartnerReply({ latestMessage: m, pitched }).reply,
+        ]) {
+          expect(reply, `untrimmed reply: "${reply}"`).toBe(reply.trim());
+          expect(reply.includes("  "), `double space in: "${reply}"`).toBe(false);
+        }
+      }
+    }
+  });
+
   it("never uses an emoji in any reply (enforces the no-emojis house rule)", () => {
     const EMOJI = /\p{Extended_Pictographic}/u;
     const inputs = [

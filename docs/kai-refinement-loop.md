@@ -127,7 +127,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Guard: no-emoji - every reply + greeting verified emoji-free (\p{Extended_Pictographic}); enforces the no-emojis rule.
 - [x] Copy polish (round 3): tightened markup-refusal (253->~200), Komodo brief (251->~228), what-we-get (247->~223); assertions intact.
-- [ ] Guard: whitespace tidiness - no reply has leading/trailing whitespace or double spaces.
+- [x] Guard: whitespace tidiness - every reply trimmed, no double spaces (verified across battery).
 
 ## Log
 - (iterations append here)
@@ -209,3 +209,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter76: partner client-discount/perk branch; backlog emptied -> self-critique added 3 items (incl. no-emoji guard), 115 green.
 - iter77: no-emoji guard across replies + greeting, 116 green.
 - iter78: conciseness polish round 3 (3 more replies trimmed), 116 green.
+- iter79: whitespace-tidiness guard (trimmed, no double spaces), 117 green.
