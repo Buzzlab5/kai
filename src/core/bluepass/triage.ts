@@ -659,6 +659,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("offer my client a discount", "discount to my client", "discount for my client", "give my client a discount", "throw in", "perk for my client", "sweeten", "freebie", "add a perk", "bundle something")) {
+    return {
+      reply:
+        "You can't change the operator's price - your client always pays their direct rate through us. But adding your own perk or value on top? Totally your call, on your side. Company, market, and best email?"
+    };
+  }
+
   if (has("markup", "mark up", "add my own", "my own margin", "charge my client more", "add margin", "my margin", "resell at", "sell it for more", "add commission on top", "add my margin")) {
     return {
       reply:

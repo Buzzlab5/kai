@@ -123,7 +123,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Guard: numbers-integrity - every reply's percentages are a subset of {3,5,18,82}; invented-% now fails the suite.
 - [x] Copy polish (round 2): tightened conservation (253->~215), creator (251->~223), partner default (257->~232); assertions + numbers intact.
-- [ ] Partner: "can I offer my client a discount / perk?" -> client always pays operator-direct rate; add your own perk, do not change the operator price.
+- [x] Partner: "can I offer my client a discount / perk?" -> can't change the operator price (client pays direct); add your own perk on your side.
+
+- [ ] Guard: no-emoji - every operator+partner reply is free of emoji characters (enforces the hard no-emojis rule).
+- [ ] Copy polish (round 3): tighten the next 2-3 longest replies (~250 chars), preserving assertions + honest numbers.
+- [ ] Guard: whitespace tidiness - no reply has leading/trailing whitespace or double spaces.
 
 ## Log
 - (iterations append here)
@@ -202,3 +206,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter73: operator promo/discount branch (+undercut guard); backlog emptied -> self-critique added 3 items (incl. numbers-integrity guard), 113 green.
 - iter74: numbers-integrity guard (only {3,5,18,82} across battery), 114 green.
 - iter75: conciseness polish round 2 (3 more replies trimmed), 114 green.
+- iter76: partner client-discount/perk branch; backlog emptied -> self-critique added 3 items (incl. no-emoji guard), 115 green.

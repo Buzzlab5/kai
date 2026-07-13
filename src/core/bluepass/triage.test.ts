@@ -663,6 +663,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/no bluepass booking fee|operator's own rate|nothing added/);
   });
 
+  it("tells a partner they can add their own perk but not change the operator's price", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can I offer my client a discount or perk?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/can't change the operator's price|direct rate|your own perk/);
+  });
+
   it("is honest a partner cannot mark up the client (operator-direct rate always)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "can I add my own markup on top for my client?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/operator's own rate|never a rupiah more|not from marking up/);
