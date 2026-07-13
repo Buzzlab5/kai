@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("tells an operator the page build is low-lift (team builds, few photos)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "what do you need from me for my page? photos?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/team builds|build the page|few photos|barely/);
+  });
+
   it("explains the partner referral mechanism (tracked link, auto-credited)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);

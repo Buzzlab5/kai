@@ -70,7 +70,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "can I list more than one boat / multiple trips?" -> yes, whole fleet + trip types under one page.
 
 - [x] Partner: "how do I actually refer a client?" -> tracked-link mechanism, client books direct, auto-credited (60-day).
-- [ ] Operator: "what do I need for my page (photos/details)?" -> team builds it with you, minimal lift, capture.
+- [x] Operator: "what do I need for my page (photos/details)?" -> low-lift, team builds it (placed before what-we-get so "my page" routes right).
 - [ ] Operator/Partner: "can I see a demo / example first?" -> yes, catalogue or sample page, no commitment.
 
 ## Log
@@ -110,3 +110,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter33: operator cancellation/refund branch (operator sets terms, team wires in), 69 green.
 - iter34: operator multi-listing/fleet branch; backlog emptied -> self-critique added 3 items, 70 green.
 - iter35: partner referral-mechanism branch (tracked link, auto-credited), 71 green.
+- iter36: operator page-build-requirements branch (low-lift, team builds); ordered before what-we-get, 72 green.

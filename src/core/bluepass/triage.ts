@@ -246,6 +246,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("what do i need", "what do you need from me", "photos", "photo", "images", "details do you need", "set up my page", "build my page", "prepare", "what to send")) {
+    return {
+      reply:
+        "Barely anything from you - a few photos, your trips and rates, and the team builds the page for you; you review and claim it. If you're already listed elsewhere, they can pull most of it across. Company name and email to kick off?"
+    };
+  }
+
   if (
     has(
       "what do we get", "what do i get", "why join", "benefit", "what's included",
