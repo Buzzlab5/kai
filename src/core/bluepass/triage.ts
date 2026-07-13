@@ -552,6 +552,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("operator cancels", "boat cancels", "trip is cancelled", "trip gets cancelled", "cancels on my client", "operator pulls out", "falls through", "cancelled by weather", "operator no-show", "what if it's cancelled")) {
+    return {
+      reply:
+        "Rare, but if an operator has to cancel, the team steps in - rebook or refund your client per the operator's terms, and your credit's protected either way. You're never left holding it. Company, market, and best email?"
+    };
+  }
+
   if (has("attribution", "referral window", "how is it tracked", "cookie", "lost cookie", "how are bookings attributed", "credited to me", "how do referrals work", "60 day", "60-day")) {
     return {
       reply:

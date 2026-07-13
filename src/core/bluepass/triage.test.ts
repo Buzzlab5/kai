@@ -422,6 +422,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/team builds|build the page|few photos|barely/);
   });
 
+  it("reassures a partner if an operator cancels on their client (team steps in)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "what if the operator cancels on my client?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/team steps in|rebook|refund|protected/);
+  });
+
   it("handles a partner referring OTHER operators honestly (no invented number)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "can I refer operators I know?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/operators|intro|team confirms/);
