@@ -43,7 +43,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Operator: "can I set my own prices/rates?" -> you set your rate, keep 82%.
 - [x] Partner: "any cost / sign-up fee to join?" -> no cost, funded from operator side.
-- [ ] Operator: "can I pause / leave anytime?" -> no lock-in, honest, capture.
+- [x] Operator: "can I pause / leave anytime?" -> no lock-in, honest, capture.
+
+- [ ] Partner: "how do I track my bookings/earnings?" -> tracked link + dashboard, capture.
+- [ ] Operator: "where do bookings come from / how do you send me guests?" -> Kai + partner network.
+- [ ] Partner: "can I co-brand / white-label?" -> co-brand impact assets yes, capture.
 
 ## Log
 - (iterations append here)
@@ -62,3 +66,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter13: page/dashboard -> what-you-get; self-critique added 3 items, 49 green.
 - iter14: added operator own-pricing branch, 50 green.
 - iter15: added partner no-cost-to-join branch, 51 green.
+- iter16: operator no-lock-in branch; self-critique added 3 items, 52 green.

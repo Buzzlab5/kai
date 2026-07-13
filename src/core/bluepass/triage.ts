@@ -291,6 +291,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("pause", "leave anytime", "opt out", "cancel anytime", "no lock", "lock-in", "tied in", "exclusive", "commitment")) {
+    return {
+      reply:
+        "No lock-in - list when it suits you, pause or leave anytime, and you're never tied to us exclusively. Want to get started? Company name and best email."
+    };
+  }
+
   if (has("payout", "paid out", "get paid", "contract", "bank")) {
     return {
       reply:

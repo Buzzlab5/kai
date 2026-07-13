@@ -177,6 +177,12 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toContain("Green Fins");
   });
 
+  it("reassures operators there's no lock-in", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I pause or leave anytime?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/no lock|pause|leave/);
+    expect(result.reply.toLowerCase()).toContain("email");
+  });
+
   it("hands payout and contract questions to humans", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "How do payouts work?", pitched: true });
 
