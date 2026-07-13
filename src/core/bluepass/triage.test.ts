@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("handles a partner API/embed ask honestly (link+assets now, deeper = team chat)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "do you have an API to embed on my site?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/tracked link|team conversation|won't overpromise/);
+  });
+
   it("reassures an operator no English is needed (Kai handles both languages)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "do you support bahasa? my english isn't great", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/bahasa|no english/);

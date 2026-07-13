@@ -475,6 +475,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("api", "embed", "on my site", "on my website", "iframe", "plugin", "integrate into my", "widget on", "put it on my site", "developer", "webhook")) {
+    return {
+      reply:
+        "Right now your tracked link and assets drop into any site or bio - that covers most partners. A deeper API or embed is a team conversation as we build it out; I won't overpromise. Company, market, and best email and I'll flag it?"
+    };
+  }
+
   if (has("co-brand", "cobrand", "white label", "white-label", "my branding", "my logo", "branded", "put my name")) {
     return {
       reply:
