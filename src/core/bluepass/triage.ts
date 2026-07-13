@@ -333,6 +333,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("how do i sign up", "how do i start", "how do i get started", "get started", "how do i join", "how to sign up", "how to join", "how do i register", "how do i onboard", "next step", "sign me up")) {
+    return {
+      reply:
+        "Three steps: send company, home port, and best email; the team matches or builds your page and emails a claim link; you claim it in one click, no password. Your page may already exist - we pre-built hundreds. Want to start?"
+    };
+  }
+
   if (has("claim")) {
     return {
       reply:

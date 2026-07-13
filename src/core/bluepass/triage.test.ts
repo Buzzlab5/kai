@@ -291,6 +291,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("gives an operator the concrete sign-up steps and captures company/port/email", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do i sign up?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/company/);
+    expect(result.reply.toLowerCase()).toMatch(/claim/);
+  });
+
   it("refuses to invent a ballpark commission number, points to real per-partner terms", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "just give me a ballpark figure", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/per-partner|real terms|won't guess|confirmed with the team/);
