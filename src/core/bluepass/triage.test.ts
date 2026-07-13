@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("explains how guests pay (secure BluePass checkout, operator paid out)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do guests pay - by card?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/securely|checkout|card/);
+  });
+
   it("reassures a partner their clients stay theirs (no poaching)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you poach my clients or go around me?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/stay yours|relationship is yours|keep the credit/);

@@ -78,7 +78,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "do you have an API / can I embed this?" -> link+assets now, deeper integration a team chat (no overpromise).
 
 - [x] Partner: "is my client list mine / do you poach my clients?" -> clients stay yours, no marketing behind your back, keep the credit.
-- [ ] Operator: "how do guests pay (card/transfer)?" -> payments handled securely by BluePass, you get paid out, honest.
+- [x] Operator: "how do guests pay (card/transfer)?" -> secure BluePass checkout, paid out via team, capped 18% only.
 - [ ] Partner: "which currencies / how are payouts converted?" -> team handles currency + method, honest, capture.
 
 ## Log
@@ -124,3 +124,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter39: operator language/Bahasa branch (no English needed, both languages); ordered before indonesia, 76 green.
 - iter40: partner API/embed branch (honest, no overpromise); backlog emptied -> self-critique added 3 items, 77 green.
 - iter41: partner client-ownership/no-poaching branch, 78 green.
+- iter42: operator guest-payment branch (secure checkout, paid out); ordered before payout handoff, 79 green.

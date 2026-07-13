@@ -382,6 +382,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("how do guests pay", "pay by card", "payment method", "guests pay", "how do they pay", "do they pay", "card payment", "credit card", "how is payment taken")) {
+    return {
+      reply:
+        "Guests pay securely through BluePass at checkout - card and the usual methods, no cash to chase. The money reaches you via the team's payout setup, minus only the capped 18%. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("payout", "paid out", "get paid", "contract", "bank")) {
     return {
       reply:
