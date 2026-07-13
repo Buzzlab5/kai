@@ -91,7 +91,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Partner: "who else uses this / testimonials?" -> honest early founding cohort, refuses to invent names, capture.
 - [x] Operator: "is there an app / can I manage on my phone?" -> no app, dashboard in-browser + WhatsApp, manage from phone.
-- [ ] Partner: "can I also refer operators / do you pay for operator intros?" -> honest, operator referrals a team chat, capture.
+- [x] Partner: "can I also refer operators / do you pay for operator intros?" -> yes intro them, referral terms a team chat, no invented number (+guard).
+
+- [ ] Robustness: test track-lock first-signal-wins on a mixed operator+partner message (protects core invariant).
+- [ ] Partner: "what if the operator cancels on my client?" -> team steps in, rebook/refund per operator terms, honest, capture.
+- [ ] Operator: "how do I manage availability / what if I am fully booked?" -> you control your calendar, mark dates, capture.
 
 ## Log
 - (iterations append here)
@@ -146,3 +150,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter49: no-dead-end CTA guard test (40 inputs, both verticals); backlog emptied -> self-critique added 3 items, 88 green.
 - iter50: partner social-proof branch (early cohort, no invented names), 89 green.
 - iter51: operator app/phone branch (no app, browser + WhatsApp); avoided bare "app" substring, 90 green.
+- iter52: partner refer-operators branch (+guard for client-referral routing); backlog emptied -> self-critique added 3 items, 92 green.

@@ -658,6 +658,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("refer operators", "refer an operator", "operator intro", "introduce operators", "introduce an operator", "bring operators", "refer boats", "refer a boat", "know an operator", "recommend an operator")) {
+    return {
+      reply:
+        "Love it - if you know operators who'd be a good fit, send them our way. There may be a referral for operator intros; the team confirms the terms, so I won't quote a number. Who've you got, and your best email?"
+    };
+  }
+
   if (has("how do i refer", "how does referring", "how do i send them", "how do i share my link", "how do i recommend", "referral flow", "how does it work for me", "how do i get them to book", "how do i pass")) {
     return {
       reply:

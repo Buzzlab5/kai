@@ -410,6 +410,17 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/team builds|build the page|few photos|barely/);
   });
 
+  it("handles a partner referring OTHER operators honestly (no invented number)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can I refer operators I know?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/operators|intro|team confirms/);
+    expect(result.reply).not.toMatch(/\d+\s?%/);
+  });
+
+  it("still routes 'how do i refer a client' to the client-referral branch", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/tracked link/);
+  });
+
   it("explains the partner referral mechanism (tracked link, auto-credited)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);
