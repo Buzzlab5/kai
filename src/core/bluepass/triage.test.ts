@@ -276,6 +276,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(buildBluePassPartnerReply({ latestMessage: "how do commissions work?", pitched: true }).reply.toLowerCase()).toContain("email");
   });
 
+  it("says the impact assets are co-brandable but the widget stays BluePass", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can I white-label this?", pitched: true });
+    expect(result.reply.toLowerCase()).toContain("co-brand");
+    expect(result.reply).toContain("BluePass");
+  });
+
   it("keeps conservation impact ahead of the commission keyword match", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "Tell me about the 5% conservation impact", pitched: true });
 

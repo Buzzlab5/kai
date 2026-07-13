@@ -47,7 +47,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Partner: "how do I track my bookings/earnings?" -> tracked link + dashboard, capture.
 - [x] Operator: "where do bookings come from?" -> Kai + partner network, capture.
-- [ ] Partner: "can I co-brand / white-label?" -> co-brand impact assets yes, capture.
+- [x] Partner: "can I co-brand / white-label?" -> co-brand impact assets yes, capture.
+
+- [ ] Partner: "how does attribution / referral tracking work?" -> 60-day window + manual code.
+- [ ] Operator: "do you integrate with my booking system / Rezdy?" -> team handles it, honest.
+- [ ] Partner: "where do I get the marketing assets?" -> assets in dashboard, capture.
 
 ## Log
 - (iterations append here)
@@ -69,3 +73,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter16: operator no-lock-in branch; self-critique added 3 items, 52 green.
 - iter17: added partner bookings\/earnings dashboard branch, 53 green.
 - iter18: added operator demand-channel branch, 54 green.
+- iter19: partner co-brand/white-label branch; self-critique added 3 items, 55 green.

@@ -384,6 +384,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("co-brand", "cobrand", "white label", "white-label", "my branding", "my logo", "branded", "put my name")) {
+    return {
+      reply:
+        "The conservation impact is fully yours to co-brand - stats and assets with your name on them. The booking widget itself stays BluePass-branded for trust and truth. Want the assets? Company, market, and best email."
+    };
+  }
+
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
