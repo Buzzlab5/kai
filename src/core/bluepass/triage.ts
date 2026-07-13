@@ -303,7 +303,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("saya", "kapal", "perahu", "daftar")) {
     return {
       reply:
-        "Waktu yang tepat - kami sedang onboarding operator. Intinya: Anda menyimpan 82% dari tarif Anda sendiri. 18% kami dibatasi - 5% konservasi di perairan Anda, 5% untuk mitra yang mengirim tamu, 3% pembayaran, 5% platform - dan harga tamu Anda tidak pernah dinaikkan. Di mana Anda beroperasi, dan apa yang Anda jalankan?"
+        "Waktu yang tepat - kami onboarding operator. Anda menyimpan 82% dari tarif Anda. 18% dibatasi: 5% konservasi di perairan Anda, 5% mitra pengirim tamu, 3% pembayaran, 5% platform - harga tamu tidak pernah dinaikkan. Di mana Anda beroperasi, dan apa yang Anda jalankan?"
     };
   }
 
@@ -347,7 +347,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
-        "5% of every booking funds verified conservation where your clients travel - reef restoration, mangrove nurseries, manta research. Tracked per booking, so you can tell a client their trip funded something real, and it's yours to co-brand. Want the impact assets, or shall I get your claim link moving?"
+        "5% of every booking funds verified conservation where your clients travel - reef work, mangrove nurseries, manta research. Tracked per booking, so you can show a client real impact, and it's yours to co-brand. Want the assets, or your claim link moving?"
     };
   }
 
@@ -416,6 +416,6 @@ export function buildBluePassPartnerReply(input: {
 
   return {
     reply:
-      "Then we built this for you. You get a tracked link and a catalogue of vetted Indonesian liveaboards; your client pays the operator's own rate - never marked up - and your commission comes from the operator's side, not your client's pocket. Every booking funds ocean impact you can put your name on. Shop, agency, or creator?"
+      "Then we built this for you: a tracked link and a catalogue of vetted Indonesian liveaboards. Your client pays the operator's own rate - never marked up - and your commission comes from the operator's side, not your client's pocket. Shop, agency, or creator?"
   };
 }

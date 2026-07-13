@@ -50,7 +50,7 @@ describe("classifyBluePassPersona", () => {
   });
 
   it("keeps every branch reply concise (WhatsApp-friendly length)", () => {
-    const CEIL = 360;
+    const CEIL = 320;
     const opMsgs = [
       "how does the 18% break down", "what do we get", "we're outside indonesia",
       "we're in indonesia", "how long until approved", "do i need a license",
