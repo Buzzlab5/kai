@@ -568,6 +568,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/credited|automatically/);
   });
 
+  it("welcomes non-liveaboard operators (day trips, snorkel/dive centres, resorts)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "I run snorkel day trips, not a liveaboard - can I join?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/not just liveaboards|all welcome|marine tourism/);
+  });
+
   it("confirms an operator can list a whole fleet / multiple trips under one page", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I list more than one boat?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/fleet|one page|each/);

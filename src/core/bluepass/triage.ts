@@ -377,6 +377,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("day trip", "day trips", "day tour", "day tours", "snorkel", "not a liveaboard", "not liveaboard", "land tour", "single day trip")) {
+    return {
+      reply:
+        "Absolutely - it's not just liveaboards. Day trips, snorkel and dive centres, resorts, marine experiences - all welcome, as long as it's real marine tourism run right. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:
