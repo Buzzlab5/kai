@@ -33,7 +33,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner branch: "how do I get paid?" -> mechanism (funded from operator side) + human handoff.
 - [x] Partner branch: creator with no clients yet -> same track, reassure, capture.
 - [x] Safety/medical/legal handoff added to operator+partner playbooks (traveller-flow variant = separate flow task).
-- [ ] Every operator/partner reply's implicit next-step points deeper into the same track (audit + fix).
+- [x] Every operator/partner reply points deeper into the same track (conservation + commission fixed).
 - [ ] Bahasa Indonesia variant for the operator opener (operators are Indonesian).
 - [ ] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
 
@@ -46,3 +46,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter5: added partner payout branch (operator-funded + team handoff), 42 green.
 - iter6: added partner creator-no-clients branch, 43 green.
 - iter7: shared safety\/medical\/legal human-handoff in operator+partner playbooks, 44 green.
+- iter8: added same-track next-step to partner conservation + commission replies, 45 green.

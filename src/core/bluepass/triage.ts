@@ -333,7 +333,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
-        "5% of every booking funds verified conservation where your clients travel - reef restoration, mangrove nurseries, manta research. Tracked per booking, so you can tell a client their trip funded something real - and it's yours to co-brand."
+        "5% of every booking funds verified conservation where your clients travel - reef restoration, mangrove nurseries, manta research. Tracked per booking, so you can tell a client their trip funded something real, and it's yours to co-brand. Want the impact assets, or shall I get your claim link moving?"
     };
   }
 
@@ -347,7 +347,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
-        "Simple: your client pays the operator's own rate - never a cent more. The operator pays BluePass a capped commission, and your cut comes from that, so recommending us costs your client nothing. Exact rates are per-partner and locked for founding members - the team confirms yours. Attribution runs off your link, plus a manual code for bookings you place."
+        "Simple: your client pays the operator's own rate - never a cent more. The operator pays BluePass a capped commission, and your cut comes from that, so recommending us costs your client nothing. Exact rates are per-partner and locked for founding members - the team confirms yours. Ready to lock founding terms? Company, market, and best email."
     };
   }
 

@@ -200,6 +200,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(raja.catalogDestination).toBe("Raja Ampat");
   });
 
+  it("keeps conservation and commission replies pointing to a same-track next step", () => {
+    expect(buildBluePassPartnerReply({ latestMessage: "tell me about conservation", pitched: true }).reply).toMatch(/\?|claim link/);
+    expect(buildBluePassPartnerReply({ latestMessage: "how do commissions work?", pitched: true }).reply.toLowerCase()).toContain("email");
+  });
+
   it("keeps conservation impact ahead of the commission keyword match", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "Tell me about the 5% conservation impact", pitched: true });
 
