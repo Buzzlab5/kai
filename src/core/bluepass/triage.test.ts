@@ -370,6 +370,27 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("never uses an emoji in any reply (enforces the no-emojis house rule)", () => {
+    const EMOJI = /\p{Extended_Pictographic}/u;
+    const inputs = [
+      "18 breakdown", "what do i get", "how do guests pay", "is this legit", "how do i sign up",
+      "komodo", "raja ampat", "whats in the catalogue", "how do commissions work", "book a call",
+      "conservation impact", "do you poach my clients", "can i see a demo", "how soon can i go live",
+      "there was an injury", "saya punya kapal di komodo", "hello", "",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of inputs) {
+        for (const reply of [
+          buildBluePassOperatorReply({ latestMessage: m, pitched }).reply,
+          buildBluePassPartnerReply({ latestMessage: m, pitched }).reply,
+        ]) {
+          expect(EMOJI.test(reply), `emoji found in reply: ${reply}`).toBe(false);
+        }
+      }
+    }
+    expect(EMOJI.test(JSON.stringify(buildBluePassTriageGreeting()))).toBe(false);
+  });
+
   it("only ever states the honest percentages {3,5,18,82} - never invents a commission %", () => {
     const ALLOWED = new Set(["3", "5", "18", "82"]);
     const inputs = [
