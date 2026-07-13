@@ -211,62 +211,62 @@ export function buildBluePassOperatorReply(input: {
   if (has("18", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
       reply:
-        "Every point of it: 5% funds conservation in your own waters - co-brandable, your guests see it. 5% pays the partners and creators sending you guests. 3% is payment processing. 5% runs BluePass. You keep 82%, there are no listing fees and no subscription - we only earn when you do. Want me to line up the claim link, or walk through vetting first?"
+        "Every point: 5% conservation in your waters (co-brandable), 5% to the partners sending you guests, 3% payments, 5% platform. You keep 82% - no listing fees, no subscription, we only earn when you do. Claim link, or vetting first?"
     };
   }
 
   if (has("what do we get", "what do i get", "why join", "benefit", "what's included", "why bluepass")) {
     return {
       reply:
-        "A proper page, inquiries over web and WhatsApp, and me - I pre-qualify your guests before they reach you, so you talk to people ready to book, not tyre-kickers. Behind that: a partner network sending you bookings and a verified conservation story on every trip. What do you run, and where from?"
+        "A real page, inquiries over web and WhatsApp, and me pre-qualifying your guests so you talk to ready-to-book people, not tyre-kickers - plus a partner network sending you bookings and a conservation story on every trip. What do you run, and where?"
     };
   }
 
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:
-        "Straight answer: we're Indonesia-first and expanding, and I'd rather put you on the expansion list than promise a launch date I can't back. Leave your company, region, and best email, and you're first in when we open your waters."
+        "Straight answer: we're Indonesia-first and expanding - I'd rather add you to the expansion list than promise a date I can't back. Company, region, and best email, and you're first in when we open your waters."
     };
   }
 
   if (has("indonesia")) {
     return {
       reply:
-        "Then there's a decent chance your page already exists - we pre-built pages for hundreds of Indonesian operators. The claim link goes to the email on file for your business: one click, no password. Tell me your company name, home port, and best email, and the team sends it over."
+        "Then your page may already exist - we pre-built pages for hundreds of Indonesian operators. The claim link goes to your business email: one click, no password. Company name, home port, and best email, and the team sends it over."
     };
   }
 
   if (has("vet", "green fins", "approval", "requirement", "qualify")) {
     return {
       reply:
-        "We check three things: safety record, sustainability (Green Fins where it applies), and fair local pay. That's what keeps the network worth being in. Approval is a team call - I won't promise it, but I'll get you in front of them. Company name and email?"
+        "Three things: safety record, sustainability (Green Fins where it applies), and fair local pay. Approval is a team call - I won't promise it, but I'll get you in front of them. Company name and email?"
     };
   }
 
   if (has("payout", "paid out", "get paid", "contract", "bank")) {
     return {
       reply:
-        "That one's for the humans - payout terms and contracts get sorted directly with the team, not me. Leave your company and email or WhatsApp and they'll come back to you, usually same day."
+        "That's one for the humans - payout terms and contracts get sorted with the team, not me. Company and email or WhatsApp, and they'll come back, usually same day."
     };
   }
 
   if (has("claim")) {
     return {
       reply:
-        "Easy. The claim link goes to the email on file for your business - one click, no password, and your page is yours to run. I just need your company name and home port so the team matches you to the right page. What's the name?"
+        "Easy - the claim link goes to your business email: one click, no password, and the page is yours. Company name and home port so the team matches you to the right page?"
     };
   }
 
   if (input.pitched) {
     return {
       reply:
-        "Happy to go deeper on anything - the split, vetting, what your page looks like. The fastest path, though: company name, home port, and best email, and the team takes it from there."
+        "Happy to go deeper - the split, vetting, your page. Fastest path though: company name, home port, and best email, and the team takes it from there."
     };
   }
 
   return {
     reply:
-      "Good timing - we're onboarding operators now. The deal, straight up: you keep 82% of your own rate. Our 18% is capped and itemised - 5% conservation in your waters, 5% to the partners sending you guests, 3% payments, 5% platform - and your guests' price is never marked up. Where do you operate, and what do you run?"
+      "Good timing - we're onboarding operators. The deal: you keep 82% of your rate. Our 18% is capped - 5% conservation in your waters, 5% to partners sending you guests, 3% payments, 5% platform - and your guests' price is never marked up. Where do you operate, and what do you run?"
   };
 }
 

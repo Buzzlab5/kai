@@ -26,7 +26,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
   concrete gaps as new Backlog items. If none meet the bar, write "CONVERGED" to Log and stop the loop.
 
 ## Backlog
-- [ ] Trim level-2 operator replies ~20% shorter without losing the honest numbers.
+- [x] Trim level-2 operator replies ~20% shorter without losing the honest numbers.
 - [ ] Trim level-2 partner replies ~20% shorter.
 - [ ] Operator branch: "how long until approved?" → honest no-timeline + capture.
 - [ ] Operator branch: "do I need a license / Green Fins?" → vetting answer + capture.
@@ -39,3 +39,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 ## Log
 - (iterations append here)
+- iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
