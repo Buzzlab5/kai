@@ -142,6 +142,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).not.toContain("82%");
   });
 
+  it("hands safety/medical/legal topics to a human in both playbooks", () => {
+    expect(buildBluePassOperatorReply({ latestMessage: "a guest had an injury last week", pitched: true }).reply).toContain("human");
+    expect(buildBluePassPartnerReply({ latestMessage: "my client wants to file a complaint", pitched: true }).reply).toContain("human");
+  });
+
   it("nudges for lead details instead of repeating the pitch", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "ok", pitched: true });
 

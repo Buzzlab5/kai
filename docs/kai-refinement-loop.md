@@ -32,7 +32,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator branch: "do I need a license / Green Fins?" -> vetting answer + capture.
 - [x] Partner branch: "how do I get paid?" -> mechanism (funded from operator side) + human handoff.
 - [x] Partner branch: creator with no clients yet -> same track, reassure, capture.
-- [ ] Traveller-in-marketplace: "is it safe / refunds?" → human handoff, stay on track.
+- [x] Safety/medical/legal handoff added to operator+partner playbooks (traveller-flow variant = separate flow task).
 - [ ] Every operator/partner reply's implicit next-step points deeper into the same track (audit + fix).
 - [ ] Bahasa Indonesia variant for the operator opener (operators are Indonesian).
 - [ ] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
@@ -45,3 +45,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter4: license\/cert questions route to vetting answer, 41 green.
 - iter5: added partner payout branch (operator-funded + team handoff), 42 green.
 - iter6: added partner creator-no-clients branch, 43 green.
+- iter7: shared safety\/medical\/legal human-handoff in operator+partner playbooks, 44 green.

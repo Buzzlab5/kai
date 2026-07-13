@@ -201,12 +201,29 @@ export function buildBluePassLeadCapturedReply(input: {
 
 // ─── Operator playbook ────────────────────────────────────────────────────────
 
+// Safety / medical / legal topics go to a human in any vertical — never
+// improvised. Kept tight so normal words ("safety record") don't trip it.
+const HANDOFF_TOPICS = [
+  "unsafe", "accident", "injury", "injured", "medical", "emergency",
+  "legal", "lawsuit", "complaint", "dispute",
+];
+
+function needsHumanHandoff(message: string): boolean {
+  return includesAny(message, HANDOFF_TOPICS);
+}
+
+export function buildBluePassHandoffReply(): string {
+  return "That's one for a human on the team - I'll flag it and they'll come back to you directly. Anything else I can line up in the meantime?";
+}
+
 export function buildBluePassOperatorReply(input: {
   latestMessage: string;
   pitched: boolean;
 }): BluePassPersonaReply {
   const message = input.latestMessage.toLowerCase();
   const has = (...needles: string[]) => includesAny(message, needles);
+
+  if (needsHumanHandoff(message)) return { reply: buildBluePassHandoffReply() };
 
   if (has("18", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
@@ -290,6 +307,8 @@ export function buildBluePassPartnerReply(input: {
 }): BluePassPersonaReply {
   const message = input.latestMessage.toLowerCase();
   const has = (...needles: string[]) => includesAny(message, needles);
+
+  if (needsHumanHandoff(message)) return { reply: buildBluePassHandoffReply() };
 
   // Destination first: "Komodo for my clients" is a book-on-behalf brief,
   // not a generic client question.
