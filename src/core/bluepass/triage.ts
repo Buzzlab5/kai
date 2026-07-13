@@ -410,6 +410,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("an app", "any app", "the app", "is there an app", "mobile app", "phone app", "on my phone", "manage on my phone", "manage from my phone", "on mobile", "android", "iphone")) {
+    return {
+      reply:
+        "No separate app to install - your dashboard runs in any browser and inquiries reach you on WhatsApp, so you manage everything from your phone. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("review", "reviews", "rating", "ratings", "testimonial", "guest feedback")) {
     return {
       reply:

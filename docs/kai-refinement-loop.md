@@ -90,7 +90,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Guard: 40-input test asserts every operator+partner reply carries a capture CTA (?/company/email/whatsapp/handle/claim) - no dead-ends.
 
 - [x] Partner: "who else uses this / testimonials?" -> honest early founding cohort, refuses to invent names, capture.
-- [ ] Operator: "is there an app / can I manage on my phone?" -> dashboard + WhatsApp work on your phone, capture.
+- [x] Operator: "is there an app / can I manage on my phone?" -> no app, dashboard in-browser + WhatsApp, manage from phone.
 - [ ] Partner: "can I also refer operators / do you pay for operator intros?" -> honest, operator referrals a team chat, capture.
 
 ## Log
@@ -145,3 +145,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter48: operator OTA-differentiation branch (not exclusive, direct, 82%); ordered before what-we-get, 87 green.
 - iter49: no-dead-end CTA guard test (40 inputs, both verticals); backlog emptied -> self-critique added 3 items, 88 green.
 - iter50: partner social-proof branch (early cohort, no invented names), 89 green.
+- iter51: operator app/phone branch (no app, browser + WhatsApp); avoided bare "app" substring, 90 green.
