@@ -360,6 +360,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/securely|checkout|card/);
   });
 
+  it("answers a partner social-proof ask honestly (early cohort, no invented names)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "who else uses this? any partners I'd know?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/early|founding cohort|won't drop names/);
+  });
+
   it("answers a partner trip-type/scope question honestly (liveaboards + dive trips now)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you have day trips or liveaboards only?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/liveaboards|day trips|komodo/);

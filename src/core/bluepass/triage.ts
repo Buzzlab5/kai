@@ -623,6 +623,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("who else", "other partners", "who's using", "whos using", "testimonial", "case study", "success story", "anyone i'd know", "any partners", "who's on board", "social proof")) {
+    return {
+      reply:
+        "We're early and building the founding cohort now - I won't drop names I can't back up. What I can say: every operator is vetted, and founding partners lock the best terms before we scale. Want in? Company, market, and best email."
+    };
+  }
+
   if (has("founding", "terms", "lock")) {
     return {
       reply:
