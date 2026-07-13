@@ -130,7 +130,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Guard: whitespace tidiness - every reply trimmed, no double spaces (verified across battery).
 
 - [x] Guard: lead-captured (operator+partner) + handoff replies now obey house rules (<=320, no-emoji, trimmed, honest %).
-- [ ] Robustness: buildBluePassLeadCapturedReply with degenerate captured fields (empty/odd email/name) never throws and stays clean.
+- [x] Robustness: buildBluePassLeadCapturedReply never throws on degenerate captured fields (empty/whitespace/400-char/odd/unicode), always non-empty.
 - [ ] Convergence checkpoint: if the next self-critique surfaces nothing meeting the bar, write CONVERGED and surface to the user for a decision (content + guards are saturated).
 
 ## Log
@@ -216,3 +216,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter79: whitespace-tidiness guard (trimmed, no double spaces), 117 green.
 - iter79: whitespace guard done; backlog emptied -> self-critique added 3 items (lead/handoff guards + convergence checkpoint); nearing convergence, 117 green.
 - iter80: house-rule guard extended to lead-captured + handoff replies, 118 green.
+- iter81: lead-captured-reply robustness (degenerate fields, both personas), 119 green.

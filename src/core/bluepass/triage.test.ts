@@ -372,6 +372,24 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("lead-captured reply is robust to degenerate captured fields (never throws, non-empty)", () => {
+    const weirdLeads = [
+      {},
+      { company: "", region: "", email: "", phone: "" },
+      { company: "   " },
+      { company: "A".repeat(400) },
+      { email: "not-an-email", phone: "!!!" },
+      { company: "Reef Co", region: "Komodo", name: "José" },
+    ];
+    for (const persona of ["OPERATOR", "PARTNER"] as const) {
+      for (const lead of weirdLeads) {
+        const reply = buildBluePassLeadCapturedReply({ persona, lead });
+        expect(typeof reply).toBe("string");
+        expect(reply.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("lead-captured + handoff replies obey the house rules (<=320, no-emoji, trimmed, honest %)", () => {
     const EMOJI = /\p{Extended_Pictographic}/u;
     const check = (reply: string) => {
