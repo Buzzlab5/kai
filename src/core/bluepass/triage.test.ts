@@ -494,6 +494,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/claim/);
   });
 
+  it("is honest a partner cannot mark up the client (operator-direct rate always)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "can I add my own markup on top for my client?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/operator's own rate|never a rupiah more|not from marking up/);
+  });
+
   it("refuses to invent a ballpark commission number, points to real per-partner terms", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "just give me a ballpark figure", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/per-partner|real terms|won't guess|confirmed with the team/);

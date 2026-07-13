@@ -608,6 +608,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("markup", "mark up", "add my own", "my own margin", "charge my client more", "add margin", "my margin", "resell at", "sell it for more", "add commission on top", "add my margin")) {
+    return {
+      reply:
+        "Straight answer: no - your client always pays the operator's own rate, never a rupiah more. Your earnings come from the operator's capped commission to BluePass, not from marking up your client. That's the whole promise. Company, market, and best email?"
+    };
+  }
+
   if (has("ballpark", "rough number", "roughly", "give me a number", "just a number", "typical rate", "average commission", "what's the rate", "whats the rate", "ballpark figure")) {
     return {
       reply:

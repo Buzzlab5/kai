@@ -99,7 +99,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Guard: concise <=320 length check now runs the full ~52-input battery across every newer branch - all pass.
 - [x] Operator: "do you charge per lead / pay for leads?" -> no lead/listing fees, only earn the capped 18% on completed bookings, zero risk upfront.
-- [ ] Partner: "can I add my own markup on top for my client?" -> honest: client always pays operator-direct rate, your earnings come from operator side.
+- [x] Partner: "can I add my own markup for my client?" -> no, client always pays operator-direct rate; earnings come from operator side, not marking up.
+
+- [ ] Guard: assert no PARTNER reply uses operator-only "keep 82%" framing (partners earn commission from the operator side, not 82%).
+- [ ] Partner: "what support / help do I get setting up?" -> team helps you get live, capture.
+- [ ] Operator: "what is the catch / how do you make money?" -> only the capped 18% on completed bookings, nothing else, capture.
 
 ## Log
 - (iterations append here)
@@ -160,3 +164,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter55: operator availability-management branch; backlog emptied -> self-critique added 3 items, 95 green.
 - iter56: broadened length guard to ~52 inputs (every newer branch <=320), 95 green.
 - iter57: operator no-pay-per-lead branch (earn only on completed bookings), 96 green.
+- iter58: partner no-markup branch (operator-direct rate always); backlog emptied -> self-critique added 3 items, 97 green.
