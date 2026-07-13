@@ -350,6 +350,16 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("pins the default openers (unmatched, pitched:false) to the core honest pitch", () => {
+    const op = buildBluePassOperatorReply({ latestMessage: "ok sounds good", pitched: false }).reply;
+    expect(op).toContain("82%");
+    expect(op.toLowerCase()).toContain("never marked up");
+    const pa = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false }).reply;
+    expect(pa.toLowerCase()).toContain("operator's own rate");
+    expect(pa.toLowerCase()).toContain("never marked up");
+    expect(pa).toContain("Shop, agency, or creator?");
+  });
+
   it("routes substring-collision traps to the correct branch (guards fragile needles)", () => {
     // Each trap word embeds a shorter needle used by another branch.
     const opTraps: Array<[string, RegExp]> = [
