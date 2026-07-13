@@ -272,6 +272,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("will i actually get", "will i get bookings", "how many bookings", "how much demand", "guarantee bookings", "guaranteed bookings", "how much business", "worth my time", "any bookings")) {
+    return {
+      reply:
+        "Straight answer: no one can guarantee booking numbers, and I won't pretend otherwise. What I can promise is real reach - I pre-qualify travellers on your page and the partner network sends warm clients, with no cost until you're earning. Where do you operate?"
+    };
+  }
+
   if (has("where do bookings come from", "send me guests", "how do i get guests", "where do guests come from", "how do you fill", "drive bookings", "who sends", "get customers", "get guests", "marketing")) {
     return {
       reply:

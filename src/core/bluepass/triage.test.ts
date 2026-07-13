@@ -291,6 +291,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("is honest that booking volume isn't guaranteed, without deflating the offer", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "will i actually get any bookings?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/guarantee|no one can/);
+    expect(result.reply.toLowerCase()).toMatch(/partner network|pre-qualif|reach/);
+  });
+
   it("reassures an operator BluePass is legit (real marketplace, keep 82%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "is this legit or a scam?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/real|vetted|82%/);
