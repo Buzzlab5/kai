@@ -173,6 +173,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("team");
   });
 
+  it("reassures a creator with no clients yet and stays on the partner track", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "I'm just starting out with a small audience", pitched: true });
+    expect(result.reply.toLowerCase()).toContain("creator");
+    expect(result.reply.toLowerCase()).toMatch(/email|handle/);
+  });
+
   it("shows catalog cards for the catalogue branch", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "What's in the catalogue?", pitched: true });
 

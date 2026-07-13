@@ -361,6 +361,19 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (
+    has(
+      "no clients", "just starting", "just started", "new creator", "small audience",
+      "small following", "building my audience", "no bookings", "haven't booked",
+      "havent booked", "growing my",
+    )
+  ) {
+    return {
+      reply:
+        "Creators are first-class here - no client list needed to start. Your tracked link plus our co-brandable impact assets do the selling, and the operator side funds your commission, so there's nothing to front. Your handle, audience size, and best email?"
+    };
+  }
+
   if (input.pitched) {
     return {
       reply:
