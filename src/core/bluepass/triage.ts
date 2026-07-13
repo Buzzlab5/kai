@@ -260,6 +260,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("booking.com", "getyourguide", "viator", "tripadvisor", "expedia", "already list", "already on", "another platform", "listing site", "why not just", "why switch")) {
+    return {
+      reply:
+        "List wherever you like - we're not exclusive. The difference: guests pay your rate direct, never marked up, you keep 82%, 5% funds conservation in your waters, and a partner network sends you guests. What do you run, and where?"
+    };
+  }
+
   if (
     has(
       "what do we get", "what do i get", "why join", "benefit", "what's included",

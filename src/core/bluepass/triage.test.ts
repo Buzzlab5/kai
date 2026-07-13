@@ -308,6 +308,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("differentiates vs an OTA honestly (not exclusive, operator-direct, keep 82%)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "I already list on Booking.com, why BluePass?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|82%/);
+  });
+
   it("answers how reviews work honestly (real guests, shown on your page)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how do reviews and ratings work?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/real guests|your page|earn, not buy/);

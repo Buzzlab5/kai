@@ -86,7 +86,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "day trips or liveaboards only?" -> honest scope: mainly liveaboards + dive trips in live regions, more coming.
 
 - [x] Operator+Partner: "can I talk to a real person / book a call?" -> team hops on a call, capture email/WhatsApp (both builders).
-- [ ] Operator: "I already list on Booking.com / an OTA - why BluePass?" -> honest differentiation (operator-direct, keep 82%, conservation), capture.
+- [x] Operator: "I already list on an OTA - why BluePass?" -> not exclusive, operator-direct, keep 82%, conservation (before what-we-get).
 - [ ] Guard: test that representative operator+partner branch replies each end with a capture CTA (? / company / email).
 
 ## Log
@@ -138,3 +138,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter45: operator reviews/ratings branch (real guests, earned not bought); guard test "how do i start" not misrouted, 83 green.
 - iter46: partner trip-type/scope branch; backlog emptied -> self-critique added 3 items, 84 green.
 - iter47: operator+partner human-contact/book-a-call branches, 86 green.
+- iter48: operator OTA-differentiation branch (not exclusive, direct, 82%); ordered before what-we-get, 87 green.
