@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("answers a partner currency/conversion question honestly (set with team)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "which currency am I paid in, and the exchange rate?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/your currency|converted|with the team/);
+  });
+
   it("explains how guests pay (secure BluePass checkout, operator paid out)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how do guests pay - by card?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/securely|checkout|card/);

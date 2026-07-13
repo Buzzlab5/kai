@@ -538,6 +538,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("currency", "currencies", "usd", "idr", "rupiah", "exchange rate", "converted", "what currency", "paid in")) {
+    return {
+      reply:
+        "You're paid in your currency - which one and how it's converted is set with the team when you go live, so no surprises. I'll flag it for them. Company, market, and best email?"
+    };
+  }
+
   if (has("get paid", "paid out", "payout", "when do i get paid", "how am i paid", "how do i get paid")) {
     return {
       reply:

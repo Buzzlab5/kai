@@ -79,7 +79,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Partner: "is my client list mine / do you poach my clients?" -> clients stay yours, no marketing behind your back, keep the credit.
 - [x] Operator: "how do guests pay (card/transfer)?" -> secure BluePass checkout, paid out via team, capped 18% only.
-- [ ] Partner: "which currencies / how are payouts converted?" -> team handles currency + method, honest, capture.
+- [x] Partner: "which currencies / how are payouts converted?" -> paid in your currency, conversion set with team (before payout branch).
+
+- [ ] Operator: "will you list my competitors next to me / how do I stand out?" -> curated marketplace, your page is your own storefront, honest.
+- [ ] Operator: "how do reviews / ratings work?" -> honest (review display set up with team, no invented specifics), capture.
+- [ ] Partner: "day trips or liveaboards only - what kind of trips?" -> honest scope: liveaboards + trips in live regions, more coming, capture.
 
 ## Log
 - (iterations append here)
@@ -125,3 +129,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter40: partner API/embed branch (honest, no overpromise); backlog emptied -> self-critique added 3 items, 77 green.
 - iter41: partner client-ownership/no-poaching branch, 78 green.
 - iter42: operator guest-payment branch (secure checkout, paid out); ordered before payout handoff, 79 green.
+- iter43: partner currency/conversion branch; backlog emptied -> self-critique added 3 items, 80 green.
