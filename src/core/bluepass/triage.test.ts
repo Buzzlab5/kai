@@ -351,6 +351,25 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("never leaks partner-only framing into an operator reply (mirror of the 82% guard)", () => {
+    const partnerOnly = /your cut|your commission|per-partner|tracked link|your handle/i;
+    const operatorInputs = [
+      "break down the 18%", "what do i get", "can i set my own prices", "do you integrate with rezdy",
+      "where do bookings come from", "will i actually get bookings", "who handles customer service",
+      "do you support bahasa", "how are cancellations handled", "can i pause anytime", "how do i sign up",
+      "how do reviews work", "will you list my competitors", "how do guests pay", "is this legit",
+      "i already list on booking.com why bluepass", "can i talk to a real person", "what do you need from me",
+      "can i list more than one boat", "can i see an example page", "is there an app", "how do i manage availability",
+      "do you charge per lead", "whats the catch", "hello",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of operatorInputs) {
+        const reply = buildBluePassOperatorReply({ latestMessage: m, pitched }).reply;
+        expect(partnerOnly.test(reply), `operator reply leaked partner framing for "${m}": ${reply}`).toBe(false);
+      }
+    }
+  });
+
   it("never uses operator-only '82%' framing in a partner reply (partners earn commission, not 82%)", () => {
     const partnerInputs = [
       "how does commission work", "just give me a ballpark", "any cost to join", "how do i get paid",
