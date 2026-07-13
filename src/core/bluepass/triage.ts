@@ -377,6 +377,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("cost to join", "sign-up fee", "signup fee", "any fee", "free to join", "how much to join", "upfront cost", "subscription", "monthly fee", "what's the catch")) {
+    return {
+      reply:
+        "No cost to join - no sign-up fee, no subscription. Your commission is funded from the operator's side, so there's nothing to pay and nothing to front. Company, market, and best email to start?"
+    };
+  }
+
   if (has("get paid", "paid out", "payout", "when do i get paid", "how am i paid", "how do i get paid")) {
     return {
       reply:

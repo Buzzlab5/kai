@@ -214,6 +214,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).not.toMatch(/\byour commission is \d+%/i);
   });
 
+  it("tells partners there's no cost to join, funded from the operator side", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "is there any cost to join?", pitched: true });
+    expect(result.reply.toLowerCase()).toContain("no cost");
+    expect(result.reply.toLowerCase()).toContain("operator");
+  });
+
   it("explains partner payout mechanism and hands terms to the team", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do I get paid?", pitched: true });
     expect(result.reply).toContain("operator");
