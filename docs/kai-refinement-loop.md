@@ -54,7 +54,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "where do I get the marketing assets?" -> assets in dashboard, capture.
 
 - [x] Partner: "can I do group / charter bookings for clients?" -> yes, group holds via team.
-- [ ] Operator: "what happens after a guest inquires?" -> Kai pre-qualifies then hands to you.
+- [x] Operator: "what happens after a guest inquires?" -> Kai pre-qualifies then hands to you.
 - [ ] Partner: "is there a minimum volume to join?" -> no minimum, capture.
 
 ## Log
@@ -82,3 +82,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter21: added operator PMS-integration branch, 57 green.
 - iter22: partner marketing-assets branch; self-critique added 3 items, 58 green.
 - iter23: added partner group\/charter branch, 59 green.
+- iter24: added operator inquiry-handoff branch, 60 green.

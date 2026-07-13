@@ -160,6 +160,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/page|inquiries|network/);
   });
 
+  it("explains the inquiry handoff (Kai pre-qualifies, then hands to you)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "what happens after a guest inquires?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/pre-qualif|hands|whatsapp/);
+  });
+
   it("confirms operator PMS integration is handled by the team", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "do you integrate with Rezdy?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/integrat|rezdy|sync/);

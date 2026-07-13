@@ -272,6 +272,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("after a guest inquires", "what happens after", "how does handoff", "when do i take over", "after they inquire", "how do inquiries work", "guest reaches out", "after an inquiry")) {
+    return {
+      reply:
+        "Kai gathers the trip details and pre-qualifies the guest, then hands them straight to you - on WhatsApp or your dashboard - the moment they're ready. You take it from there. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:
