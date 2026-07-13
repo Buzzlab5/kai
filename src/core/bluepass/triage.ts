@@ -539,6 +539,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("how do i refer", "how does referring", "how do i send them", "how do i share my link", "how do i recommend", "referral flow", "how does it work for me", "how do i get them to book", "how do i pass")) {
+    return {
+      reply:
+        "Simple: share your tracked link, your client books direct at the operator's own rate, and you're credited automatically - no codes to chase, 60-day window. Want your claim link so the tracked link goes live? Company, market, and best email."
+    };
+  }
+
   if (has("book for a client", "book a trip for", "on behalf", "book now", "dates are set")) {
     return {
       reply:

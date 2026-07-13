@@ -291,6 +291,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("explains the partner referral mechanism (tracked link, auto-credited)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/tracked link/);
+    expect(result.reply.toLowerCase()).toMatch(/credited|automatically/);
+  });
+
   it("confirms an operator can list a whole fleet / multiple trips under one page", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I list more than one boat?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/fleet|one page|each/);
