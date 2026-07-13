@@ -288,6 +288,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(buildBluePassPartnerReply({ latestMessage: "how do commissions work?", pitched: true }).reply.toLowerCase()).toContain("email");
   });
 
+  it("points partners to the marketing pack in their dashboard", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "where do I get the marketing assets?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/dashboard|pack|logos|banners/);
+    expect(result.reply.toLowerCase()).toContain("email");
+  });
+
   it("says the impact assets are co-brandable but the widget stays BluePass", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "can I white-label this?", pitched: true });
     expect(result.reply.toLowerCase()).toContain("co-brand");

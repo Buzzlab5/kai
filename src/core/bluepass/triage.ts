@@ -398,6 +398,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("marketing asset", "creative", "logos", "banners", "social post", "promo material", "content pack", "sample post", "marketing material")) {
+    return {
+      reply:
+        "Once you claim, your dashboard has the marketing pack - logos, banners, impact one-liners, and sample post copy, all ready to use. Want your claim link? Company, market, and best email."
+    };
+  }
+
   if (has("conservation", "impact", "reef", "5%")) {
     return {
       reply:
