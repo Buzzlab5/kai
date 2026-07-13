@@ -58,7 +58,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "is there a minimum volume to join?" -> no minimum, capture.
 
 - [x] Operator: "is my data / are my guests private?" -> honest + team handoff.
-- [ ] Partner: "how soon can I go live?" -> claim is instant (one click), capture.
+- [x] Partner: "how soon can I go live?" -> one-click claim, instant.
 - [ ] Refactor: extract operator/partner keyword branches to a data-driven table (behaviour-preserving).
 
 ## Log
@@ -89,3 +89,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter24: added operator inquiry-handoff branch, 60 green.
 - iter25: partner no-minimum-volume branch; self-critique added 3 items (incl. refactor), 61 green.
 - iter26: added operator data\/privacy branch, 62 green.
+- iter27: added partner go-live-fast branch, 63 green.

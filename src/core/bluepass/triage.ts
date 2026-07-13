@@ -517,6 +517,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("go live", "how soon can i", "how fast can i", "when can i start", "up and running", "start today", "how long to set up", "live immediately", "start right away")) {
+    return {
+      reply:
+        "Fast - claiming is one click on a magic link, and your tracked link goes live the moment you confirm your email. Company, market, and best email and you're off?"
+    };
+  }
+
   if (input.pitched) {
     return {
       reply:
