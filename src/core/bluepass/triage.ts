@@ -115,10 +115,6 @@ const travellerSignals = [
   "charter"
 ];
 
-function joinedLower(messages: string[]) {
-  return messages.join(" \n ").toLowerCase();
-}
-
 function includesAny(haystack: string, needles: string[]) {
   return needles.some((needle) => haystack.includes(needle));
 }
@@ -129,14 +125,27 @@ function includesAny(haystack: string, needles: string[]) {
  * more") keep the persona. "I run a dive shop" is PARTNER, not OPERATOR —
  * partner identity nouns win over operator verb phrases.
  */
-export function classifyBluePassPersona(messages: string[]): BluePassPersona {
-  const text = joinedLower(messages);
-  if (text.trim().length === 0) return "UNKNOWN";
-
+/** Persona of a single message. Within one message, partner identity nouns
+ *  beat operator verbs beat traveller intent (a dive shop refers, it doesn't
+ *  operate). */
+function classifyMessage(text: string): BluePassPersona {
   if (includesAny(text, partnerSignals)) return "PARTNER";
   if (includesAny(text, operatorSignals)) return "OPERATOR";
   if (includesAny(text, travellerSignals)) return "TRAVELLER";
+  return "UNKNOWN";
+}
 
+/**
+ * First concrete signal locks the track. Scanning messages in order (oldest
+ * first) means the persona set on the opening turn owns the rest of the
+ * conversation — a traveller who later says "commission", or an operator who
+ * later says "Komodo", never gets hijacked onto another track.
+ */
+export function classifyBluePassPersona(messages: string[]): BluePassPersona {
+  for (const message of messages) {
+    const persona = classifyMessage(message.toLowerCase());
+    if (persona !== "UNKNOWN") return persona;
+  }
   return "UNKNOWN";
 }
 

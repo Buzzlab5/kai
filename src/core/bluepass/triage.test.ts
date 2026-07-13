@@ -38,6 +38,17 @@ describe("classifyBluePassPersona", () => {
     expect(classifyBluePassPersona(["I'm a travel agent", "sounds good"])).toBe("PARTNER");
   });
 
+  it("locks the track to the first concrete signal — later cross-vertical keywords don't hijack", () => {
+    // Traveller who later mentions a partner word stays a traveller.
+    expect(classifyBluePassPersona(["I want to dive Komodo", "any referral commission if I bring friends?"])).toBe(
+      "TRAVELLER",
+    );
+    // Operator who later says "Komodo" stays an operator.
+    expect(classifyBluePassPersona(["I run a liveaboard", "we sail Komodo mostly"])).toBe("OPERATOR");
+    // Partner who later asks a trip question stays a partner.
+    expect(classifyBluePassPersona(["I'm a travel agent", "what's the best Komodo boat?"])).toBe("PARTNER");
+  });
+
   it("returns UNKNOWN for a bare greeting", () => {
     expect(classifyBluePassPersona(["hello"])).toBe("UNKNOWN");
     expect(classifyBluePassPersona([])).toBe("UNKNOWN");
