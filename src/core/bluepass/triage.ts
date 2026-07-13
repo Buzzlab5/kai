@@ -258,6 +258,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("where do bookings come from", "send me guests", "how do i get guests", "where do guests come from", "how do you fill", "drive bookings", "who sends", "get customers", "get guests", "marketing")) {
+    return {
+      reply:
+        "Two demand channels: me, pre-qualifying travellers on your page and over WhatsApp, and the partner and creator network sending you their clients. You get warm, ready-to-book guests. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:

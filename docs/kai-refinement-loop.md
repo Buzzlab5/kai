@@ -46,7 +46,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "can I pause / leave anytime?" -> no lock-in, honest, capture.
 
 - [x] Partner: "how do I track my bookings/earnings?" -> tracked link + dashboard, capture.
-- [ ] Operator: "where do bookings come from / how do you send me guests?" -> Kai + partner network.
+- [x] Operator: "where do bookings come from?" -> Kai + partner network, capture.
 - [ ] Partner: "can I co-brand / white-label?" -> co-brand impact assets yes, capture.
 
 ## Log
@@ -68,3 +68,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter15: added partner no-cost-to-join branch, 51 green.
 - iter16: operator no-lock-in branch; self-critique added 3 items, 52 green.
 - iter17: added partner bookings\/earnings dashboard branch, 53 green.
+- iter18: added operator demand-channel branch, 54 green.

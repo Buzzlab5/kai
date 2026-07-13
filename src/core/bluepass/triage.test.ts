@@ -160,6 +160,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/page|inquiries|network/);
   });
 
+  it("explains where operator bookings come from (Kai + partner network)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do you send me guests?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/partner|network|whatsapp/);
+  });
+
   it("tells operators they set their own rate and keep 82%", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I set my own prices?", pitched: true });
     expect(result.reply).toContain("82%");
