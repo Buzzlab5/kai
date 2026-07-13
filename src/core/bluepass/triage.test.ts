@@ -471,6 +471,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/three steps|claim/);
   });
 
+  it("answers an operator references ask honestly (early, no invented references)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I talk to other operators for references?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/early|won't hand you references|vetted/);
+  });
+
+  it("still routes a competitor worry to the competitor branch, not references", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "will you list my competitors next to me?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/curated marketplace|storefront/);
+  });
+
   it("reassures an operator their price won't be undercut (their own rate, no markup or discount)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "will you undercut me or let guests find it cheaper elsewhere?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/never|your own rate|no one undercuts/);

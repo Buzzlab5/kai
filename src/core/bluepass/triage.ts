@@ -363,6 +363,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("talk to other operators", "speak to other operators", "other operators i can", "references", "operator references", "who else is on board", "operators using you", "operator testimonial", "operators like me", "vouch for you", "who else uses you")) {
+    return {
+      reply:
+        "We're early - I won't hand you references I can't stand behind. What I can say: every operator is vetted for safety, sustainability, and fair pay, and founding operators shape how this grows. Want the 18% breakdown, or your claim link?"
+    };
+  }
+
   if (has("competitor", "competitors", "stand out", "next to me", "other operators", "rivals", "differentiate", "against other", "same as everyone")) {
     return {
       reply:

@@ -110,7 +110,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "will you undercut me / cheaper elsewhere?" -> your own rate, no markup/discount; FIXED real collision ("cut" needle was swallowing "undercut").
 
 - [x] Guard: collision-trap routing test (undercut/cut, start/star, app) - locks correct routing so future needle changes fail fast.
-- [ ] Operator: "can I talk to other operators / any references?" -> honest early cohort, no invented references (mirror partner social-proof).
+- [x] Operator: "can I talk to other operators / references?" -> honest early cohort, no invented references; guard keeps competitor worry separate.
 - [ ] Partner: "does my client pay any BluePass / booking fee?" -> no, client pays the operator-direct rate only, capture.
 
 ## Log
@@ -180,3 +180,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter63: mirror framing guard (operator replies free of partner-only language), 102 green.
 - iter64: operator undercut branch; caught+fixed real "cut" substring collision; backlog emptied -> self-critique added 3, 103 green.
 - iter65: collision-trap routing guard (8 traps, op+partner), 104 green.
+- iter66: operator references/social-proof branch (before competitor) + competitor-routing guard, 106 green.
