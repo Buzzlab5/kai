@@ -331,7 +331,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("will i actually get", "will i get bookings", "how many bookings", "how much demand", "guarantee bookings", "guaranteed bookings", "how much business", "worth my time", "any bookings")) {
     return {
       reply:
-        "Straight answer: no one can guarantee booking numbers, and I won't pretend otherwise. What I can promise is real reach - I pre-qualify travellers on your page and the partner network sends warm clients, with no cost until you're earning. Where do you operate?"
+        "No one can guarantee booking numbers, and I won't pretend otherwise. What I can promise is real reach - I pre-qualify travellers on your page and the partner network sends warm clients, no cost until you earn. Where do you operate?"
     };
   }
 
@@ -503,7 +503,7 @@ export function buildBluePassOperatorReply(input: {
 
   return {
     reply:
-      "Good timing - we're onboarding operators. The deal: you keep 82% of your rate. Our 18% is capped - 5% conservation in your waters, 5% to partners sending you guests, 3% payments, 5% platform - and your guests' price is never marked up. Where do you operate, and what do you run?"
+      "We're onboarding operators now. You keep 82%; our 18% is capped - 5% conservation, 5% to partners who send you guests, 3% payments, 5% platform - and your guests' price is never marked up. Where do you operate, and what do you run?"
   };
 }
 
@@ -669,7 +669,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("commission", "earn", "percent", "my cut", "%")) {
     return {
       reply:
-        "Simple: your client pays the operator's own rate - never a cent more, so recommending us costs them nothing. Your cut comes from the operator's capped commission to BluePass; exact rates are per-partner, locked for founding members. Ready to lock terms? Company, market, and best email."
+        "Your client pays the operator's own rate - never a cent more, so recommending us costs them nothing. Your cut comes from the operator's capped commission; rates are per-partner, locked for founding members. Company, market, and best email to lock terms?"
     };
   }
 

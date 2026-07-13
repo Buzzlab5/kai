@@ -117,7 +117,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator: "day trips / snorkel, not a liveaboard - can I join?" -> yes, all real marine tourism welcome (needles narrowed so identity openers still get the pitch).
 - [x] Partner: "mixed group - split itinerary?" -> team arranges split/multi-leg hold; caught before Komodo/Raja (+guard plain-Komodo still routes).
 
-- [ ] Copy polish: tighten the 3 longest operator/partner replies (near 320) ~10-15% for WhatsApp readability - preserve asserted substrings + honest numbers.
+- [x] Copy polish: tightened 3 longest replies (operator default 278->231, partner commission 286->253, demand-expectation 259->231); numbers + asserted substrings preserved.
 - [ ] Guard: showCatalog invariant - only destination/catalogue branches attach preview cards; split/group/FAQ branches must not.
 - [ ] Operator: "can I run a promo / discount / special through you?" -> you control your rates and any promo, team wires it, honest, capture.
 
@@ -193,3 +193,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter68: doc sync - added section 5a level-2 FAQ inventory + guards to decision-tree spec, 107 green.
 - iter69: operator non-liveaboard-welcome branch; dropped broad "resort"/"dive centre" needles that shadowed the opener pitch, 108 green.
 - iter70: partner split-itinerary branch (before Komodo/Raja) +guard; backlog emptied -> self-critique added 3 items, 110 green.
+- iter71: conciseness polish of 3 longest replies (~15-17% shorter), numbers intact, 110 green.
