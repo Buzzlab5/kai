@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("reassures an operator BluePass is legit (real marketplace, keep 82%)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "is this legit or a scam?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/real|vetted|82%/);
+  });
+
   it("gives an operator the concrete sign-up steps and captures company/port/email", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how do i sign up?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/company/);

@@ -63,7 +63,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Partner: "roughly what commission %?" -> ballpark/give-me-a-number branch, refuses to invent a figure.
 - [x] Operator: "how do I sign up / start?" -> concrete 3-step sign-up branch, captures company/port/email.
-- [ ] Partner: trust/legit follow-through covered; add operator "is BluePass legit?" trust branch.
+- [x] Operator: "is BluePass legit?" trust branch (real marketplace, keep 82%, nothing charged pre-claim).
+
+- [ ] Operator: "will I actually get bookings / how much demand?" -> honest no-guarantee, demand from Kai + partner network, capture.
+- [ ] Operator: "how are cancellations / refunds handled?" -> policy set with you, team handles, honest.
+- [ ] Operator: "can I list more than one boat / multiple trips?" -> yes, add listings under your page, capture.
 
 ## Log
 - (iterations append here)
@@ -97,3 +101,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter28: added partner trust branch; refactor deferred to dedicated pass; +3 items, 64 green.
 - iter29: partner ballpark-commission branch (no invented number), 65 green.
 - iter30: operator how-do-I-sign-up branch (3 concrete steps + capture), 66 green.
+- iter31: operator trust/legit branch; backlog emptied -> self-critique added 3 items, 67 green.
