@@ -291,6 +291,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("Komodo and Raja Ampat");
   });
 
+  it("reassures an operator no English is needed (Kai handles both languages)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "do you support bahasa? my english isn't great", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/bahasa|no english/);
+  });
+
   it("clarifies guest-support split (operator runs the trip, Kai + team pre-trip)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "who handles customer service for guests?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/you run|pre-qualif|the team/);

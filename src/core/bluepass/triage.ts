@@ -335,6 +335,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("bahasa", "do i need english", "speak english", "my english", "english ok", "what language", "do you speak", "guests speak", "translate")) {
+    return {
+      reply:
+        "No English needed - I speak Bahasa and English, and I talk to each guest in their own language, so you're covered whoever books. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("indonesia")) {
     return {
       reply:

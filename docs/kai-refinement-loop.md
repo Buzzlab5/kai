@@ -74,7 +74,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Operator/Partner: "can I see a demo / example first?" -> real/sample page, no commitment (both builders).
 
 - [x] Operator: "who handles guest support / problems?" -> you run the trip; Kai pre-trip + team backs you (clear of handoff topics).
-- [ ] Operator: "do you support Bahasa / do I need English?" -> Kai speaks both, guests handled in their language, capture.
+- [x] Operator: "do you support Bahasa / do I need English?" -> Kai speaks both, guest in their own language (before indonesia catch).
 - [ ] Partner: "do you have an API / can I embed this on my site?" -> link + assets now, deeper integration is a team chat.
 
 ## Log
@@ -117,3 +117,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter36: operator page-build-requirements branch (low-lift, team builds); ordered before what-we-get, 72 green.
 - iter37: operator+partner demo/example branches; backlog emptied -> self-critique added 3 items, 74 green.
 - iter38: operator guest-support-split branch (you run trip, Kai+team pre-trip), 75 green.
+- iter39: operator language/Bahasa branch (no English needed, both languages); ordered before indonesia, 76 green.
