@@ -328,6 +328,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("competitor", "competitors", "stand out", "next to me", "other operators", "rivals", "differentiate", "against other", "same as everyone")) {
+    return {
+      reply:
+        "It's a curated marketplace, not a race to the bottom - your page is your own storefront, and you stand out on your trips, your reviews, and your conservation story, never by outspending anyone. What do you run, and where?"
+    };
+  }
+
   if (has("outside", "not in indonesia", "add us to the list")) {
     return {
       reply:

@@ -296,6 +296,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/your currency|converted|with the team/);
   });
 
+  it("answers a competitor/differentiation worry (curated marketplace, your own storefront)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "will you list my competitors right next to me?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/curated|your own storefront|stand out/);
+  });
+
   it("explains how guests pay (secure BluePass checkout, operator paid out)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how do guests pay - by card?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/securely|checkout|card/);
