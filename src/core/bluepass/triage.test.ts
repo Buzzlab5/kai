@@ -333,6 +333,23 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("never uses operator-only '82%' framing in a partner reply (partners earn commission, not 82%)", () => {
+    const partnerInputs = [
+      "how does commission work", "just give me a ballpark", "any cost to join", "how do i get paid",
+      "which currency", "how do i refer a client", "which regions", "can i co-brand", "how is attribution tracked",
+      "where are the marketing assets", "is there a minimum volume", "how soon can i go live", "is this legit",
+      "do you have an api", "do you poach my clients", "day trips or liveaboards only", "can we book a call",
+      "who else uses this", "can i refer operators", "what if the operator cancels on my client",
+      "can i add my own markup", "book a trip for my client", "i'm a creator with no clients yet", "hello",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of partnerInputs) {
+        const reply = buildBluePassPartnerReply({ latestMessage: m, pitched }).reply;
+        expect(reply.includes("82%"), `partner reply leaked operator 82% framing for "${m}": ${reply}`).toBe(false);
+      }
+    }
+  });
+
   it("never dead-ends: every representative operator+partner reply carries a capture CTA", () => {
     const CTA = /\?|company|email|whatsapp|handle|claim/i;
     const operatorInputs = [
