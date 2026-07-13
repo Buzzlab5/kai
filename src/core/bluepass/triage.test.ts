@@ -333,6 +333,24 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|whatsapp/);
   });
 
+  it("is robust to degenerate input: never throws, always a non-empty <=320 reply", () => {
+    const weird = [
+      "", "   ", "\n\t  \n", "!!!???...", "😀😀😀🌊⛵", "1234567890",
+      ".,;:'\"-()[]", "a".repeat(600), "OK. ".repeat(120), "komodo".toUpperCase(),
+      "  MiXeD cAsE with EMOJI 🐠 and punctuation!! ",
+    ];
+    for (const pitched of [false, true]) {
+      for (const m of weird) {
+        const op = buildBluePassOperatorReply({ latestMessage: m, pitched }).reply;
+        const pa = buildBluePassPartnerReply({ latestMessage: m, pitched }).reply;
+        expect(op.length, `operator empty/too-long for input len ${m.length}`).toBeGreaterThan(0);
+        expect(op.length).toBeLessThanOrEqual(320);
+        expect(pa.length, `partner empty/too-long for input len ${m.length}`).toBeGreaterThan(0);
+        expect(pa.length).toBeLessThanOrEqual(320);
+      }
+    }
+  });
+
   it("never uses operator-only '82%' framing in a partner reply (partners earn commission, not 82%)", () => {
     const partnerInputs = [
       "how does commission work", "just give me a ballpark", "any cost to join", "how do i get paid",

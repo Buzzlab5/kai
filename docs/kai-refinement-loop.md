@@ -105,7 +105,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "what support / help do I get setting up?" -> team helps you claim/set up/get first bookings; founding partners closest hand.
 - [x] Operator: "what is the catch / how do you make money?" -> no catch, capped 18% only on completed bookings, no fees/data-selling.
 
-- [ ] Robustness: fuzz test - both builders never throw and return a non-empty <=320 reply on empty/whitespace/emoji/very-long/punctuation input.
+- [x] Robustness: fuzz test - both builders never throw, always non-empty <=320 reply on degenerate input (empty/emoji/600-char/punctuation).
 - [ ] Guard (mirror): operator replies never leak partner-only framing ("your cut"/"your commission"/"per-partner").
 - [ ] Operator: "can guests find my trip cheaper elsewhere / will you undercut me?" -> no markup, your BluePass price is your own rate.
 
@@ -172,3 +172,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter59: partner-framing guard test (no 82% leak across 24 inputs), 98 green.
 - iter60: partner setup-support branch (team helps you get live), 99 green.
 - iter61: operator whats-the-catch branch; 100 tests; backlog emptied -> self-critique added 3 items (maturing: robustness+mirror guard+1 gap).
+- iter62: fuzz robustness test (degenerate input, both builders safe), 101 green.
