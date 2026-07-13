@@ -124,6 +124,13 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toContain("won't promise");
   });
 
+  it("greets an Indonesian operator in Bahasa with the honest numbers", () => {
+    expect(classifyBluePassPersona(["saya punya kapal, ingin daftar"])).toBe("OPERATOR");
+    const result = buildBluePassOperatorReply({ latestMessage: "saya punya kapal di Komodo", pitched: false });
+    expect(result.reply).toContain("82%");
+    expect(result.reply).toMatch(/menyimpan|perairan|dibatasi/);
+  });
+
   it("gives an honest no-timeline answer to approval-speed questions", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "how long until I'm approved?", pitched: true });
     expect(result.reply).toContain("team");

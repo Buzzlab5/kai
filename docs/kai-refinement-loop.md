@@ -34,7 +34,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner branch: creator with no clients yet -> same track, reassure, capture.
 - [x] Safety/medical/legal handoff added to operator+partner playbooks (traveller-flow variant = separate flow task).
 - [x] Every operator/partner reply points deeper into the same track (conservation + commission fixed).
-- [ ] Bahasa Indonesia variant for the operator opener (operators are Indonesian).
+- [x] Bahasa Indonesia operator opener + classifier signals.
 - [ ] Add a test asserting no branch reply exceeds ~320 chars (concise guard).
 
 ## Log
@@ -47,3 +47,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter6: added partner creator-no-clients branch, 43 green.
 - iter7: shared safety\/medical\/legal human-handoff in operator+partner playbooks, 44 green.
 - iter8: added same-track next-step to partner conservation + commission replies, 45 green.
+- iter9: Bahasa Indonesia operator opener + classifier signals, 46 green.

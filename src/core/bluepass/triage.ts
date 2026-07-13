@@ -93,7 +93,14 @@ const operatorSignals = [
   "i'm an operator",
   "im an operator",
   "as an operator",
-  "join as an operator"
+  "join as an operator",
+  // Bahasa Indonesia — operators are Indonesian.
+  "kapal saya",
+  "saya punya kapal",
+  "operator saya",
+  "saya operator",
+  "daftar bisnis",
+  "daftarkan",
 ];
 
 const travellerSignals = [
@@ -290,6 +297,13 @@ export function buildBluePassOperatorReply(input: {
     return {
       reply:
         "Happy to go deeper - the split, vetting, your page. Fastest path though: company name, home port, and best email, and the team takes it from there."
+    };
+  }
+
+  if (has("saya", "kapal", "perahu", "daftar")) {
+    return {
+      reply:
+        "Waktu yang tepat - kami sedang onboarding operator. Intinya: Anda menyimpan 82% dari tarif Anda sendiri. 18% kami dibatasi - 5% konservasi di perairan Anda, 5% untuk mitra yang mengirim tamu, 3% pembayaran, 5% platform - dan harga tamu Anda tidak pernah dinaikkan. Di mana Anda beroperasi, dan apa yang Anda jalankan?"
     };
   }
 
