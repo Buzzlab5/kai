@@ -316,6 +316,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/securely|checkout|card/);
   });
 
+  it("answers a partner trip-type/scope question honestly (liveaboards + dive trips now)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "do you have day trips or liveaboards only?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/liveaboards|day trips|komodo/);
+  });
+
   it("reassures a partner their clients stay theirs (no poaching)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you poach my clients or go around me?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/stay yours|relationship is yours|keep the credit/);

@@ -587,6 +587,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("day trip", "day trips", "liveaboards only", "only liveaboards", "just liveaboards", "what kind of trip", "what trips", "type of trip", "half day", "single day", "day tours")) {
+    return {
+      reply:
+        "Right now it's mainly multi-day liveaboards and dive trips across Komodo and Raja Ampat; day trips and wider activities grow as we add operators. What are your clients after? Company, market, and best email to start."
+    };
+  }
+
   if (has("catalogue", "catalog", "which operators", "what boats", "inventory")) {
     return {
       reply:
