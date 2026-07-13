@@ -282,7 +282,7 @@ export function buildBluePassOperatorReply(input: {
   ) {
     return {
       reply:
-        "A real page, inquiries over web and WhatsApp, and me pre-qualifying your guests so you talk to ready-to-book people, not tyre-kickers - plus a partner network sending you bookings and a conservation story on every trip. What do you run, and where?"
+        "A real page, web + WhatsApp inquiries, and me pre-qualifying your guests so you meet ready-to-book people, not tyre-kickers - plus a partner network sending bookings and a conservation story on every trip. What do you run, and where?"
     };
   }
 
@@ -560,7 +560,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("komodo")) {
     return {
       reply:
-        "Komodo it is - mantas at Karang Makassar, the drift at Castle Rock, dragons on Rinca between dives. Best September to April, mantas peaking December to February. A couple I'd shortlist for clients below - their dates and group size and I'll narrow it.",
+        "Komodo it is - mantas at Karang Makassar, the drift at Castle Rock, dragons on Rinca between dives. Best September-April, mantas peaking December-February. A couple to shortlist below - client dates and group size and I'll narrow it.",
       showCatalog: true,
       catalogDestination: "Komodo"
     };
@@ -669,7 +669,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("markup", "mark up", "add my own", "my own margin", "charge my client more", "add margin", "my margin", "resell at", "sell it for more", "add commission on top", "add my margin")) {
     return {
       reply:
-        "Straight answer: no - your client always pays the operator's own rate, never a rupiah more. Your earnings come from the operator's capped commission to BluePass, not from marking up your client. That's the whole promise. Company, market, and best email?"
+        "No - your client always pays the operator's own rate, never a rupiah more. Your earnings come from the operator's capped commission, not from marking up your client. Company, market, and best email?"
     };
   }
 
