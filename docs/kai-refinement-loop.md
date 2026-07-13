@@ -107,7 +107,11 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Robustness: fuzz test - both builders never throw, always non-empty <=320 reply on degenerate input (empty/emoji/600-char/punctuation).
 - [x] Guard (mirror): operator replies never leak partner-only framing (your cut/commission/per-partner/tracked link/handle) - 25-input battery.
-- [ ] Operator: "can guests find my trip cheaper elsewhere / will you undercut me?" -> no markup, your BluePass price is your own rate.
+- [x] Operator: "will you undercut me / cheaper elsewhere?" -> your own rate, no markup/discount; FIXED real collision ("cut" needle was swallowing "undercut").
+
+- [ ] Guard: collision-trap routing test - undercut!=18%, "how do i start"!=reviews("star"), "an app"!=other; protects fragile substring needles.
+- [ ] Operator: "can I talk to other operators / any references?" -> honest early cohort, no invented references (mirror partner social-proof).
+- [ ] Partner: "does my client pay any BluePass / booking fee?" -> no, client pays the operator-direct rate only, capture.
 
 ## Log
 - (iterations append here)
@@ -174,3 +178,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter61: operator whats-the-catch branch; 100 tests; backlog emptied -> self-critique added 3 items (maturing: robustness+mirror guard+1 gap).
 - iter62: fuzz robustness test (degenerate input, both builders safe), 101 green.
 - iter63: mirror framing guard (operator replies free of partner-only language), 102 green.
+- iter64: operator undercut branch; caught+fixed real "cut" substring collision; backlog emptied -> self-critique added 3, 103 green.

@@ -239,6 +239,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("undercut", "cheaper elsewhere", "cheaper somewhere", "find it cheaper", "discount my", "discount my rate", "beat my price", "lower my price", "drop my price", "lowest price")) {
+    return {
+      reply:
+        "Never - we don't mark your price up and we don't discount it without your say. Your BluePass price is your own rate; you control it, and no one undercuts you here. What do you run, and where?"
+    };
+  }
+
   if (has("18", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
       reply:
