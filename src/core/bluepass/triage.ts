@@ -279,6 +279,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement")) {
+    return {
+      reply:
+        "No - we never charge per lead or to be listed. No listing fee, no pay-per-inquiry; we only earn the capped 18% when a booking actually completes. Zero risk upfront. What do you run, and where?"
+    };
+  }
+
   if (has("set my own", "my own rate", "my own price", "who sets the price", "control the price", "set prices", "set the rate", "i set the")) {
     return {
       reply:

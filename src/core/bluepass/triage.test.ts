@@ -360,6 +360,11 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("confirms no pay-per-lead / listing fees (only earns on completed bookings)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "do you charge me per lead?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/never charge|no listing fee|when a booking/);
+  });
+
   it("differentiates vs an OTA honestly (not exclusive, operator-direct, keep 82%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "I already list on Booking.com, why BluePass?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|82%/);
