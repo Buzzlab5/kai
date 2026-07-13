@@ -220,6 +220,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).not.toMatch(/\byour commission is \d+%/i);
   });
 
+  it("shows partners the tracked-link dashboard for bookings/earnings", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "how do I track my bookings?", pitched: true });
+    expect(result.reply.toLowerCase()).toContain("dashboard");
+    expect(result.reply.toLowerCase()).toContain("email");
+  });
+
   it("tells partners there's no cost to join, funded from the operator side", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "is there any cost to join?", pitched: true });
     expect(result.reply.toLowerCase()).toContain("no cost");

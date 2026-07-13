@@ -384,6 +384,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("track my bookings", "track earnings", "see my earnings", "track commission", "my dashboard", "see my bookings", "how do i track", "reporting", "track clicks")) {
+    return {
+      reply:
+        "Your tracked link comes with a live dashboard - clicks, bookings, and earnings in one place, plus co-brandable impact stats. Want me to get your claim link moving? Company, market, and best email."
+    };
+  }
+
   if (has("cost to join", "sign-up fee", "signup fee", "any fee", "free to join", "how much to join", "upfront cost", "subscription", "monthly fee", "what's the catch")) {
     return {
       reply:
