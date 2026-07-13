@@ -102,7 +102,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "can I add my own markup for my client?" -> no, client always pays operator-direct rate; earnings come from operator side, not marking up.
 
 - [x] Guard: partner replies never leak operator-only "82%" framing (24-input battery) - verified clean.
-- [ ] Partner: "what support / help do I get setting up?" -> team helps you get live, capture.
+- [x] Partner: "what support / help do I get setting up?" -> team helps you claim/set up/get first bookings; founding partners closest hand.
 - [ ] Operator: "what is the catch / how do you make money?" -> only the capped 18% on completed bookings, nothing else, capture.
 
 ## Log
@@ -166,3 +166,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter57: operator no-pay-per-lead branch (earn only on completed bookings), 96 green.
 - iter58: partner no-markup branch (operator-direct rate always); backlog emptied -> self-critique added 3 items, 97 green.
 - iter59: partner-framing guard test (no 82% leak across 24 inputs), 98 green.
+- iter60: partner setup-support branch (team helps you get live), 99 green.

@@ -478,6 +478,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);
   });
 
+  it("reassures a partner on setup support (team helps you get live)", () => {
+    const result = buildBluePassPartnerReply({ latestMessage: "what support do I get setting up?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/team helps|not on your own|closest hand/);
+  });
+
   it("explains the partner referral mechanism (tracked link, auto-credited)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);

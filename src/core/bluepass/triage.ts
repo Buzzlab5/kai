@@ -727,6 +727,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("what support", "help me set up", "onboarding help", "hand-hold", "help getting started", "partner manager", "account manager", "training", "do you help me", "someone to help", "support do i get")) {
+    return {
+      reply:
+        "You're not on your own - the team helps you claim, set up your tracked link and assets, and get your first bookings moving. Founding partners get the closest hand. Want to start? Company, market, and best email."
+    };
+  }
+
   if (has("go live", "how soon can i", "how fast can i", "when can i start", "up and running", "start today", "how long to set up", "live immediately", "start right away")) {
     return {
       reply:
