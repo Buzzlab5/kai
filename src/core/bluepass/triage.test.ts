@@ -496,6 +496,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/curated marketplace|storefront/);
   });
 
+  it("lets an operator run their own promo/seasonal deal (they set rates, team wires it)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can I run a seasonal promo through you?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/your call|you set your rates|yours to run/);
+  });
+
+  it("keeps 'discount my rate' on the undercut branch, not the promo branch", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "will you discount my rate?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/never|no one undercuts|your own rate/);
+  });
+
   it("reassures an operator their price won't be undercut (their own rate, no markup or discount)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "will you undercut me or let guests find it cheaper elsewhere?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/never|your own rate|no one undercuts/);

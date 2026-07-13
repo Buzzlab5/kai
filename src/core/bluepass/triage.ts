@@ -300,6 +300,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("run a promo", "offer a discount", "can i discount", "run a discount", "seasonal", "special offer", "early bird", "package deal", "run a special", "promo code")) {
+    return {
+      reply:
+        "Your call - you set your rates, so any promo, seasonal deal, or early-bird is yours to run, and the team wires it into your page. Guests always see your price, never a markup. What do you run, and where?"
+    };
+  }
+
   if (has("set my own", "my own rate", "my own price", "who sets the price", "control the price", "set prices", "set the rate", "i set the")) {
     return {
       reply:
