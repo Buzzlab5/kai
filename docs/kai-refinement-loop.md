@@ -82,7 +82,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Partner: "which currencies / how are payouts converted?" -> paid in your currency, conversion set with team (before payout branch).
 
 - [x] Operator: "will you list my competitors / how do I stand out?" -> curated marketplace, your own storefront, stand out on trips/reviews/conservation.
-- [ ] Operator: "how do reviews / ratings work?" -> honest (review display set up with team, no invented specifics), capture.
+- [x] Operator: "how do reviews / ratings work?" -> real guests, shown on your page, details with team (+guard test vs "start").
 - [ ] Partner: "day trips or liveaboards only - what kind of trips?" -> honest scope: liveaboards + trips in live regions, more coming, capture.
 
 ## Log
@@ -131,3 +131,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter42: operator guest-payment branch (secure checkout, paid out); ordered before payout handoff, 79 green.
 - iter43: partner currency/conversion branch; backlog emptied -> self-critique added 3 items, 80 green.
 - iter44: operator competitor/differentiation branch (curated marketplace, own storefront), 81 green.
+- iter45: operator reviews/ratings branch (real guests, earned not bought); guard test "how do i start" not misrouted, 83 green.

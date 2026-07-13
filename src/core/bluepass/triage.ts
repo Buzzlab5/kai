@@ -403,6 +403,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("review", "reviews", "rating", "ratings", "testimonial", "guest feedback")) {
+    return {
+      reply:
+        "Reviews come from real guests after real trips and show right on your page - social proof you earn, not buy. The team sets the details up with you as you go live. What do you run, and where?"
+    };
+  }
+
   if (has("how do i sign up", "how do i start", "how do i get started", "get started", "how do i join", "how to sign up", "how to join", "how do i register", "how do i onboard", "next step", "sign me up")) {
     return {
       reply:

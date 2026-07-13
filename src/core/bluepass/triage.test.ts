@@ -296,6 +296,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/your currency|converted|with the team/);
   });
 
+  it("answers how reviews work honestly (real guests, shown on your page)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do reviews and ratings work?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/real guests|your page|earn, not buy/);
+  });
+
+  it("still routes 'how do i start' to the sign-up branch, not reviews", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "how do i start?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/three steps|claim/);
+  });
+
   it("answers a competitor/differentiation worry (curated marketplace, your own storefront)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "will you list my competitors right next to me?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/curated|your own storefront|stand out/);
