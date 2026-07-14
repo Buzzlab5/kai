@@ -141,6 +141,10 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Created reply.test.ts (4 tests, 14 reply variants): no-emoji + honest-% + trimmed/no-double-space + booking-truth guards over all 8 traveller builders. All pass (surface was already clean).
 - [x] Conciseness: tightened value (490->302) + Komodo season (326->~305) replies to <=320; added a data-independent conciseness guard in reply.test.ts.
 
+- [ ] reply.ts behavior coverage: missingFields lists the right fields; inquiryConfirmation asks "should I send this inquiry now?"; inquiryStatus reflects the status.
+- [ ] Booking-truth invariant: traveller replies that could imply a booking (confirmation, status, ready, selected-yacht) always reference operator confirmation - never confirmed-booking language.
+- [ ] Guard: extend no-emoji + honest-% guards to dispatch.ts (buildBluePassDispatchText, operator-facing) - confirm it is covered.
+
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
@@ -233,3 +237,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter85: scoped traveller surface (reply.ts, 8 builders, no test file); sharpened guard + conciseness items.
 - iter86: created reply.test.ts - traveller reply surface now guarded (no-emoji/honest-%/tidy/booking-truth), 125 green.
 - iter87: tightened traveller value + season replies to <=320; conciseness guard added, 126 green.
+- iter87b: traveller value/season tightened; refilled 3 items (reply behavior + booking-truth invariant + dispatch guard).
