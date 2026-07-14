@@ -162,7 +162,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] T13 (high): yacht-comparison reply trimmed rows to name/tier/region/guests + short tail; ~703 -> <=320 with 3 long-name yachts; guarded, booking-truth kept.
 - [x] T14 (med): yacht-overview dropped the raw productUrl clause + shortened tail; ~374 -> <=320 with charter+long name; guarded.
 - [x] T15 (med): selected-yacht prompt shows one price signal + shorter booking-truth; ~342 -> <=320; guarded. ALL 3 length overflows closed.
-- [ ] C6 (high): triage.ts add operator free/cost-to-list branch before the fee branch ("is it free","free to list","cost to list","how much to list") - keep 82% + capped-18%-on-completed-booking; test.
+- [x] C6 (high): added operator free/cost-to-list branch ("is it free","free to list","cost to list","how much to list") - free, keep 82%, capped 18% on completed bookings; guarded.
 - [ ] C7 (med): triage.ts add deposit/upfront-vs-full branch ("deposit","pay in full","upfront","balance") - honest operator-set policy, no invented %; test "is there a deposit?".
 - [ ] C8 (med): triage.ts add partner trip-price branch ("how much","price range","trip cost","pricing","quote for my client") - surface catalogue (showCatalog) + ask destination/dates; test.
 - [ ] C9 (low): triage.ts add operator setup-support branch mirroring the partner one ("help me set up","account manager","onboarding help") before the "set up my page" branch; test.
@@ -307,3 +307,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter99: FIXED T13 - yacht-comparison overflow (~703 -> <=320), length guard added, 137 green.
 - iter100: FIXED T14 - yacht-overview overflow (~374 -> <=320, dropped URL), length guard added, 138 green.
 - iter101: FIXED T15 - selected-yacht prompt overflow (~342 -> <=320); all 3 traveller length overflows fixed, 139 green.
+- iter102: ADDED C6 - operator free/cost-to-list branch, 140 green.

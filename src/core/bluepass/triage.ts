@@ -246,6 +246,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("is it free", "free to list", "free to join", "cost to list", "cost to join", "how much to list", "how much to join", "how much does it cost", "upfront cost", "any upfront", "sign-up fee", "signup fee")) {
+    return {
+      reply:
+        "Free to list - no sign-up fee, no subscription, no listing fee. You keep 82%; the capped 18% only kicks in when a booking completes, so there's zero upfront. What do you run, and where?"
+    };
+  }
+
   if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement", "listing fee")) {
     return {
       reply:

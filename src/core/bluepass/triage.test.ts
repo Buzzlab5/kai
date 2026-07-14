@@ -581,6 +581,14 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("answers an operator 'is it free to list?' branch (free, keep 82%, capped 18% on bookings)", () => {
+    for (const m of ["is it free to list?", "how much does it cost to list?", "any upfront cost to join?"]) {
+      const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
+      expect(r.reply.toLowerCase(), `weak answer for "${m}"`).toMatch(/free to list|no sign-up fee/);
+      expect(r.reply).toContain("82%");
+    }
+  });
+
   it("answers 'what's the catch / how do you make money' honestly (only capped 18% on bookings)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what's the catch? how do you make money?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/no catch|18%|earn when you earn/);
