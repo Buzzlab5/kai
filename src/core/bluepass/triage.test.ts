@@ -737,6 +737,14 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/team helps|not on your own|closest hand/);
   });
 
+  it("routes 'how do i share my link' to the refer-flow, not the claim branch", () => {
+    const refer = buildBluePassPartnerReply({ latestMessage: "how do i share my link with clients?", pitched: true });
+    expect(refer.reply.toLowerCase()).toMatch(/tracked link|credited|no codes to chase/);
+    // a genuine claim request still reaches the claim branch
+    const claim = buildBluePassPartnerReply({ latestMessage: "send me my claim link", pitched: true });
+    expect(claim.reply.toLowerCase()).toMatch(/claim link|one click|no password/);
+  });
+
   it("explains the partner referral mechanism (tracked link, auto-credited)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);

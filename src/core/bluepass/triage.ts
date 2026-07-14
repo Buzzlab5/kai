@@ -731,7 +731,7 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
-  if (has("claim", "link")) {
+  if (has("claim")) {
     return {
       reply:
         "If the team's reached out, you'll have a personal link - a page pre-built for your business, one click, no password. No link yet? Company, market, and best email - or partners@bluepass.co - and we'll mint one."
