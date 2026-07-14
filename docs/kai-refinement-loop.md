@@ -137,6 +137,10 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Coverage: default openers (pitched:false, unmatched) pinned to core pitch (82% / operator-direct / never marked up / Shop-agency-creator).
 - [x] Coverage: pitched:true generic fallback ("go deeper" / "whatever's most useful") differs from the default opener - both verticals.
 
+- [ ] Scope: identify the traveller-facing reply surface (pure builders) in src/core/bluepass; list them for guard extension.
+- [ ] Guard: extend no-emoji + honest-% + trimmed/no-double-space guards to the traveller-facing replies once scoped.
+- [ ] Conciseness: check traveller-flow replies against the <=320 WhatsApp ceiling; flag any over.
+
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
@@ -225,3 +229,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter82: final conciseness sweep (2 replies); all non-Bahasa replies <=240, 119 green.
 - iter83: default-opener coverage test (operator 82% + partner triage sub-options), 120 green.
 - iter84: pitched-fallback coverage test (distinct from default opener), 121 green.
+- iter84b: maintenance backlog cleared; extending charter to the traveller flow (scope+guards+conciseness).
