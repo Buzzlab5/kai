@@ -138,7 +138,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Coverage: pitched:true generic fallback ("go deeper" / "whatever's most useful") differs from the default opener - both verticals.
 
 - [x] Scope: traveller surface = reply.ts (8 pure builders: missingFields, inquiryReady, inquiryConfirmation, inquiryStatus, yachtOverview, value, season, yachtComparison). No reply.test.ts exists (unguarded). Only "5%" appears; no emojis; buildBluePassValueReply ~500 chars.
-- [ ] Create reply.test.ts: no-emoji + honest-% (only 5%) + trimmed guards over the fixed-template + realistic-input reply builders (missingFields, inquiryReady/Confirmation/Status, yachtOverview, value, season, yachtComparison).
+- [x] Created reply.test.ts (4 tests, 14 reply variants): no-emoji + honest-% + trimmed/no-double-space + booking-truth guards over all 8 traveller builders. All pass (surface was already clean).
 - [ ] Conciseness: buildBluePassValueReply is ~500 chars - assess whether the traveller web flow needs the 320 ceiling; if so, tighten value/season (data-independent) replies.
 
 ## Log
@@ -231,3 +231,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter84: pitched-fallback coverage test (distinct from default opener), 121 green.
 - iter84b: maintenance backlog cleared; extending charter to the traveller flow (scope+guards+conciseness).
 - iter85: scoped traveller surface (reply.ts, 8 builders, no test file); sharpened guard + conciseness items.
+- iter86: created reply.test.ts - traveller reply surface now guarded (no-emoji/honest-%/tidy/booking-truth), 125 green.
