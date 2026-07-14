@@ -21,4 +21,22 @@ describe("buildBluePassDispatchText", () => {
     expect(text).toContain("operator confirmation required");
     expect(text).not.toMatch(/confirmed booking/i);
   });
+
+  it("keeps the dispatch template clean: no emoji, only honest percentages, operator-truth", () => {
+    const text = buildBluePassDispatchText({
+      inquiryId: "inquiry_2",
+      selectedYachtName: "Sea Dragon",
+      travellerName: "Tony",
+      travellerPhone: "+62812",
+      destination: "Komodo",
+      dateWindow: "March",
+      guests: 6,
+      budget: "USD 8000"
+    });
+    expect(/\p{Extended_Pictographic}/u.test(text), `emoji in dispatch: ${text}`).toBe(false);
+    for (const pct of text.match(/(\d+)%/g) ?? []) {
+      expect(["3", "5", "18", "82"].includes(pct.replace("%", "")), `bad % in dispatch: ${text}`).toBe(true);
+    }
+    expect(text.toLowerCase()).toContain("operator confirmation required before booking");
+  });
 });

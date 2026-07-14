@@ -143,7 +143,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] reply.ts behavior coverage: missing-fields names needed fields; confirmation asks "should I send this inquiry now?"; status reflects normalized status + id.
 - [x] Booking-truth invariant: booking-implying traveller replies always reference the operator and never assert a confirmed booking (allows the negated disclaimer).
-- [ ] Guard: extend no-emoji + honest-% guards to dispatch.ts (buildBluePassDispatchText, operator-facing) - confirm it is covered.
+- [x] Guard: dispatch template (buildBluePassDispatchText) now guarded for no-emoji + honest-% + operator-confirmation-truth.
 
 ## Log
 - (iterations append here)
@@ -240,3 +240,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter87b: traveller value/season tightened; refilled 3 items (reply behavior + booking-truth invariant + dispatch guard).
 - iter88: reply.ts behavior coverage (missing-fields/confirmation/status), 129 green.
 - iter89: booking-truth invariant guard on traveller replies (operator-referenced, never "booked"), 130 green.
+- iter90: dispatch-template guard (no-emoji/honest-%/operator-truth), 131 green.
