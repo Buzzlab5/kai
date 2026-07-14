@@ -149,7 +149,9 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] MILESTONE assessed: messaging charter genuinely complete; logic modules (intent/catalog/lead/ledger) already have their own tests, so further loop work is marginal. Recommendation surfaced to user: wrap toward a PR to Inov. Loop continues per standing instruction -> handoff-prep.
 
 - [x] Handoff-prep: PR-ready summary appended to loop doc (101 commits, ~2,740 insertions, 7 files, tests 39->131, 11 guards, 2 bugs fixed).
-- [ ] Handoff-prep: confirm working tree is clean and the branch is a linear series of small green commits (nothing uncommitted).
+- [x] Handoff-prep: working tree clean; 131 green; loop commits linear (2 merges = pre-loop combined-branch setup). Branch is PR-ready.
+
+- [ ] WATCHDOG (standing): each tick, run `npx vitest run src/core/bluepass`; if green (expected 131), no change needed - just re-arm. Only act if red or the user redirects. Charter is COMPLETE + PR-ready; no manufactured work.
 
 ## Log
 - (iterations append here)
@@ -278,3 +280,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 
 **Numbers honesty:** operators keep 82%; 18% capped = 5 conservation / 5 partner / 3 payments /
 5 platform; guest price never marked up; traveller 5% to conservation; no invented commission %.
+- iter93: handoff-prep complete; branch PR-ready + clean; loop -> low-frequency regression watchdog (no more manufactured items).
