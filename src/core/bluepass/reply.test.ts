@@ -74,6 +74,23 @@ describe("bluepass traveller replies (reply.ts)", () => {
     expect(buildBluePassSeasonReply("Raja Ampat").length).toBeLessThanOrEqual(320);
   });
 
+  it("missing-fields reply names the fields it still needs", () => {
+    const reply = buildBluePassMissingFieldsReply({ missingFields: ["destination", "travellerEmail"] as any });
+    expect(reply.toLowerCase()).toContain("destination");
+    expect(reply.toLowerCase()).toContain("email");
+  });
+
+  it("confirmation reply asks the traveller to confirm before sending", () => {
+    const reply = buildBluePassInquiryConfirmationReply({ selectedYachtName: "Sea Dragon", destination: "Komodo" });
+    expect(reply.toLowerCase()).toContain("should i send this inquiry now?");
+  });
+
+  it("status reply reflects the normalized inquiry status", () => {
+    const reply = buildBluePassInquiryStatusReply({ inquiryId: "BP-9001", status: "OPERATOR_PENDING" });
+    expect(reply).toContain("BP-9001");
+    expect(reply.toLowerCase()).toContain("operator pending");
+  });
+
   it("keeps booking-truth honest (no confirmed-booking language before operator confirms)", () => {
     const ready = buildBluePassInquiryReadyReply({ inquiryId: "BP-2001", dispatchQueued: true });
     expect(ready.toLowerCase()).toContain("not a confirmed booking");
