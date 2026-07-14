@@ -159,7 +159,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] R3 (med): moved client-fee branch above cost-to-join so "any fee to my client" reaches client-fee; generic "any fee to join" still hits cost-to-join; guarded.
 - [x] R4 (med): anchored bare "apart from" to "apart from komodo/raja/indonesia" so filler "apart from that..." reaches its real branch; guarded.
 - [x] R5 (low): dropped bare "link" from the claim branch so "how do i share my link" reaches refer-flow; "claim link" still hits claim; guarded. ALL 5 routing collisions closed.
-- [ ] T13 (high): reply.ts buildBluePassYachtComparisonReply overflows 320 (~703 with 3 real yachts) - trim rows to name/tier/region/guests + drop verbose tail; add <=320 assertion.
+- [x] T13 (high): yacht-comparison reply trimmed rows to name/tier/region/guests + short tail; ~703 -> <=320 with 3 long-name yachts; guarded, booking-truth kept.
 - [ ] T14 (med): reply.ts buildBluePassYachtOverviewReply overflows 320 (~374 with charter+URL) - drop productUrl/charter clause; add <=320 assertion.
 - [ ] T15 (med): reply.ts buildSelectedYachtMissingFieldsReply (dates/guests) overflows 320 (~342) - show one price signal / shorten booking-truth; add <=320 assertion.
 - [ ] C6 (high): triage.ts add operator free/cost-to-list branch before the fee branch ("is it free","free to list","cost to list","how much to list") - keep 82% + capped-18%-on-completed-booking; test.
@@ -304,3 +304,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter96: FIXED R3 - client-fee branch reordered above cost-to-join, "any fee to my client" no longer swallowed, 134 green.
 - iter97: FIXED R4 - anchored "apart from" needle, filler no longer misrouted to regions, 135 green.
 - iter98: FIXED R5 - dropped bare "link" from claim branch; all 5 audit routing collisions now fixed, 136 green.
+- iter99: FIXED T13 - yacht-comparison overflow (~703 -> <=320), length guard added, 137 green.

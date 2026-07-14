@@ -101,14 +101,10 @@ export function buildBluePassSeasonReply(destination: string) {
 export function buildBluePassYachtComparisonReply(yachts: BluePassYachtSummary[]) {
   const rows = yachts
     .slice(0, 3)
-    .map((yacht) => {
-      const charter = yacht.charterPriceSignal ? `; charter signal ${yacht.charterPriceSignal}` : "";
-
-      return `${yacht.name}: ${yacht.tier} in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins, ${yacht.priceSignal}${charter}.`;
-    })
+    .map((yacht) => `${yacht.name}: ${yacht.tier}, ${yacht.region}, ${yacht.maxGuests} guests.`)
     .join(" ");
 
-  return `${rows} The practical difference is route and fit: Komodo yachts suit Labuan Bajo, dramatic islands, and manta/liveaboard days; Raja Ampat yachts suit a more remote reef expedition. I can narrow this by dates, guest count, diving versus cruising style, and budget before preparing an operator inquiry.`;
+  return `${rows} Route and fit differ - Komodo for Labuan Bajo and mantas, Raja Ampat a remote reef. Narrow by dates and guests before an operator inquiry?`;
 }
 
 function formatFieldList(fields: BluePassRequiredInquiryField[]) {

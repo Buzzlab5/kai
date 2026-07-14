@@ -68,6 +68,17 @@ describe("bluepass traveller replies (reply.ts)", () => {
     }
   });
 
+  it("keeps the yacht-comparison reply <=320 with 3 real yachts (incl. long names)", () => {
+    const three = [
+      { ...yacht, name: "Alila Purnama Phinisi" },
+      { ...rajaYacht, name: "Damai II Liveaboard" },
+      { ...yacht, name: "Ombak Putih Expedition", region: "Raja Ampat" },
+    ] as any;
+    const reply = buildBluePassYachtComparisonReply(three);
+    expect(reply.length, `comparison too long: ${reply.length}`).toBeLessThanOrEqual(320);
+    expect(reply.toLowerCase()).toContain("operator inquiry");
+  });
+
   it("keeps the data-independent replies concise (<=320 chars)", () => {
     expect(buildBluePassValueReply().length).toBeLessThanOrEqual(320);
     expect(buildBluePassSeasonReply("Komodo").length).toBeLessThanOrEqual(320);
