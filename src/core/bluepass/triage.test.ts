@@ -818,6 +818,14 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/vetted|real|screened/);
   });
 
+  it("does not let filler 'apart from that' misroute to the regions branch", () => {
+    const commission = buildBluePassPartnerReply({ latestMessage: "apart from that, how do commissions work?", pitched: true });
+    expect(commission.reply.toLowerCase()).toMatch(/capped commission|per-partner|founding members/);
+    // a genuine destination question still reaches the regions branch
+    const region = buildBluePassPartnerReply({ latestMessage: "apart from komodo, where else do you cover?", pitched: true });
+    expect(region.reply.toLowerCase()).toMatch(/indonesia-first|komodo and raja/);
+  });
+
   it("answers a partner regions question honestly (Indonesia-first, two live)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "which destinations do you cover?", pitched: true });
     expect(result.reply).toMatch(/Indonesia/i);

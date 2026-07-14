@@ -536,7 +536,7 @@ export function buildBluePassPartnerReply(input: {
     has(
       "which region", "which destination", "what destination", "what region",
       "which regions", "which destinations", "where do you cover", "destinations do you",
-      "other destination", "besides komodo", "apart from", "maldives", "philippines",
+      "other destination", "besides komodo", "apart from komodo", "apart from raja", "apart from indonesia", "maldives", "philippines",
       "thailand", "fiji", "egypt",
     )
   ) {

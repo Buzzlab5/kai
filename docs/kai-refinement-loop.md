@@ -157,7 +157,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] R1 (high): "18" -> "18%" in the fee-breakdown branch; added "boats"/"list my boat" to the fleet branch so "18 boats" routes correctly; guarded by test.
 - [x] R2 (med): moved the per-lead branch above the 18% branch (+"listing fee" needle) so "lead fee"/"listing fee" reach the no-per-lead answer; generic "fee" still hits 18% breakdown; guarded.
 - [x] R3 (med): moved client-fee branch above cost-to-join so "any fee to my client" reaches client-fee; generic "any fee to join" still hits cost-to-join; guarded.
-- [ ] R4 (med): triage.ts ~L539 partner region branch bare "apart from" misroutes fillers - anchor to "apart from komodo/raja/indonesia"; test "apart from that, how do commissions work?".
+- [x] R4 (med): anchored bare "apart from" to "apart from komodo/raja/indonesia" so filler "apart from that..." reaches its real branch; guarded.
 - [ ] R5 (low): triage.ts ~L733 partner claim branch bare "link" swallows refer-flow "how do i share my link" - drop bare "link" or reorder; test that phrasing reaches referral-flow.
 - [ ] T13 (high): reply.ts buildBluePassYachtComparisonReply overflows 320 (~703 with 3 real yachts) - trim rows to name/tier/region/guests + drop verbose tail; add <=320 assertion.
 - [ ] T14 (med): reply.ts buildBluePassYachtOverviewReply overflows 320 (~374 with charter+URL) - drop productUrl/charter clause; add <=320 assertion.
@@ -302,3 +302,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter94: FIXED R1 - bare "18" misroute ("18"->"18%") + fleet "boats" needle; 132 green.
 - iter95: FIXED R2 - per-lead branch reordered above 18% branch, "lead fee" no longer swallowed, 133 green.
 - iter96: FIXED R3 - client-fee branch reordered above cost-to-join, "any fee to my client" no longer swallowed, 134 green.
+- iter97: FIXED R4 - anchored "apart from" needle, filler no longer misrouted to regions, 135 green.
