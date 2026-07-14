@@ -68,6 +68,13 @@ describe("bluepass traveller replies (reply.ts)", () => {
     }
   });
 
+  it("keeps the selected-yacht dates/guests prompt <=320 with a full yacht (price + charter)", () => {
+    const y = { ...yacht, name: "Alila Purnama Phinisi Expedition", priceSignal: "from IDR 15,000,000/night" } as any;
+    const reply = buildBluePassMissingFieldsReply({ selectedYacht: y, missingFields: ["dateWindow", "guests"] as any });
+    expect(reply.length, `selected-yacht prompt too long: ${reply.length}`).toBeLessThanOrEqual(320);
+    expect(reply.toLowerCase()).toContain("operator");
+  });
+
   it("keeps the yacht-overview reply <=320 with a charter signal + long name", () => {
     const y = { ...yacht, name: "Alila Purnama Phinisi Expedition" } as any;
     const reply = buildBluePassYachtOverviewReply(y);

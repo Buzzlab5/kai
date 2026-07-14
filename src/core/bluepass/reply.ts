@@ -118,17 +118,15 @@ function buildSelectedYachtMissingFieldsReply(input: {
   missingFields: BluePassRequiredInquiryField[];
 }) {
   const yacht = input.yacht;
-  const priceParts = [
-    yacht.priceSignal && yacht.priceSignal !== "Quote on request" ? yacht.priceSignal : null,
-    yacht.charterPriceSignal
-  ].filter((value): value is string => Boolean(value));
-  const priceText = priceParts.length > 0 ? ` Price signal: ${priceParts.join(" or ")}.` : "";
+  const primaryPrice =
+    yacht.priceSignal && yacht.priceSignal !== "Quote on request" ? yacht.priceSignal : yacht.charterPriceSignal;
+  const priceText = primaryPrice ? ` Price signal: ${primaryPrice}.` : "";
   const cabinText = [yacht.cabins ? `${yacht.cabins} cabins` : null, yacht.maxGuests ? `up to ${yacht.maxGuests} guests` : null]
     .filter(Boolean)
     .join(", ");
   const intro = `Great choice - ${yacht.name} is ${articleFor(yacht.tier)}${yacht.tier ? ` ${yacht.tier}` : ""} phinisi in ${yacht.region}${cabinText ? ` (${cabinText})` : ""}.${priceText}`;
   const bookingTruth =
-    "I can't check the live calendar or take payment myself here, but I can prepare this for the operator to confirm availability and pricing.";
+    "I can't check live availability or take payment here, but I can prepare this for the operator to confirm.";
 
   if (input.missingFields.includes("dateWindow") || input.missingFields.includes("guests")) {
     const fields = [
