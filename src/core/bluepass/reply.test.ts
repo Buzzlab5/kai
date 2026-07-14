@@ -91,6 +91,23 @@ describe("bluepass traveller replies (reply.ts)", () => {
     expect(reply.toLowerCase()).toContain("operator pending");
   });
 
+  it("booking-implying replies reference the operator and never assert a confirmed booking", () => {
+    // Affirmative "it's booked" language - NOT the negated "not a confirmed booking" disclaimer.
+    const AFFIRMS_BOOKED = /booking is confirmed|booking confirmed[.!]|you're booked|you are booked|reservation confirmed|confirmed your booking/i;
+    const bookingImplying = [
+      buildBluePassInquiryReadyReply({ inquiryId: "BP-3001", dispatchQueued: true }),
+      buildBluePassInquiryReadyReply({ inquiryId: "BP-3002", dispatchFailed: true, dispatchQueued: false }),
+      buildBluePassInquiryConfirmationReply({ selectedYachtName: "Sea Dragon", destination: "Komodo", guests: 6 }),
+      buildBluePassInquiryStatusReply({ inquiryId: "BP-3003", status: "OPERATOR_PENDING" }),
+      buildBluePassMissingFieldsReply({ selectedYacht: yacht, missingFields: ["dateWindow"] as any }),
+      buildBluePassYachtOverviewReply(yacht)
+    ];
+    for (const reply of bookingImplying) {
+      expect(reply.toLowerCase(), `no operator reference in: ${reply}`).toContain("operator");
+      expect(AFFIRMS_BOOKED.test(reply), `asserts a confirmed booking: ${reply}`).toBe(false);
+    }
+  });
+
   it("keeps booking-truth honest (no confirmed-booking language before operator confirms)", () => {
     const ready = buildBluePassInquiryReadyReply({ inquiryId: "BP-2001", dispatchQueued: true });
     expect(ready.toLowerCase()).toContain("not a confirmed booking");
