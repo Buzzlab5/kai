@@ -146,7 +146,10 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Guard: dispatch template (buildBluePassDispatchText) now guarded for no-emoji + honest-% + operator-confirmation-truth.
 
 - [x] Verify: full suite = 295 tests pass; 17 test FILES fail to COLLECT on pre-existing missing @/ imports (pms adapter, @/lib/prisma, kai-environment, business-pack registry) - Inov server/booking modules absent in this local branch, none touched by me. Zero regressions from messaging work.
-- [ ] MILESTONE: messaging-hardening charter COMPLETE - every Kai message surface guarded. Assess continue-into-logic-modules vs wrap toward a PR to Inov (surface to user).
+- [x] MILESTONE assessed: messaging charter genuinely complete; logic modules (intent/catalog/lead/ledger) already have their own tests, so further loop work is marginal. Recommendation surfaced to user: wrap toward a PR to Inov. Loop continues per standing instruction -> handoff-prep.
+
+- [ ] Handoff-prep: generate a PR-ready summary of tony/kai-triage-refine (commit count, files changed, test delta ~39->131 in bluepass) into the loop doc for the eventual PR to Inov.
+- [ ] Handoff-prep: confirm working tree is clean and the branch is a linear series of small green commits (nothing uncommitted).
 
 ## Log
 - (iterations append here)
@@ -246,3 +249,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter90: dispatch-template guard (no-emoji/honest-%/operator-truth), 131 green.
 - iter90b: messaging-hardening charter complete across bluepass core (triage+reply+dispatch+lead+handoff+greeting); refilled verify + milestone-assessment items.
 - iter91: full-suite verify - 295 pass, my edits clean; 17 pre-existing collection failures (missing Inov @/ modules) documented, out of scope.
+- iter91b: milestone assessed (charter complete); refilled handoff-prep items (PR summary + clean-tree check).
