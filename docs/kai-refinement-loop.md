@@ -163,7 +163,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] T14 (med): yacht-overview dropped the raw productUrl clause + shortened tail; ~374 -> <=320 with charter+long name; guarded.
 - [x] T15 (med): selected-yacht prompt shows one price signal + shorter booking-truth; ~342 -> <=320; guarded. ALL 3 length overflows closed.
 - [x] C6 (high): added operator free/cost-to-list branch ("is it free","free to list","cost to list","how much to list") - free, keep 82%, capped 18% on completed bookings; guarded.
-- [ ] C7 (med): triage.ts add deposit/upfront-vs-full branch ("deposit","pay in full","upfront","balance") - honest operator-set policy, no invented %; test "is there a deposit?".
+- [x] C7 (med): added deposit/upfront-vs-full branch (above guest-payment) - operator sets terms, shown at checkout, no invented %; guarded.
 - [ ] C8 (med): triage.ts add partner trip-price branch ("how much","price range","trip cost","pricing","quote for my client") - surface catalogue (showCatalog) + ask destination/dates; test.
 - [ ] C9 (low): triage.ts add operator setup-support branch mirroring the partner one ("help me set up","account manager","onboarding help") before the "set up my page" branch; test.
 - [ ] Q10 (med): dispatch.test.ts honest-% guard is vacuous (dispatch has no %) - feed an input carrying "%" (budget "10% deposit") + assert the template literal has no "%".
@@ -308,3 +308,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter100: FIXED T14 - yacht-overview overflow (~374 -> <=320, dropped URL), length guard added, 138 green.
 - iter101: FIXED T15 - selected-yacht prompt overflow (~342 -> <=320); all 3 traveller length overflows fixed, 139 green.
 - iter102: ADDED C6 - operator free/cost-to-list branch, 140 green.
+- iter103: ADDED C7 - deposit/balance branch (honest, no invented %, above guest-payment), 141 green.

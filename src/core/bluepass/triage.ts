@@ -452,6 +452,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("deposit", "pay in full", "full amount", "balance", "pay the rest", "instalment", "installment", "part payment")) {
+    return {
+      reply:
+        "You set your deposit and balance terms - they show at checkout so guests book knowing the split, and the team wires them in. I won't quote a figure I can't stand behind. Where do you operate, and what do you run?"
+    };
+  }
+
   if (has("how do guests pay", "pay by card", "payment method", "guests pay", "how do they pay", "do they pay", "card payment", "credit card", "how is payment taken")) {
     return {
       reply:

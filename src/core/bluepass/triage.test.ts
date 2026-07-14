@@ -778,6 +778,12 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/fleet|one page|each/);
   });
 
+  it("answers a deposit question honestly (operator sets terms, no invented %)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "is there a deposit or do guests pay in full?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/deposit and balance|you set your|at checkout/);
+    expect(result.reply).not.toMatch(/\d+\s?%/);
+  });
+
   it("tells an operator their cancellation/refund terms are their own", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what's the refund policy if a guest cancels?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/yours|you set/);
