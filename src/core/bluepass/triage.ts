@@ -716,6 +716,14 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("trip cost", "trip price", "how much are the trips", "how much do the trips", "price range", "what do the trips cost", "pricing for", "prices for", "quote for my client", "how much for my client")) {
+    return {
+      reply:
+        "Prices vary by boat, season, and length - I'll show you the live catalogue with price signals, then narrow by destination and your client's dates. A taste below - Komodo or Raja Ampat to start?",
+      showCatalog: true
+    };
+  }
+
   if (has("day trip", "day trips", "liveaboards only", "only liveaboards", "just liveaboards", "what kind of trip", "what trips", "type of trip", "half day", "single day", "day tours")) {
     return {
       reply:

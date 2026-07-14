@@ -684,6 +684,15 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/karang makassar|castle rock|dragons/);
   });
 
+  it("answers a partner trip-price question by surfacing the catalogue (no invented %)", () => {
+    for (const m of ["how much do the trips cost?", "what's the price range for my clients?", "quote for my client"]) {
+      const r = buildBluePassPartnerReply({ latestMessage: m, pitched: true });
+      expect(r.reply.toLowerCase(), `weak price answer for "${m}"`).toMatch(/price|catalogue/);
+      expect(r.showCatalog, `no catalogue for "${m}"`).toBe(true);
+      expect(r.reply).not.toMatch(/\d+\s?%/);
+    }
+  });
+
   it("answers a partner trip-type/scope question honestly (liveaboards + dive trips now)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "do you have day trips or liveaboards only?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/liveaboards|day trips|komodo/);
