@@ -350,6 +350,18 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("uses a distinct 'go deeper' fallback when already pitched (not the full opener again)", () => {
+    const msg = "ok sounds good";
+    const opDefault = buildBluePassOperatorReply({ latestMessage: msg, pitched: false }).reply;
+    const opPitched = buildBluePassOperatorReply({ latestMessage: msg, pitched: true }).reply;
+    expect(opPitched).not.toBe(opDefault);
+    expect(opPitched.toLowerCase()).toMatch(/go deeper/);
+    const paDefault = buildBluePassPartnerReply({ latestMessage: msg, pitched: false }).reply;
+    const paPitched = buildBluePassPartnerReply({ latestMessage: msg, pitched: true }).reply;
+    expect(paPitched).not.toBe(paDefault);
+    expect(paPitched.toLowerCase()).toMatch(/whatever's most useful/);
+  });
+
   it("pins the default openers (unmatched, pitched:false) to the core honest pitch", () => {
     const op = buildBluePassOperatorReply({ latestMessage: "ok sounds good", pitched: false }).reply;
     expect(op).toContain("82%");

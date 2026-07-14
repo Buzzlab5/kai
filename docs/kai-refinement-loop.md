@@ -135,7 +135,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Maintenance: final conciseness sweep - payout (242->~205) + commission (253->~235); no non-Bahasa reply now exceeds 240 (Bahasa opener left as-is).
 - [x] Coverage: default openers (pitched:false, unmatched) pinned to core pitch (82% / operator-direct / never marked up / Shop-agency-creator).
-- [ ] Coverage: assert the pitched:true generic fallback differs from the default opener (protects the "go deeper" behaviour).
+- [x] Coverage: pitched:true generic fallback ("go deeper" / "whatever's most useful") differs from the default opener - both verticals.
 
 ## Log
 - (iterations append here)
@@ -224,3 +224,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter81b: CONVERGED on triage branches; loop -> maintenance mode; refilled 3 low-risk polish/coverage items.
 - iter82: final conciseness sweep (2 replies); all non-Bahasa replies <=240, 119 green.
 - iter83: default-opener coverage test (operator 82% + partner triage sub-options), 120 green.
+- iter84: pitched-fallback coverage test (distinct from default opener), 121 green.
