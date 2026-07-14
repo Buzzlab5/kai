@@ -246,6 +246,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement", "listing fee")) {
+    return {
+      reply:
+        "No - we never charge per lead or to be listed. No listing fee, no pay-per-inquiry; we only earn the capped 18% when a booking actually completes. Zero risk upfront. What do you run, and where?"
+    };
+  }
+
   if (has("18%", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
       reply:
@@ -290,13 +297,6 @@ export function buildBluePassOperatorReply(input: {
     return {
       reply:
         "No catch - we make the capped 18% only when a booking completes, nothing else. No listing fees, no per-lead charges, no selling your data. We earn when you earn. What do you run, and where?"
-    };
-  }
-
-  if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement")) {
-    return {
-      reply:
-        "No - we never charge per lead or to be listed. No listing fee, no pay-per-inquiry; we only earn the capped 18% when a booking actually completes. Zero risk upfront. What do you run, and where?"
     };
   }
 

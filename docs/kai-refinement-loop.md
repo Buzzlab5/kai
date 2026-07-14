@@ -155,7 +155,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 ## Audit backlog (adversarial audit wf_c3fd5587, 15 confirmed findings)
 - [x] R1 (high): "18" -> "18%" in the fee-breakdown branch; added "boats"/"list my boat" to the fleet branch so "18 boats" routes correctly; guarded by test.
-- [ ] R2 (med): triage.ts ~L249 fix bare "fee" swallowing "lead fee" - move the per-lead branch (~L296) above the 18% branch (or drop bare "fee"); test "is there a lead fee?".
+- [x] R2 (med): moved the per-lead branch above the 18% branch (+"listing fee" needle) so "lead fee"/"listing fee" reach the no-per-lead answer; generic "fee" still hits 18% breakdown; guarded.
 - [ ] R3 (med): triage.ts ~L634 partner cost-to-join "any fee" swallows client-fee branch ("any fee to my client" dead) - narrow to "any fee to join" or reorder; test "is there any fee to my client?".
 - [ ] R4 (med): triage.ts ~L539 partner region branch bare "apart from" misroutes fillers - anchor to "apart from komodo/raja/indonesia"; test "apart from that, how do commissions work?".
 - [ ] R5 (low): triage.ts ~L733 partner claim branch bare "link" swallows refer-flow "how do i share my link" - drop bare "link" or reorder; test that phrasing reaches referral-flow.
@@ -300,3 +300,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter93: handoff-prep complete; branch PR-ready + clean; loop -> low-frequency regression watchdog (no more manufactured items).
 - iter94: adversarial audit (55 agents) -> 15 confirmed bugs written to Audit backlog; fixing R1 (bare "18" misroute) first.
 - iter94: FIXED R1 - bare "18" misroute ("18"->"18%") + fleet "boats" needle; 132 green.
+- iter95: FIXED R2 - per-lead branch reordered above 18% branch, "lead fee" no longer swallowed, 133 green.

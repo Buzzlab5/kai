@@ -586,6 +586,16 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/no catch|18%|earn when you earn/);
   });
 
+  it("routes 'lead fee' phrasing to the no-per-lead answer, not the 18% breakdown", () => {
+    for (const m of ["is there a lead fee?", "do you charge a per-lead fee?", "is there a listing fee?"]) {
+      const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
+      expect(r.reply.toLowerCase(), `misrouted "${m}"`).toMatch(/never charge per lead|no listing fee/);
+    }
+    // a generic fee question still reaches the 18% breakdown
+    const generic = buildBluePassOperatorReply({ latestMessage: "what's your fee?", pitched: true });
+    expect(generic.reply).toContain("5% conservation in your waters");
+  });
+
   it("confirms no pay-per-lead / listing fees (only earns on completed bookings)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "do you charge me per lead?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/never charge|no listing fee|when a booking/);
