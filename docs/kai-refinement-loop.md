@@ -148,7 +148,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Verify: full suite = 295 tests pass; 17 test FILES fail to COLLECT on pre-existing missing @/ imports (pms adapter, @/lib/prisma, kai-environment, business-pack registry) - Inov server/booking modules absent in this local branch, none touched by me. Zero regressions from messaging work.
 - [x] MILESTONE assessed: messaging charter genuinely complete; logic modules (intent/catalog/lead/ledger) already have their own tests, so further loop work is marginal. Recommendation surfaced to user: wrap toward a PR to Inov. Loop continues per standing instruction -> handoff-prep.
 
-- [ ] Handoff-prep: generate a PR-ready summary of tony/kai-triage-refine (commit count, files changed, test delta ~39->131 in bluepass) into the loop doc for the eventual PR to Inov.
+- [x] Handoff-prep: PR-ready summary appended to loop doc (101 commits, ~2,740 insertions, 7 files, tests 39->131, 11 guards, 2 bugs fixed).
 - [ ] Handoff-prep: confirm working tree is clean and the branch is a linear series of small green commits (nothing uncommitted).
 
 ## Log
@@ -250,3 +250,31 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter90b: messaging-hardening charter complete across bluepass core (triage+reply+dispatch+lead+handoff+greeting); refilled verify + milestone-assessment items.
 - iter91: full-suite verify - 295 pass, my edits clean; 17 pre-existing collection failures (missing Inov @/ modules) documented, out of scope.
 - iter91b: milestone assessed (charter complete); refilled handoff-prep items (PR summary + clean-tree check).
+- iter92: PR-ready branch summary written for the eventual PR to Inov, 131 green.
+
+## PR-ready summary (tony/kai-triage-refine -> Inov master)
+
+**What:** Autonomous refinement loop hardening Kai's BluePass persona triage + onboarding
+messaging into a deterministic, honest, WhatsApp-concise decision tree with an invariant
+test harness.
+
+**Scope (loop-owned files, ~2,740 insertions, 101 commits):**
+- `src/core/bluepass/triage.ts` (+813) — 60+ operator/partner FAQ branches layered ahead of
+  the pitched/default fallbacks; first-match-wins; Bahasa opener; human-handoff topics.
+- `src/core/bluepass/triage.test.ts` (+845) — persona track-lock + per-branch + invariant tests.
+- `src/core/bluepass/reply.test.ts` (NEW, +115) — traveller reply builders were untested; now guarded.
+- `src/core/bluepass/reply.ts` — value/season replies tightened to <=320 (booking-truth + 5% intact).
+- `src/core/bluepass/dispatch.test.ts` (+18) — operator dispatch template guarded.
+- `docs/kai-triage-and-decision-tree.md` (+695), `docs/kai-refinement-loop.md` (+252).
+
+**Tests:** src/core/bluepass suite 39 -> 131 green. Full repo suite: 295 pass; 17 files fail to
+COLLECT on pre-existing missing `@/` server/booking modules (not touched here).
+
+**Invariant guards (enforce the house rules):** no-dead-end CTA · <=320 concise · track-lock
+first-signal-wins · persona-framing both directions · numbers-integrity (only {3,5,18,82}%) ·
+no-emoji · whitespace-tidiness · substring-collision routing · showCatalog only on destinations ·
+booking-truth (never assert a confirmed booking) · fuzz-safety. Two real routing bugs were caught
+and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
+
+**Numbers honesty:** operators keep 82%; 18% capped = 5 conservation / 5 partner / 3 payments /
+5 platform; guest price never marked up; traveller 5% to conservation; no invented commission %.
