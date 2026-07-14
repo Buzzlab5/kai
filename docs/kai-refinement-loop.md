@@ -139,7 +139,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 
 - [x] Scope: traveller surface = reply.ts (8 pure builders: missingFields, inquiryReady, inquiryConfirmation, inquiryStatus, yachtOverview, value, season, yachtComparison). No reply.test.ts exists (unguarded). Only "5%" appears; no emojis; buildBluePassValueReply ~500 chars.
 - [x] Created reply.test.ts (4 tests, 14 reply variants): no-emoji + honest-% + trimmed/no-double-space + booking-truth guards over all 8 traveller builders. All pass (surface was already clean).
-- [ ] Conciseness: buildBluePassValueReply is ~500 chars - assess whether the traveller web flow needs the 320 ceiling; if so, tighten value/season (data-independent) replies.
+- [x] Conciseness: tightened value (490->302) + Komodo season (326->~305) replies to <=320; added a data-independent conciseness guard in reply.test.ts.
 
 ## Log
 - (iterations append here)
@@ -232,3 +232,4 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - iter84b: maintenance backlog cleared; extending charter to the traveller flow (scope+guards+conciseness).
 - iter85: scoped traveller surface (reply.ts, 8 builders, no test file); sharpened guard + conciseness items.
 - iter86: created reply.test.ts - traveller reply surface now guarded (no-emoji/honest-%/tidy/booking-truth), 125 green.
+- iter87: tightened traveller value + season replies to <=320; conciseness guard added, 126 green.

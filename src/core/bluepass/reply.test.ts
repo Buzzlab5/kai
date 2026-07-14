@@ -68,6 +68,12 @@ describe("bluepass traveller replies (reply.ts)", () => {
     }
   });
 
+  it("keeps the data-independent replies concise (<=320 chars)", () => {
+    expect(buildBluePassValueReply().length).toBeLessThanOrEqual(320);
+    expect(buildBluePassSeasonReply("Komodo").length).toBeLessThanOrEqual(320);
+    expect(buildBluePassSeasonReply("Raja Ampat").length).toBeLessThanOrEqual(320);
+  });
+
   it("keeps booking-truth honest (no confirmed-booking language before operator confirms)", () => {
     const ready = buildBluePassInquiryReadyReply({ inquiryId: "BP-2001", dispatchQueued: true });
     expect(ready.toLowerCase()).toContain("not a confirmed booking");

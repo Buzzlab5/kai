@@ -87,7 +87,7 @@ export function buildBluePassYachtOverviewReply(yacht: BluePassYachtCard) {
 }
 
 export function buildBluePassValueReply() {
-  return "BluePass helps travellers choose from vetted ocean operators while keeping booking truth honest: catalog prices are signals until an operator confirms availability and the final quote. The BluePass promise is that trips support the ocean too - 5% is allocated toward conservation, clean-ups, and coastal community impact. Kai can explain options, compare yachts, collect the right inquiry details, and then hand the request to the operator instead of pretending a booking is confirmed.";
+  return "BluePass lets travellers book vetted ocean operators, honestly: catalog prices are signals until the operator confirms. Every trip gives back - 5% goes to reef conservation and coastal communities. I can explain options, compare yachts, and prepare an operator inquiry - never fake a confirmed booking.";
 }
 
 export function buildBluePassSeasonReply(destination: string) {
@@ -95,7 +95,7 @@ export function buildBluePassSeasonReply(destination: string) {
     return "Raja Ampat is usually strongest from October to April, when liveaboard conditions are more reliable and the routes around Misool, Dampier Strait, and Wayag make more sense. It is remote, reef-forward, and best planned with enough lead time because operator schedules and cabins still need confirmation.";
   }
 
-  return "Komodo is usually strongest from April to November, with June to September often excellent for dry-season cruising, dramatic island scenery, manta sites, and liveaboard routes from Labuan Bajo. Kai can use your dates, guest count, and style to narrow options, but availability and final price still need operator confirmation.";
+  return "Komodo is usually strongest from April to November, with June to September often excellent for dry-season cruising, dramatic island scenery, manta sites, and liveaboard routes from Labuan Bajo. I can narrow by your dates, guests, and style, but availability and final price still need operator confirmation.";
 }
 
 export function buildBluePassYachtComparisonReply(yachts: BluePassYachtSummary[]) {
