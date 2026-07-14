@@ -631,6 +631,13 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
+  if (has("booking fee", "service fee", "does my client pay", "client pay a fee", "extra fee", "hidden fee", "surcharge", "fee for my client", "any fee to my client", "processing fee")) {
+    return {
+      reply:
+        "None - your client pays the operator's own rate, full stop. No BluePass booking fee, no service fee, nothing added at checkout. That's what makes you easy to recommend. Company, market, and best email?"
+    };
+  }
+
   if (has("cost to join", "sign-up fee", "signup fee", "any fee", "free to join", "how much to join", "upfront cost", "subscription", "monthly fee", "what's the catch")) {
     return {
       reply:
@@ -652,12 +659,6 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
-  if (has("booking fee", "service fee", "does my client pay", "client pay a fee", "extra fee", "hidden fee", "surcharge", "fee for my client", "any fee to my client", "processing fee")) {
-    return {
-      reply:
-        "None - your client pays the operator's own rate, full stop. No BluePass booking fee, no service fee, nothing added at checkout. That's what makes you easy to recommend. Company, market, and best email?"
-    };
-  }
 
   if (has("offer my client a discount", "discount to my client", "discount for my client", "give my client a discount", "throw in", "perk for my client", "sweeten", "freebie", "add a perk", "bundle something")) {
     return {

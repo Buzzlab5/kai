@@ -784,6 +784,14 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/claim/);
   });
 
+  it("routes 'any fee to my client' to the client-fee branch, not cost-to-join", () => {
+    const client = buildBluePassPartnerReply({ latestMessage: "is there any fee to my client?", pitched: true });
+    expect(client.reply.toLowerCase()).toMatch(/no bluepass booking fee|operator's own rate|nothing added/);
+    // a generic join-fee question still reaches cost-to-join
+    const join = buildBluePassPartnerReply({ latestMessage: "is there any fee to join?", pitched: true });
+    expect(join.reply.toLowerCase()).toMatch(/no cost to join|no sign-up fee/);
+  });
+
   it("confirms the partner's client pays no BluePass/booking fee (operator-direct rate)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "does my client pay a booking fee?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/no bluepass booking fee|operator's own rate|nothing added/);
