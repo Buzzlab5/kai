@@ -81,9 +81,8 @@ export function buildBluePassInquiryStatusReply(input: {
 
 export function buildBluePassYachtOverviewReply(yacht: BluePassYachtCard) {
   const charter = yacht.charterPriceSignal ? ` Charter signal: ${yacht.charterPriceSignal}.` : "";
-  const productLink = yacht.productUrl ? ` More details: ${yacht.productUrl}.` : "";
 
-  return `${yacht.name} is a ${yacht.tier} BluePass preview yacht in ${yacht.region}, fitting up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. Price signal: ${yacht.priceSignal}.${charter}${productLink} I can help compare it with similar options, explain who it suits, or prepare an operator inquiry if you want to check real availability.`;
+  return `${yacht.name} is a ${yacht.tier} BluePass preview yacht in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. Price signal: ${yacht.priceSignal}.${charter} I can compare it with similar yachts or prepare an operator inquiry to check real availability.`;
 }
 
 export function buildBluePassValueReply() {

@@ -68,6 +68,13 @@ describe("bluepass traveller replies (reply.ts)", () => {
     }
   });
 
+  it("keeps the yacht-overview reply <=320 with a charter signal + long name", () => {
+    const y = { ...yacht, name: "Alila Purnama Phinisi Expedition" } as any;
+    const reply = buildBluePassYachtOverviewReply(y);
+    expect(reply.length, `overview too long: ${reply.length}`).toBeLessThanOrEqual(320);
+    expect(reply.toLowerCase()).toContain("operator inquiry");
+  });
+
   it("keeps the yacht-comparison reply <=320 with 3 real yachts (incl. long names)", () => {
     const three = [
       { ...yacht, name: "Alila Purnama Phinisi" },
