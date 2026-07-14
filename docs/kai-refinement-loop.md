@@ -151,7 +151,24 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] Handoff-prep: PR-ready summary appended to loop doc (101 commits, ~2,740 insertions, 7 files, tests 39->131, 11 guards, 2 bugs fixed).
 - [x] Handoff-prep: working tree clean; 131 green; loop commits linear (2 merges = pre-loop combined-branch setup). Branch is PR-ready.
 
-- [ ] WATCHDOG (standing): each tick, run `npx vitest run src/core/bluepass`; if green (expected 131), no change needed - just re-arm. Only act if red or the user redirects. Charter is COMPLETE + PR-ready; no manufactured work.
+- [x] WATCHDOG retired: user reaffirmed continuous looping; ran an adversarial multi-agent audit (55 agents) that found 15 CONFIRMED real bugs - convergence was premature.
+
+## Audit backlog (adversarial audit wf_c3fd5587, 15 confirmed findings)
+- [x] R1 (high): "18" -> "18%" in the fee-breakdown branch; added "boats"/"list my boat" to the fleet branch so "18 boats" routes correctly; guarded by test.
+- [ ] R2 (med): triage.ts ~L249 fix bare "fee" swallowing "lead fee" - move the per-lead branch (~L296) above the 18% branch (or drop bare "fee"); test "is there a lead fee?".
+- [ ] R3 (med): triage.ts ~L634 partner cost-to-join "any fee" swallows client-fee branch ("any fee to my client" dead) - narrow to "any fee to join" or reorder; test "is there any fee to my client?".
+- [ ] R4 (med): triage.ts ~L539 partner region branch bare "apart from" misroutes fillers - anchor to "apart from komodo/raja/indonesia"; test "apart from that, how do commissions work?".
+- [ ] R5 (low): triage.ts ~L733 partner claim branch bare "link" swallows refer-flow "how do i share my link" - drop bare "link" or reorder; test that phrasing reaches referral-flow.
+- [ ] T13 (high): reply.ts buildBluePassYachtComparisonReply overflows 320 (~703 with 3 real yachts) - trim rows to name/tier/region/guests + drop verbose tail; add <=320 assertion.
+- [ ] T14 (med): reply.ts buildBluePassYachtOverviewReply overflows 320 (~374 with charter+URL) - drop productUrl/charter clause; add <=320 assertion.
+- [ ] T15 (med): reply.ts buildSelectedYachtMissingFieldsReply (dates/guests) overflows 320 (~342) - show one price signal / shorten booking-truth; add <=320 assertion.
+- [ ] C6 (high): triage.ts add operator free/cost-to-list branch before the fee branch ("is it free","free to list","cost to list","how much to list") - keep 82% + capped-18%-on-completed-booking; test.
+- [ ] C7 (med): triage.ts add deposit/upfront-vs-full branch ("deposit","pay in full","upfront","balance") - honest operator-set policy, no invented %; test "is there a deposit?".
+- [ ] C8 (med): triage.ts add partner trip-price branch ("how much","price range","trip cost","pricing","quote for my client") - surface catalogue (showCatalog) + ask destination/dates; test.
+- [ ] C9 (low): triage.ts add operator setup-support branch mirroring the partner one ("help me set up","account manager","onboarding help") before the "set up my page" branch; test.
+- [ ] Q10 (med): dispatch.test.ts honest-% guard is vacuous (dispatch has no %) - feed an input carrying "%" (budget "10% deposit") + assert the template literal has no "%".
+- [ ] Q11 (med): broaden the honest-% guard from /(\d+)%/g to /(\d+)\s*(?:%|percent)/gi across triage/reply/dispatch tests so word-form invented commissions ("20 percent") are caught.
+- [ ] Q12 (low): triage.test.ts:269 near-vacuous "without inventing a percentage" assertion - replace with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}).
 
 ## Log
 - (iterations append here)
@@ -281,3 +298,5 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 **Numbers honesty:** operators keep 82%; 18% capped = 5 conservation / 5 partner / 3 payments /
 5 platform; guest price never marked up; traveller 5% to conservation; no invented commission %.
 - iter93: handoff-prep complete; branch PR-ready + clean; loop -> low-frequency regression watchdog (no more manufactured items).
+- iter94: adversarial audit (55 agents) -> 15 confirmed bugs written to Audit backlog; fixing R1 (bare "18" misroute) first.
+- iter94: FIXED R1 - bare "18" misroute ("18"->"18%") + fleet "boats" needle; 132 green.

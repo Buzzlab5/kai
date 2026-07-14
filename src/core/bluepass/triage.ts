@@ -246,7 +246,7 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
-  if (has("18", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
+  if (has("18%", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
       reply:
         "Every point: 5% conservation in your waters (co-brandable), 5% to the partners sending you guests, 3% payments, 5% platform. You keep 82% - no listing fees, no subscription, we only earn when you do. Claim link, or vetting first?"
@@ -314,7 +314,7 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
-  if (has("more than one boat", "multiple boats", "several boats", "two boats", "list more than", "multiple trips", "multiple listings", "more than one trip", "list all my", "add another boat", "whole fleet", "my fleet")) {
+  if (has("more than one boat", "multiple boats", "several boats", "two boats", "list more than", "multiple trips", "multiple listings", "more than one trip", "list all my", "add another boat", "whole fleet", "my fleet", "boats", "list my boat")) {
     return {
       reply:
         "Yes - list your whole fleet and every trip type under one page, each with its own rate and calendar. Guests see your full range in one place. What do you run, and where?"

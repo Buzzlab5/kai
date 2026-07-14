@@ -738,6 +738,15 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/not just liveaboards|all welcome|marine tourism/);
   });
 
+  it("does not misroute a message containing '18' (boat count) to the fee-breakdown branch", () => {
+    const fleet = buildBluePassOperatorReply({ latestMessage: "can I list 18 boats?", pitched: true });
+    expect(fleet.reply.toLowerCase()).toMatch(/fleet|one page|each/);
+    expect(fleet.reply).not.toContain("5% conservation in your waters");
+    // genuine 18% questions still reach the breakdown branch
+    const fee = buildBluePassOperatorReply({ latestMessage: "how does the 18% break down?", pitched: true });
+    expect(fee.reply).toContain("5% conservation in your waters");
+  });
+
   it("confirms an operator can list a whole fleet / multiple trips under one page", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I list more than one boat?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/fleet|one page|each/);
