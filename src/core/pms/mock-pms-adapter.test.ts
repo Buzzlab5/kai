@@ -105,4 +105,24 @@ describe("MockPmsAdapter", () => {
       ]
     });
   });
+
+  it("lists the Australian reef/charter catalog (AUD), whole-boat charter is MANUAL_INQUIRY", async () => {
+    const adapter = new MockPmsAdapter("australia");
+
+    const products = await adapter.listProducts();
+    expect(products.map((product) => product.title)).toEqual([
+      "Great Barrier Reef Day Trip",
+      "Whitsundays Sailing Day",
+      "Ningaloo Whale Shark Swim",
+      "Reef Dive Trip",
+      "Whole-Boat Charter"
+    ]);
+    // charter-by-quote: the whole-boat charter is not auto-booked, it goes to the quote path
+    const charter = products.find((product) => product.externalProductId === "au-whole-boat-charter");
+    expect(charter?.bookingMode).toBe("MANUAL_INQUIRY");
+
+    // an instant reef product returns AUD availability
+    const availability = await adapter.getAvailability({ productId: "au-gbr-reef-day-trip", date: "tomorrow", guests: 4 });
+    expect(availability).toMatchObject({ available: true, currency: "AUD", unitPriceCents: 21500 });
+  });
 });

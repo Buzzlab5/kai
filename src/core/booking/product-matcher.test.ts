@@ -53,4 +53,26 @@ describe("product matcher", () => {
       products
     });
   });
+
+  it("matches Australian trip types (sail, whale, whole-boat charter)", () => {
+    const auProducts: PmsProduct[] = [
+      { externalProductId: "au-gbr-reef-day-trip", title: "Great Barrier Reef Day Trip", description: "A full-day outer reef snorkel and dive trip from Cairns.", bookingMode: "AUTO_BOOKING" },
+      { externalProductId: "au-whitsundays-sailing-day", title: "Whitsundays Sailing Day", description: "A day sailing the Whitsundays with a stop at Whitehaven Beach.", bookingMode: "AUTO_BOOKING" },
+      { externalProductId: "au-ningaloo-whale-shark-swim", title: "Ningaloo Whale Shark Swim", description: "A guided swim with whale sharks on Ningaloo Reef from Exmouth.", bookingMode: "AUTO_BOOKING" },
+      { externalProductId: "au-whole-boat-charter", title: "Whole-Boat Charter", description: "A private whole-boat charter for groups, quoted by the operator.", bookingMode: "MANUAL_INQUIRY" }
+    ];
+
+    expect(matchPmsProduct("we want to sail the Whitsundays tomorrow", auProducts)).toMatchObject({
+      status: "MATCHED",
+      product: { externalProductId: "au-whitsundays-sailing-day" }
+    });
+    expect(matchPmsProduct("swim with whale sharks at Ningaloo", auProducts)).toMatchObject({
+      status: "MATCHED",
+      product: { externalProductId: "au-ningaloo-whale-shark-swim" }
+    });
+    expect(matchPmsProduct("a whole boat charter for our group", auProducts)).toMatchObject({
+      status: "MATCHED",
+      product: { externalProductId: "au-whole-boat-charter" }
+    });
+  });
 });

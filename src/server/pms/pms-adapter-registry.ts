@@ -20,7 +20,14 @@ export function getPmsAdapter(
   tenantSlug?: string
 ): PmsAdapter {
   if (provider === "MOCK") {
-    const catalog: MockPmsCatalog = tenantSlug === "boattime" ? "boattime" : "komodo";
+    // Australia is the launch market, so the default mock catalog is AU; boattime keeps
+    // its Gold Coast catalog, and only an explicitly Indonesian tenant gets komodo.
+    const catalog: MockPmsCatalog =
+      tenantSlug === "boattime"
+        ? "boattime"
+        : /komodo|indonesia|raja|labuan|flores/i.test(tenantSlug ?? "")
+          ? "komodo"
+          : "australia";
     return new MockPmsAdapter(catalog);
   }
 
