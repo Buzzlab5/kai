@@ -165,7 +165,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] C6 (high): added operator free/cost-to-list branch ("is it free","free to list","cost to list","how much to list") - free, keep 82%, capped 18% on completed bookings; guarded.
 - [x] C7 (med): added deposit/upfront-vs-full branch (above guest-payment) - operator sets terms, shown at checkout, no invented %; guarded.
 - [x] C8 (med): added partner trip-price branch (trip cost/price range/quote for my client) surfacing the catalogue + asking destination/dates; no invented %; guarded.
-- [ ] C9 (low): triage.ts add operator setup-support branch mirroring the partner one ("help me set up","account manager","onboarding help") before the "set up my page" branch; test.
+- [x] C9 (low): added operator setup-support branch ("help me set up"/"account manager"/"onboarding help") before page-content - team builds your page with you; guarded.
 - [ ] Q10 (med): dispatch.test.ts honest-% guard is vacuous (dispatch has no %) - feed an input carrying "%" (budget "10% deposit") + assert the template literal has no "%".
 - [ ] Q11 (med): broaden the honest-% guard from /(\d+)%/g to /(\d+)\s*(?:%|percent)/gi across triage/reply/dispatch tests so word-form invented commissions ("20 percent") are caught.
 - [ ] Q12 (low): triage.test.ts:269 near-vacuous "without inventing a percentage" assertion - replace with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}).
@@ -330,3 +330,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter110: AU4 - lead.ts region extraction captures Australian places (specific-place-wins-over-country), 156 green.
 - iter111: AU3 - catalog accepts AU inventory (normalizeRegion extended - was silently dropping non-Indonesia yachts), 157 green.
 - iter112: AU1 - resolveBluePassGate pure state machine + market.test gate walk; server wiring documented (section 2a). ALL AU core items done; remaining = Inov server-wire + AU data seed. 158 green.
+- iter113: ADDED C9 - operator setup-support branch, 159 green.

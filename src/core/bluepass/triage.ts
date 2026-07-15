@@ -276,6 +276,13 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
+  if (has("help me set up", "help me get set up", "onboarding help", "hand-hold", "help getting started", "account manager", "do you help me", "someone to help", "support do i get", "help me onboard")) {
+    return {
+      reply:
+        "You're not on your own - the team builds your page with you, wires in your listings and rates, and gets you claim-ready. Founding operators get the closest hand. Company name and email to start?"
+    };
+  }
+
   if (has("what do i need", "what do you need from me", "photos", "photo", "images", "details do you need", "set up my page", "build my page", "prepare", "what to send")) {
     return {
       reply:

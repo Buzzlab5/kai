@@ -728,6 +728,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/no commitment/);
   });
 
+  it("reassures an operator on setup support (team builds your page with you)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "can you help me set up?", pitched: true });
+    expect(result.reply.toLowerCase()).toMatch(/not on your own|team builds your page|closest hand/);
+  });
+
   it("tells an operator the page build is low-lift (team builds, few photos)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what do you need from me for my page? photos?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/team builds|build the page|few photos|barely/);
