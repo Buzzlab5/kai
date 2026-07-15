@@ -857,6 +857,14 @@ describe("buildBluePassPartnerReply", () => {
     expect(region.reply.toLowerCase()).toMatch(/indonesia-first|komodo and raja/);
   });
 
+  it("makes the partner default opener market-aware (catalogue descriptor)", () => {
+    const au = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false, market: "AUSTRALIA" });
+    expect(au.reply).toContain("vetted Australian reef and charter operators");
+    expect(au.reply).not.toContain("Indonesian");
+    const def = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false });
+    expect(def.reply).toContain("vetted Indonesian liveaboards");
+  });
+
   it("makes the partner regions answer market-aware (Australia vs Indonesia)", () => {
     const au = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true, market: "AUSTRALIA" });
     expect(au.reply).toContain("Great Barrier Reef");

@@ -129,6 +129,12 @@ export function bluePassRegionsPitch(market?: BluePassMarket): string {
   return "We're Indonesia-first, with Komodo and Raja Ampat live now and more waters coming - two of the best reef destinations on the planet, through one link.";
 }
 
+/** Market-aware descriptor for the operator catalogue ("vetted X operators"). */
+export function bluePassOperatorsDescriptor(market?: BluePassMarket): string {
+  if (market === "AUSTRALIA") return "vetted Australian reef and charter operators";
+  return "vetted Indonesian liveaboards";
+}
+
 /** Step 2 - once the market is known, ask which region, listing that market's coast. */
 export function buildBluePassRegionPrompt(market: BluePassMarket): string {
   const regions = BLUEPASS_REGIONS[market];

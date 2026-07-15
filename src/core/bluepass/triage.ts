@@ -1,6 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassLead } from "./lead";
-import { bluePassRegionsPitch, type BluePassMarket } from "./market";
+import { bluePassOperatorsDescriptor, bluePassRegionsPitch, type BluePassMarket } from "./market";
 
 /**
  * BluePass first-touch triage.
@@ -833,6 +833,6 @@ export function buildBluePassPartnerReply(input: {
 
   return {
     reply:
-      "Then we built this for you: a tracked link plus a catalogue of vetted Indonesian liveaboards. Your client pays the operator's own rate - never marked up - your commission comes from the operator's side, not theirs. Shop, agency, or creator?"
+      `Then we built this for you: a tracked link plus a catalogue of ${bluePassOperatorsDescriptor(input.market)}. Your client pays the operator's own rate - never marked up - your commission comes from the operator's side, not theirs. Shop, agency, or creator?`
   };
 }
