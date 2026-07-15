@@ -177,7 +177,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [ ] AU1: wire the gate into the server flow (bluepass-message-flow) - ask country, then region, BEFORE persona pitch; persist market+region on the session/lead. (server-side, @/-imports)
 - [~] AU2: make persona replies MARKET-AWARE. DONE: threaded market into buildBluePassPartnerReply + partner regions branch now uses bluePassRegionsPitch(market). REMAINING:
   - [x] AU2b: partner default opener market-aware (bluePassOperatorsDescriptor); operator default is market-neutral ("where do you operate") - no change needed.
-  - [ ] AU2c: operator "indonesia"/"outside" branches - market-aware (an AU operator saying "australia" should not hit the "outside/not in indonesia" expansion-list branch).
+  - [x] AU2c: threaded market into operator builder; added AU pre-built-page branch (australia/GBR/Whitsundays/... -> Australian operator onboarding); "outside" branch now names both live markets.
   - [ ] AU2d: thread market into buildBluePassOperatorReply + operator regions/OTA-differentiation copy.
 - [ ] AU3: extend catalog region type + seed AU inventory (catalog.ts region is "Komodo"|"Raja Ampat" only) so traveller yacht-matching works for AU regions.
 - [ ] AU4: lead.ts knownRegions is Indonesia-only - add AU regions so lead/region extraction captures Australian places.
@@ -325,3 +325,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter105: AUSTRALIA LAUNCH phase 1 - new market.ts (country->region gate: classifiers + prompts, whole AU coast), market.test.ts 9 tests, 151 green. Wiring/market-aware-copy queued (AU1-AU4).
 - iter106: AU2a - partner regions branch market-aware (bluePassRegionsPitch), market threaded into partner builder, 152 green.
 - iter107: AU2b - partner default opener market-aware ("vetted Australian reef and charter operators" for AU), 153 green.
+- iter108: AU2c - operator market-aware: AU pre-built-page branch + both-markets waitlist; updated outside-Indonesia test, 154 green.

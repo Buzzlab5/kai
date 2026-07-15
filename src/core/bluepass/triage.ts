@@ -227,6 +227,7 @@ export function buildBluePassHandoffReply(): string {
 export function buildBluePassOperatorReply(input: {
   latestMessage: string;
   pitched: boolean;
+  market?: BluePassMarket;
 }): BluePassPersonaReply {
   const message = input.latestMessage.toLowerCase();
   const has = (...needles: string[]) => includesAny(message, needles);
@@ -399,10 +400,10 @@ export function buildBluePassOperatorReply(input: {
     };
   }
 
-  if (has("outside", "not in indonesia", "add us to the list")) {
+  if (has("outside", "not in indonesia", "not in australia", "add us to the list")) {
     return {
       reply:
-        "Straight answer: we're Indonesia-first and expanding - I'd rather add you to the expansion list than promise a date I can't back. Company, region, and best email, and you're first in when we open your waters."
+        "Straight answer: we're live in Indonesia and Australia and expanding - I'd rather add you to the list for your waters than promise a date I can't back. Company, region, and best email, and you're first in when we open there."
     };
   }
 
@@ -410,6 +411,13 @@ export function buildBluePassOperatorReply(input: {
     return {
       reply:
         "No English needed - I speak Bahasa and English, and I talk to each guest in their own language, so you're covered whoever books. Where do you operate, and what do you run?"
+    };
+  }
+
+  if (has("australia", "australian", "great barrier", "whitsunday", "ningaloo", "gold coast", "cairns", "port douglas", "byron", "tasmania")) {
+    return {
+      reply:
+        "Perfect - we're onboarding Australian operators now. Your page may already be pre-built; the claim link goes to your business email, one click, no password. Company name, home port, and best email, and the team sends it over."
     };
   }
 

@@ -161,11 +161,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toContain("claim link");
   });
 
-  it("is honest with operators outside Indonesia", () => {
-    const result = buildBluePassOperatorReply({ latestMessage: "We're outside Indonesia, in Fiji", pitched: true });
+  it("is honest with operators outside the live markets (waitlist, both markets named)", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "We're outside those, in Fiji", pitched: true });
 
-    expect(result.reply).toContain("Indonesia-first");
-    expect(result.reply).toContain("expansion list");
+    expect(result.reply).toContain("Indonesia and Australia");
+    expect(result.reply.toLowerCase()).toContain("add you to the list");
   });
 
   it("never promises approval when explaining vetting", () => {
@@ -766,6 +766,15 @@ describe("buildBluePassPartnerReply", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "how do i refer a client to you?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/tracked link/);
     expect(result.reply.toLowerCase()).toMatch(/credited|automatically/);
+  });
+
+  it("routes an Australian operator to the AU pre-built-page branch, not 'outside Indonesia'", () => {
+    const au = buildBluePassOperatorReply({ latestMessage: "we run trips on the Great Barrier Reef in Australia", pitched: true });
+    expect(au.reply.toLowerCase()).toMatch(/australian operators|pre-built/);
+    expect(au.reply.toLowerCase()).not.toContain("indonesian operators");
+    // the expansion-list branch now names both live markets
+    const outside = buildBluePassOperatorReply({ latestMessage: "we're outside those, add us to the list", pitched: true });
+    expect(outside.reply).toContain("Indonesia and Australia");
   });
 
   it("welcomes non-liveaboard operators (day trips, snorkel/dive centres, resorts)", () => {
