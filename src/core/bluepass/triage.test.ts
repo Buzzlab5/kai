@@ -510,6 +510,29 @@ describe("buildBluePassPartnerReply", () => {
     check(buildBluePassHandoffReply());
   });
 
+  it("T9: lead-captured reply stays <=320 for a full 4-field AU lead (long region + AU phone)", () => {
+    const auLead = {
+      company: "Whitsunday Reef Dive Charters",
+      region: "Great Barrier Reef",
+      email: "bookings@whitsundayreefdive.com.au",
+      phone: "+61 400 123 456"
+    };
+    for (const persona of ["OPERATOR", "PARTNER"] as const) {
+      const reply = buildBluePassLeadCapturedReply({ persona, lead: auLead });
+      expect(reply.length, `${persona} full AU lead too long: ${reply.length}`).toBeLessThanOrEqual(320);
+      expect(reply).toContain("Whitsunday Reef Dive Charters");
+      expect(reply).toContain("bookings@whitsundayreefdive.com.au");
+      expect(reply.toLowerCase()).toContain("claim link");
+    }
+    // phone-only lead (no email) still echoes the WhatsApp number so it can be corrected
+    const phoneOnly = buildBluePassLeadCapturedReply({
+      persona: "OPERATOR",
+      lead: { company: "Ningaloo Whale Shark Tours", phone: "+61 400 999 888" }
+    });
+    expect(phoneOnly).toContain("WhatsApp +61 400 999 888");
+    expect(phoneOnly.length).toBeLessThanOrEqual(320);
+  });
+
   it("keeps replies tidy: no leading/trailing whitespace, no double spaces", () => {
     const inputs = [
       "18 breakdown", "what do i get", "how do guests pay", "is this legit", "how do i sign up",

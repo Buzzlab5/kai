@@ -198,16 +198,19 @@ export function buildBluePassLeadCapturedReply(input: {
     input.lead.company ?? null,
     input.lead.region ?? null,
     input.lead.email ?? null,
-    input.lead.phone ? `WhatsApp ${input.lead.phone}` : null
+    // Phone only surfaces in the echo when it's the reachable channel (no email).
+    // With an email on file the claim link goes there, so echoing the number too
+    // just pads the reply past 320 on a full AU lead (long region + AU number).
+    input.lead.phone && !input.lead.email ? `WhatsApp ${input.lead.phone}` : null
   ].filter((value): value is string => Boolean(value));
 
   const echo = captured.length > 0 ? `I've got you down as ${captured.join(", ")} - shout if any of that's off. ` : "";
 
   if (input.persona === "OPERATOR") {
-    return `Perfect. ${echo}The team will verify the business and send your claim link to that address, usually same day. If your page is already pre-built, claiming it is one click - no password, and it's yours to run.`;
+    return `Perfect. ${echo}The team verifies your business and sends your claim link there, usually same day - if your page is pre-built, it's one click to claim, no password.`;
   }
 
-  return `Perfect. ${echo}The team will send your partner claim link there, usually same day - one click, no password, and your tracked link is live. Founding-cohort terms get locked at that point too.`;
+  return `Perfect. ${echo}The team sends your partner claim link there, usually same day - one click, no password, tracked link live. Founding-cohort terms lock in then.`;
 }
 
 // ─── Operator playbook ────────────────────────────────────────────────────────
