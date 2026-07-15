@@ -1,5 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassYachtCard, BluePassYachtCatalogItem } from "./catalog";
+import { bluePassVesselNoun } from "./market";
 
 type BluePassYachtSummary = Pick<
   BluePassYachtCard,
@@ -82,7 +83,7 @@ export function buildBluePassInquiryStatusReply(input: {
 export function buildBluePassYachtOverviewReply(yacht: BluePassYachtCard) {
   const charter = yacht.charterPriceSignal ? ` Charter signal: ${yacht.charterPriceSignal}.` : "";
 
-  return `${yacht.name} is a ${yacht.tier} BluePass preview yacht in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. Price signal: ${yacht.priceSignal}.${charter} I can compare it with similar yachts or prepare an operator inquiry to check real availability.`;
+  return `${yacht.name} is a ${yacht.tier} BluePass preview ${bluePassVesselNoun(yacht.region)} in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. Price signal: ${yacht.priceSignal}.${charter} I can compare it with similar boats or prepare an operator inquiry to check real availability.`;
 }
 
 export function buildBluePassValueReply() {
@@ -90,20 +91,44 @@ export function buildBluePassValueReply() {
 }
 
 export function buildBluePassSeasonReply(destination: string) {
-  if (/raja\s+ampat/i.test(destination)) {
-    return "Raja Ampat is usually strongest from October to April, when liveaboard conditions are more reliable and the routes around Misool, Dampier Strait, and Wayag make more sense. It is remote, reef-forward, and best planned with enough lead time because operator schedules and cabins still need confirmation.";
+  const d = destination.toLowerCase();
+
+  if (/great\s+barrier|gbr|cairns|port\s+douglas/.test(d)) {
+    return "The Great Barrier Reef runs year-round, with June to October (dry season) the pick for clear, calm water - November to May is stinger season, so trips run with stinger suits. Dates, guests, and style and I'll narrow it; availability and final price still need operator confirmation.";
+  }
+  if (/ningaloo|exmouth/.test(d)) {
+    return "Ningaloo is best March to August, when whale sharks are on the reef (humpbacks roughly July to November), with calm mornings out of Exmouth. Tell me your dates and group and I'll narrow it - availability and final price still need operator confirmation.";
+  }
+  if (/whitsunday|airlie/.test(d)) {
+    return "The Whitsundays run year-round, with August to October the sweet spot - calm, dry, warm sailing across the 74 islands and Whitehaven Beach. Dates and group size and I'll narrow it; availability and final price still need operator confirmation.";
+  }
+  if (/raja\s+ampat/.test(d)) {
+    return "Raja Ampat is usually strongest October to April, when liveaboard conditions are more reliable around Misool, the Dampier Strait, and Wayag. It is remote and reef-forward - best planned with lead time, and availability and final price still need operator confirmation.";
+  }
+  if (/komodo|labuan\s+bajo|flores/.test(d)) {
+    return "Komodo is usually strongest April to November, with June to September excellent for dry-season cruising, manta sites, and liveaboard routes from Labuan Bajo. I can narrow by your dates, guests, and style, but availability and final price still need operator confirmation.";
   }
 
-  return "Komodo is usually strongest from April to November, with June to September often excellent for dry-season cruising, dramatic island scenery, manta sites, and liveaboard routes from Labuan Bajo. I can narrow by your dates, guests, and style, but availability and final price still need operator confirmation.";
+  return "Australia's reef and coast run year-round, with the winter dry season (roughly June to October) the pick for calm, clear water. Tell me your region, dates, and group and I'll narrow it - availability and final price still need operator confirmation.";
 }
 
 export function buildBluePassYachtComparisonReply(yachts: BluePassYachtSummary[]) {
-  const rows = yachts
-    .slice(0, 3)
+  const shortlist = yachts.slice(0, 3);
+  const rows = shortlist
     .map((yacht) => `${yacht.name}: ${yacht.tier}, ${yacht.region}, ${yacht.maxGuests} guests.`)
     .join(" ");
 
-  return `${rows} Route and fit differ - Komodo for Labuan Bajo and mantas, Raja Ampat a remote reef. Narrow by dates and guests before an operator inquiry?`;
+  // Route hint follows the ACTUAL regions being compared - never name-drop Komodo/Raja
+  // on an Australian (or mixed) comparison.
+  const regions = [...new Set(shortlist.map((yacht) => yacht.region).filter(Boolean))];
+  const routeHint =
+    regions.length === 0
+      ? "Route and fit differ."
+      : regions.length === 1
+        ? `Route and fit differ within ${regions[0]}.`
+        : `Route and fit differ across ${formatNaturalList(regions)}.`;
+
+  return `${rows} ${routeHint} Narrow by dates and guests before an operator inquiry?`;
 }
 
 function formatFieldList(fields: BluePassRequiredInquiryField[]) {
@@ -124,7 +149,8 @@ function buildSelectedYachtMissingFieldsReply(input: {
   const cabinText = [yacht.cabins ? `${yacht.cabins} cabins` : null, yacht.maxGuests ? `up to ${yacht.maxGuests} guests` : null]
     .filter(Boolean)
     .join(", ");
-  const intro = `Great choice - ${yacht.name} is ${articleFor(yacht.tier)}${yacht.tier ? ` ${yacht.tier}` : ""} phinisi in ${yacht.region}${cabinText ? ` (${cabinText})` : ""}.${priceText}`;
+  const vessel = bluePassVesselNoun(yacht.region);
+  const intro = `Great choice - ${yacht.name} is ${articleFor(yacht.tier)}${yacht.tier ? ` ${yacht.tier}` : ""} ${vessel} in ${yacht.region}${cabinText ? ` (${cabinText})` : ""}.${priceText}`;
   const bookingTruth =
     "I can't check live availability or take payment here, but I can prepare this for the operator to confirm.";
 

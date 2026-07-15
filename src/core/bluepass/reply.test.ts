@@ -99,6 +99,49 @@ describe("bluepass traveller replies (reply.ts)", () => {
     expect(buildBluePassSeasonReply("Raja Ampat").length).toBeLessThanOrEqual(320);
   });
 
+  it("AU-first: season reply gives Australian seasons for AU regions (no Komodo/Labuan Bajo)", () => {
+    const gbr = buildBluePassSeasonReply("Great Barrier Reef");
+    expect(gbr).toMatch(/Great Barrier Reef|stinger/);
+    expect(gbr.toLowerCase()).not.toContain("komodo");
+    expect(gbr.toLowerCase()).not.toContain("labuan bajo");
+    expect(gbr.length).toBeLessThanOrEqual(320);
+
+    const ningaloo = buildBluePassSeasonReply("Ningaloo Reef");
+    expect(ningaloo.toLowerCase()).toMatch(/whale shark|ningaloo/);
+    expect(ningaloo.length).toBeLessThanOrEqual(320);
+
+    const whitsundays = buildBluePassSeasonReply("Whitsundays");
+    expect(whitsundays.toLowerCase()).toMatch(/whitsundays|whitehaven|74 islands/);
+    expect(whitsundays.length).toBeLessThanOrEqual(320);
+
+    // an unknown region falls to the Australia-first generic (not Indonesian)
+    const generic = buildBluePassSeasonReply("Sydney");
+    expect(generic.toLowerCase()).toContain("australia");
+    expect(generic.length).toBeLessThanOrEqual(320);
+
+    // Indonesian regions still get Indonesian seasons
+    expect(buildBluePassSeasonReply("Komodo").toLowerCase()).toContain("komodo");
+  });
+
+  it("AU-first: an AU yacht is not called a 'phinisi', and comparisons don't name-drop Komodo/Raja", () => {
+    const auYacht = { ...yacht, name: "Reef Explorer", region: "Great Barrier Reef" } as any;
+    const missing = buildBluePassMissingFieldsReply({ selectedYacht: auYacht, missingFields: ["dateWindow"] as any });
+    expect(missing.toLowerCase()).not.toContain("phinisi");
+    expect(buildBluePassYachtOverviewReply(auYacht).toLowerCase()).not.toContain("phinisi");
+    // Indonesian yacht still reads as a phinisi
+    expect(buildBluePassMissingFieldsReply({ selectedYacht: yacht, missingFields: ["dateWindow"] as any }).toLowerCase()).toContain("phinisi");
+
+    const auComparison = buildBluePassYachtComparisonReply([
+      { ...yacht, name: "Reef Explorer", region: "Great Barrier Reef" },
+      { ...yacht, name: "Ningaloo Drifter", region: "Ningaloo Reef" }
+    ] as any);
+    expect(auComparison).not.toContain("Komodo");
+    expect(auComparison).not.toContain("Raja Ampat");
+    expect(auComparison).toContain("Great Barrier Reef");
+    expect(auComparison.toLowerCase()).toContain("operator inquiry");
+    expect(auComparison.length).toBeLessThanOrEqual(320);
+  });
+
   it("missing-fields reply names the fields it still needs", () => {
     const reply = buildBluePassMissingFieldsReply({ missingFields: ["destination", "travellerEmail"] as any });
     expect(reply.toLowerCase()).toContain("destination");

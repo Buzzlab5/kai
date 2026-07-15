@@ -139,6 +139,15 @@ export function bluePassOperatorsDescriptor(market?: BluePassMarket): string {
   return "vetted Australian reef and charter operators";
 }
 
+/**
+ * Vessel noun for a yacht/boat in `region`. "phinisi" is a specifically Indonesian
+ * traditional vessel, so it applies only to Indonesian waters; Australian (and unknown)
+ * regions get the neutral "boat" - an AU reef/charter vessel is not a phinisi.
+ */
+export function bluePassVesselNoun(region?: string): string {
+  return region && classifyBluePassMarket([region]) === "INDONESIA" ? "phinisi" : "boat";
+}
+
 export type BluePassGateStep = "MARKET" | "REGION" | "READY";
 
 export type BluePassGate = {
