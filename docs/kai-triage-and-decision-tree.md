@@ -693,3 +693,31 @@ payment link** → allowed (quote approved) → traveller notified. → operator
 *Generated from a read of the code at `tony/kai-test-all` @ `7b8057d`. When the code moves,
 re-verify the line numbers and the two things most likely to drift: the ledger split
 (§12/§16) and the WhatsApp inbound shape (§2 vs open PRs #2/#3).*
+
+## 2a. Market gate (Australia + Indonesia) - server wiring
+
+BluePass serves two markets. Kai asks **country then region BEFORE the persona pitch**.
+All the logic is a pure, tested state machine in `src/core/bluepass/market.ts` -
+`resolveBluePassGate(messages: string[]) -> { step, market, region, prompt }`. The server
+flow (`bluepass-message-flow`) integrates it in three lines, before persona classification:
+
+```
+const gate = resolveBluePassGate(allInboundMessages);   // oldest-first
+if (gate.prompt) return reply(gate.prompt);             // step MARKET or REGION - ask + wait
+// gate.step === "READY": persist gate.market + gate.region on the session/lead, then:
+const personaReply = persona === "OPERATOR"
+  ? buildBluePassOperatorReply({ latestMessage, pitched, market: gate.market })
+  : buildBluePassPartnerReply({ latestMessage, pitched, market: gate.market });
+```
+
+- **step MARKET** - no market signal yet -> `prompt` = "are you in Australia or Indonesia?".
+- **step REGION** - market known, region not -> `prompt` = that coast's region list.
+- **step READY** - both known -> `prompt` is null; pass `gate.market` into the persona builders.
+- A place name ("Cairns", "Komodo") settles both at once and skips straight to READY.
+- Persist `market` + `region` on the `BluePassInquiry`/session so later turns stay resolved.
+
+Regions per market live in `BLUEPASS_REGIONS` (market.ts): Indonesia = Komodo, Raja Ampat;
+Australia = Great Barrier Reef, Whitsundays, Ningaloo, Gold Coast, Sydney, Byron Bay, Tasmania,
+Rottnest & Perth. Lead extraction (`lead.ts`) and the catalog matcher (`catalog.ts normalizeRegion`)
+already recognise both markets' regions. REMAINING for Inov: (1) call `resolveBluePassGate` in the
+server flow + persist market/region; (2) seed real AU operator/yacht inventory.

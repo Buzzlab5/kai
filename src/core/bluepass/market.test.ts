@@ -4,7 +4,8 @@ import {
   buildBluePassMarketGreeting,
   buildBluePassRegionPrompt,
   classifyBluePassMarket,
-  classifyBluePassRegion
+  classifyBluePassRegion,
+  resolveBluePassGate
 } from "./market";
 
 describe("classifyBluePassMarket", () => {
@@ -69,6 +70,29 @@ describe("market gate copy", () => {
         expect(prompt, `${market} prompt missing ${region}`).toContain(region);
       }
     }
+  });
+
+  it("resolveBluePassGate walks country -> region -> ready", () => {
+    // nothing yet -> ask country
+    const s1 = resolveBluePassGate(["hi"]);
+    expect(s1.step).toBe("MARKET");
+    expect(s1.prompt?.toLowerCase()).toContain("australia or indonesia");
+    // country known, no region -> ask region for that coast
+    const s2 = resolveBluePassGate(["hi", "we're in Australia"]);
+    expect(s2.step).toBe("REGION");
+    expect(s2.market).toBe("AUSTRALIA");
+    expect(s2.prompt).toContain("Great Barrier Reef");
+    // country + region -> READY, no prompt, market passed downstream
+    const s3 = resolveBluePassGate(["hi", "we're in Australia", "on the Whitsundays"]);
+    expect(s3.step).toBe("READY");
+    expect(s3.market).toBe("AUSTRALIA");
+    expect(s3.region).toBe("Whitsundays");
+    expect(s3.prompt).toBeNull();
+    // a single place name settles both at once (skips the gate)
+    const s4 = resolveBluePassGate(["liveaboard out of Labuan Bajo"]);
+    expect(s4.step).toBe("READY");
+    expect(s4.market).toBe("INDONESIA");
+    expect(s4.region).toBe("Komodo");
   });
 
   it("offers the whole AU coast (8 regions) and 2 live Indonesia regions", () => {

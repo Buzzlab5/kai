@@ -135,6 +135,36 @@ export function bluePassOperatorsDescriptor(market?: BluePassMarket): string {
   return "vetted Indonesian liveaboards";
 }
 
+export type BluePassGateStep = "MARKET" | "REGION" | "READY";
+
+export type BluePassGate = {
+  step: BluePassGateStep;
+  market: BluePassMarket | null;
+  region: string | null;
+  /** The next question to ask, or null once READY (proceed to the persona flow). */
+  prompt: string | null;
+};
+
+/**
+ * The hard country -> region gate as a pure state machine. The server flow
+ * calls this with the conversation so far, BEFORE the persona pitch:
+ *   - market unknown  -> ask "Australia or Indonesia?" (step MARKET)
+ *   - market known, region unknown -> ask the region for that coast (step REGION)
+ *   - both known      -> READY; pass `market` into buildBluePassOperator/PartnerReply.
+ * A place name (e.g. "Cairns", "Komodo") settles both at once and skips ahead.
+ */
+export function resolveBluePassGate(messages: string[]): BluePassGate {
+  const market = classifyBluePassMarket(messages);
+  if (market === "UNKNOWN") {
+    return { step: "MARKET", market: null, region: null, prompt: buildBluePassMarketGreeting() };
+  }
+  const region = classifyBluePassRegion(market, messages);
+  if (!region) {
+    return { step: "REGION", market, region: null, prompt: buildBluePassRegionPrompt(market) };
+  }
+  return { step: "READY", market, region, prompt: null };
+}
+
 /** Step 2 - once the market is known, ask which region, listing that market's coast. */
 export function buildBluePassRegionPrompt(market: BluePassMarket): string {
   const regions = BLUEPASS_REGIONS[market];

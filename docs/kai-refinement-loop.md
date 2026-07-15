@@ -174,7 +174,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] market.ts: BluePassMarket (AUSTRALIA|INDONESIA) + BLUEPASS_REGIONS (whole AU coast: GBR/Whitsundays/Ningaloo/Gold Coast/Sydney/Byron/Tasmania/Rottnest&Perth; ID: Komodo/Raja Ampat).
 - [x] market.ts: classifyBluePassMarket + classifyBluePassRegion (place names imply country; first-signal-wins; earliest-keyword within a message).
 - [x] market.ts: buildBluePassMarketGreeting (asks AU/ID first) + buildBluePassRegionPrompt(market) (lists that coast). market.test.ts 9 tests.
-- [ ] AU1: wire the gate into the server flow (bluepass-message-flow) - ask country, then region, BEFORE persona pitch; persist market+region on the session/lead. (server-side, @/-imports)
+- [x] AU1: gate extracted as a pure tested state machine resolveBluePassGate() (market->region->ready); server wiring (3 lines) documented in docs/kai-triage-and-decision-tree.md section 2a for Inov. REMAINING (Inov): call it in bluepass-message-flow + persist market/region.
 - [x] AU2: persona replies MARKET-AWARE (partner regions+default, operator trust+outside+AU-page). DONE: threaded market into buildBluePassPartnerReply + partner regions branch now uses bluePassRegionsPitch(market). REMAINING:
   - [x] AU2b: partner default opener market-aware (bluePassOperatorsDescriptor); operator default is market-neutral ("where do you operate") - no change needed.
   - [x] AU2c: threaded market into operator builder; added AU pre-built-page branch (australia/GBR/Whitsundays/... -> Australian operator onboarding); "outside" branch now names both live markets.
@@ -329,3 +329,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter109: AU2d - operator trust reply market-aware; AU2 (market-aware persona copy) COMPLETE, 155 green.
 - iter110: AU4 - lead.ts region extraction captures Australian places (specific-place-wins-over-country), 156 green.
 - iter111: AU3 - catalog accepts AU inventory (normalizeRegion extended - was silently dropping non-Indonesia yachts), 157 green.
+- iter112: AU1 - resolveBluePassGate pure state machine + market.test gate walk; server wiring documented (section 2a). ALL AU core items done; remaining = Inov server-wire + AU data seed. 158 green.
