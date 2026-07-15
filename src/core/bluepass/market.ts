@@ -122,20 +122,21 @@ export function buildBluePassMarketGreeting(): string {
 }
 
 /**
- * Market-aware "where we're live" sentence for the persona pitch. Defaults to
- * Indonesia (the established market) when the market is not yet known.
+ * Market-aware "where we're live" sentence for the persona pitch. Australia is the
+ * launch market, so it is the DEFAULT when the market is not yet known; Indonesia
+ * only on an explicit INDONESIA selection behind the country gate.
  */
 export function bluePassRegionsPitch(market?: BluePassMarket): string {
-  if (market === "AUSTRALIA") {
-    return "In Australia we're live across the Great Barrier Reef, Whitsundays, Ningaloo and more - the best reef and coast the country has, through one link.";
+  if (market === "INDONESIA") {
+    return "We're also live in Indonesia, with Komodo and Raja Ampat - two of the best reef destinations on the planet, through one link.";
   }
-  return "We're Indonesia-first, with Komodo and Raja Ampat live now and more waters coming - two of the best reef destinations on the planet, through one link.";
+  return "In Australia we're live right across the coast - the Great Barrier Reef, Whitsundays, Ningaloo, Gold Coast, Sydney, Byron Bay, Tasmania and Rottnest, all through one link.";
 }
 
-/** Market-aware descriptor for the operator catalogue ("vetted X operators"). */
+/** Market-aware descriptor for the operator catalogue ("vetted X operators"). AU-default. */
 export function bluePassOperatorsDescriptor(market?: BluePassMarket): string {
-  if (market === "AUSTRALIA") return "vetted Australian reef and charter operators";
-  return "vetted Indonesian liveaboards";
+  if (market === "INDONESIA") return "vetted Indonesian liveaboards";
+  return "vetted Australian reef and charter operators";
 }
 
 export type BluePassGateStep = "MARKET" | "REGION" | "READY";

@@ -857,7 +857,7 @@ describe("buildBluePassPartnerReply", () => {
     expect(au.reply).toContain("vetted Australian reef and charter operators");
     expect(au.reply).not.toContain("Indonesian");
     const def = buildBluePassOperatorReply({ latestMessage: "is this legit?", pitched: true });
-    expect(def.reply).toContain("vetted Indonesian liveaboards");
+    expect(def.reply).toContain("vetted Australian reef and charter operators");
   });
 
   it("reassures an operator BluePass is legit (real marketplace, keep 82%)", () => {
@@ -910,7 +910,7 @@ describe("buildBluePassPartnerReply", () => {
     expect(commission.reply.toLowerCase()).toMatch(/capped commission|per-partner|founding members/);
     // a genuine destination question still reaches the regions branch
     const region = buildBluePassPartnerReply({ latestMessage: "apart from komodo, where else do you cover?", pitched: true });
-    expect(region.reply.toLowerCase()).toMatch(/indonesia-first|komodo and raja/);
+    expect(region.reply.toLowerCase()).toMatch(/great barrier|across the coast|komodo and raja/);
   });
 
   it("makes the partner default opener market-aware (catalogue descriptor)", () => {
@@ -918,7 +918,7 @@ describe("buildBluePassPartnerReply", () => {
     expect(au.reply).toContain("vetted Australian reef and charter operators");
     expect(au.reply).not.toContain("Indonesian");
     const def = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false });
-    expect(def.reply).toContain("vetted Indonesian liveaboards");
+    expect(def.reply).toContain("vetted Australian reef and charter operators");
   });
 
   it("makes the partner regions answer market-aware (Australia vs Indonesia)", () => {
@@ -927,15 +927,15 @@ describe("buildBluePassPartnerReply", () => {
     expect(au.reply).not.toContain("Komodo");
     const id = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true, market: "INDONESIA" });
     expect(id.reply).toContain("Komodo and Raja Ampat");
-    // default (no market) stays Indonesia-first
+    // default (no market) is now Australia-first - Australia is the launch market
     const def = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true });
-    expect(def.reply).toContain("Komodo and Raja Ampat");
+    expect(def.reply).toContain("Great Barrier Reef");
   });
 
-  it("answers a partner regions question honestly (Indonesia-first, two live)", () => {
+  it("answers a partner regions question Australia-first (launch market default)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "which destinations do you cover?", pitched: true });
-    expect(result.reply).toMatch(/Indonesia/i);
-    expect(result.reply).toContain("Raja Ampat");
+    expect(result.reply).toMatch(/Australia/i);
+    expect(result.reply).toContain("Great Barrier Reef");
   });
 
   it("handles partner group/charter requests with a team hold", () => {
