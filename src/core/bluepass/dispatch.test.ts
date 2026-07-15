@@ -34,9 +34,20 @@ describe("buildBluePassDispatchText", () => {
       budget: "USD 8000"
     });
     expect(/\p{Extended_Pictographic}/u.test(text), `emoji in dispatch: ${text}`).toBe(false);
-    for (const pct of text.match(/(\d+)%/g) ?? []) {
-      expect(["3", "5", "18", "82"].includes(pct.replace("%", "")), `bad % in dispatch: ${text}`).toBe(true);
-    }
+    // Kai's own dispatch copy states NO percentage at all (non-vacuous: clean inputs carry none).
+    expect(text.includes("%"), `dispatch copy introduced a %: ${text}`).toBe(false);
+    // Even when a traveller's budget carries a % ("10% deposit"), the ONLY % is that echoed
+    // user value - Kai's template adds none of its own.
+    const withPct = buildBluePassDispatchText({
+      inquiryId: "inquiry_3",
+      selectedYachtName: "Sea Dragon",
+      travellerName: "Tony",
+      travellerPhone: "+62812",
+      destination: "Komodo",
+      guests: 6,
+      budget: "10% deposit"
+    });
+    expect(withPct.replace("10% deposit", "").includes("%"), `template % leaked: ${withPct}`).toBe(false);
     expect(text.toLowerCase()).toContain("operator confirmation required before booking");
   });
 });

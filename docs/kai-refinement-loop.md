@@ -166,7 +166,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] C7 (med): added deposit/upfront-vs-full branch (above guest-payment) - operator sets terms, shown at checkout, no invented %; guarded.
 - [x] C8 (med): added partner trip-price branch (trip cost/price range/quote for my client) surfacing the catalogue + asking destination/dates; no invented %; guarded.
 - [x] C9 (low): added operator setup-support branch ("help me set up"/"account manager"/"onboarding help") before page-content - team builds your page with you; guarded.
-- [ ] Q10 (med): dispatch.test.ts honest-% guard is vacuous (dispatch has no %) - feed an input carrying "%" (budget "10% deposit") + assert the template literal has no "%".
+- [x] Q10 (med): dispatch honest-% guard now non-vacuous - asserts Kai copy has no % at all, and a budget "10% deposit" only shows as echoed user data (template adds none).
 - [ ] Q11 (med): broaden the honest-% guard from /(\d+)%/g to /(\d+)\s*(?:%|percent)/gi across triage/reply/dispatch tests so word-form invented commissions ("20 percent") are caught.
 - [ ] Q12 (low): triage.test.ts:269 near-vacuous "without inventing a percentage" assertion - replace with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}).
 
@@ -331,3 +331,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter111: AU3 - catalog accepts AU inventory (normalizeRegion extended - was silently dropping non-Indonesia yachts), 157 green.
 - iter112: AU1 - resolveBluePassGate pure state machine + market.test gate walk; server wiring documented (section 2a). ALL AU core items done; remaining = Inov server-wire + AU data seed. 158 green.
 - iter113: ADDED C9 - operator setup-support branch, 159 green.
+- iter114: FIXED Q10 - dispatch honest-% guard non-vacuous (template has no %, user-echoed % isolated), 159 green.
