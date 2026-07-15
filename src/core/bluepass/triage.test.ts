@@ -35,6 +35,27 @@ describe("classifyBluePassPersona", () => {
     expect(classifyBluePassPersona(["I have referral code BP123 and want a Komodo trip"])).toBe("TRAVELLER");
   });
 
+  it("does not lock a traveller to OPERATOR on an embedded operator verb (audit 3)", () => {
+    // bare "we run"/"i run a"/"we operate" used to substring-match traveller phrasings
+    expect(classifyBluePassPersona(["Can we run through a few Komodo dates for our honeymoon?"])).toBe("TRAVELLER");
+    expect(classifyBluePassPersona(["I run a marketing agency and want to book a liveaboard for 8"])).toBe("TRAVELLER");
+    expect(classifyBluePassPersona(["How do we operate the booking - do I pay you or the boat?"])).toBe("UNKNOWN");
+  });
+
+  it("classifies an operator who describes their business with a trip noun (audit 3)", () => {
+    // "i run charters" missed the old operator list and fell to TRAVELLER via "charter"
+    expect(classifyBluePassPersona(["I run charters out of Airlie Beach and want to get listed"])).toBe("OPERATOR");
+    expect(classifyBluePassPersona(["We operate three liveaboards out of Labuan Bajo"])).toBe("OPERATOR");
+  });
+
+  it("routes an operator's own commission question to OPERATOR, not PARTNER (audit 3)", () => {
+    expect(classifyBluePassPersona(["I run boats - how does your commission work?"])).toBe("OPERATOR");
+  });
+
+  it("does not lock a traveller's referral mention to PARTNER via 'i referred' (audit 3)", () => {
+    expect(classifyBluePassPersona(["I referred my mate last month and now I want a Komodo trip"])).toBe("TRAVELLER");
+  });
+
   it("keeps the persona sticky across vague follow-ups", () => {
     expect(classifyBluePassPersona(["I run a dive resort in Bali", "ok tell me more"])).toBe("OPERATOR");
     expect(classifyBluePassPersona(["I'm a travel agent", "sounds good"])).toBe("PARTNER");

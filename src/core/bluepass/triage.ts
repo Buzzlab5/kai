@@ -42,7 +42,6 @@ const partnerSignals = [
   "refer or book for clients",
   "refer clients",
   "refer my clients",
-  "i refer",
   "my clients",
   "my audience",
   "i'm a creator",
@@ -58,26 +57,17 @@ const partnerSignals = [
   "referral partner",
   "partner program",
   "become a partner",
-  "how do commissions work",
-  "commission"
+  "how do commissions work"
+  // NOTE: no bare "commission" - operators ask about their OWN commission ("I run
+  // boats, how does your commission work?") and would be mislocked to PARTNER. The
+  // operator/partner reply layers each handle the commission topic once persona is set.
+  // NOTE: no bare "i refer" - it substring-matched "i referred" (a traveller in the
+  // guest-referral mesh). The object-anchored "refer clients"/"refer my clients" stay.
 ];
 
-// Verb-anchored operator phrases — someone who RUNS the boats, dives, or
-// stays. Kept specific so traveller phrasings ("my partner", "our trip")
-// never match.
+// Self-descriptive operator phrases — safe as plain substrings because they name
+// the operator's own business/fleet or an explicit onboarding action.
 const operatorSignals = [
-  "i run trips",
-  "run trips or charters",
-  "i run a",
-  "i run an",
-  "i run the",
-  "i run boats",
-  "i run dive",
-  "we run",
-  "we operate",
-  "i operate",
-  "i own a",
-  "i own an",
   "our fleet",
   "our boats",
   "our yacht",
@@ -89,12 +79,17 @@ const operatorSignals = [
   "list my business",
   "list our",
   "list my boat",
+  "list my charter",
+  "list my trip",
   "claim my",
   "claim our",
   "i'm an operator",
   "im an operator",
   "as an operator",
   "join as an operator",
+  "get listed",
+  "get my page",
+  "get my business listed",
   // Bahasa Indonesia — operators are Indonesian.
   "kapal saya",
   "saya punya kapal",
@@ -103,6 +98,14 @@ const operatorSignals = [
   "daftar bisnis",
   "daftarkan",
 ];
+
+// An operator VERB ("i/we run/operate/own/manage") applied to a marine-tourism
+// OBJECT, tolerating an article/quantifier gap so "we operate three liveaboards"
+// and "i run a dive charter" match while bare verbs never lock a traveller onto the
+// operator track: "can we run through..." (no object), "i run a marketing agency"
+// (agency not a marine object), "how do we operate the booking" (booking, not a boat).
+const OPERATOR_VERB_OBJECT =
+  /\b(?:i|we)\s+(?:run|operate|own|manage)\s+(?:a|an|the|our|my|\d+|two|three|four|five|six|several|multiple|some)?\s*(?:dive\s+|snorkel\s+|day\s+|marine\s+|reef\s+)?(?:boat|charter|liveaboard|yacht|vessel|fleet|catamaran|cruise|tour|trip|resort|centre|center|expedition)s?\b/i;
 
 const travellerSignals = [
   "planning a trip",
@@ -138,7 +141,7 @@ function includesAny(haystack: string, needles: string[]) {
  *  operate). */
 function classifyMessage(text: string): BluePassPersona {
   if (includesAny(text, partnerSignals)) return "PARTNER";
-  if (includesAny(text, operatorSignals)) return "OPERATOR";
+  if (includesAny(text, operatorSignals) || OPERATOR_VERB_OBJECT.test(text)) return "OPERATOR";
   if (includesAny(text, travellerSignals)) return "TRAVELLER";
   return "UNKNOWN";
 }
