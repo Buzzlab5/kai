@@ -266,7 +266,11 @@ describe("buildBluePassPartnerReply", () => {
 
     expect(result.reply).toContain("operator's own rate");
     expect(result.reply).toContain("founding");
-    expect(result.reply).not.toMatch(/\byour commission is \d+%/i);
+    // Any percentage it states (symbol OR word form) must be an honest one - never an
+    // invented commission figure. Catches a future edit like "your cut is 20 percent".
+    for (const m of result.reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
+      expect(["3", "5", "18", "82"].includes(m[1]), `invented commission %: ${result.reply}`).toBe(true);
+    }
   });
 
   it("tells partners they can go live fast (one-click claim)", () => {

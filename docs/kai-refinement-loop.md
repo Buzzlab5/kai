@@ -168,7 +168,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] C9 (low): added operator setup-support branch ("help me set up"/"account manager"/"onboarding help") before page-content - team builds your page with you; guarded.
 - [x] Q10 (med): dispatch honest-% guard now non-vacuous - asserts Kai copy has no % at all, and a budget "10% deposit" only shows as echoed user data (template adds none).
 - [ ] Q11 (med): broaden the honest-% guard from /(\d+)%/g to /(\d+)\s*(?:%|percent)/gi across triage/reply/dispatch tests so word-form invented commissions ("20 percent") are caught.
-- [ ] Q12 (low): triage.test.ts:269 near-vacuous "without inventing a percentage" assertion - replace with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}).
+- [x] Q12 (low): replaced the near-vacuous commission assertion with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}). ALL 15 audit findings resolved.
 
 ## Australia launch (country -> region gate) - user-directed
 - [x] market.ts: BluePassMarket (AUSTRALIA|INDONESIA) + BLUEPASS_REGIONS (whole AU coast: GBR/Whitsundays/Ningaloo/Gold Coast/Sydney/Byron/Tasmania/Rottnest&Perth; ID: Komodo/Raja Ampat).
@@ -333,3 +333,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter113: ADDED C9 - operator setup-support branch, 159 green.
 - iter114: FIXED Q10 - dispatch honest-% guard non-vacuous (template has no %, user-echoed % isolated), 159 green.
 - iter115: FIXED Q11 - honest-% guards catch word-form percentages (dropped fragile \b after %), meta-test proves it, 160 green.
+- iter116: FIXED Q12 - commission honest-% whitelist; ALL 15 audit findings done. Launching adversarial audit 2 (incl. AU surface), 160 green.
