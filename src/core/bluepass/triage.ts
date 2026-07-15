@@ -1,6 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassLead } from "./lead";
-import { bluePassFlagshipVessel, bluePassOperatorsDescriptor, bluePassRegionChoice, bluePassRegionSpan, bluePassRegionsPitch, type BluePassMarket } from "./market";
+import { bluePassFlagshipVessel, bluePassOperatorsDescriptor, bluePassRegionChoice, bluePassRegionSpan, bluePassRegionsPitch, classifyBluePassRegion, type BluePassMarket } from "./market";
 
 /**
  * BluePass first-touch triage.
@@ -562,7 +562,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("legit", "trustworthy", "who's behind", "who runs", "scam", "is this real", "can i trust", "reputable")) {
     return {
       reply:
-        "Fair question - BluePass is a real marketplace of vetted Indonesian operators, every one screened for safety, sustainability, and fair pay. Your clients pay the operator direct, never marked up. Want the catalogue, or your claim link?"
+        `Fair question - BluePass is a real marketplace of ${bluePassOperatorsDescriptor(input.market)}, every one screened for safety, sustainability, and fair pay. Your clients pay the operator direct, never marked up. Want the catalogue, or your claim link?`
     };
   }
 
@@ -600,12 +600,27 @@ export function buildBluePassPartnerReply(input: {
     };
   }
 
-  if (has("raja ampat", "raja")) {
+  // Bare "raja" dropped (a common client name / "maharaja"); "raja ampat" still routes.
+  if (has("raja ampat")) {
     return {
       reply:
         "Good taste - Raja Ampat is the planet's richest reef system, best October to April. Bigger boats, out of Sorong. A couple below for clients - dates and group size and I'll match properly.",
       showCatalog: true,
       catalogDestination: "Raja Ampat"
+    };
+  }
+
+  // AU partner destination briefs (launch market). Placed with Komodo/Raja, ABOVE the
+  // conservation branch: "Great Barrier Reef"/"Ningaloo Reef" contain "reef", which the
+  // conservation branch matches, so an AU destination brief would otherwise get a
+  // conservation pitch. Region resolves via the market.ts single source of truth.
+  const auPartnerRegion = classifyBluePassRegion("AUSTRALIA", [message]);
+  if (auPartnerRegion) {
+    return {
+      reply:
+        `${auPartnerRegion} - strong pick for clients. A shortlist of ${bluePassOperatorsDescriptor("AUSTRALIA")} below; client dates and group size and I'll narrow it.`,
+      showCatalog: true,
+      catalogDestination: auPartnerRegion
     };
   }
 

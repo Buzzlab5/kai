@@ -364,6 +364,34 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
+  it("M12: partner legit descriptor follows the market (AU-default)", () => {
+    const def = buildBluePassPartnerReply({ latestMessage: "is this legit?", pitched: true });
+    expect(def.reply).toContain("vetted Australian reef and charter operators");
+    expect(def.reply.toLowerCase()).not.toContain("indonesian");
+    const id = buildBluePassPartnerReply({ latestMessage: "is this legit?", pitched: true, market: "INDONESIA" });
+    expect(id.reply).toContain("vetted Indonesian liveaboards");
+    for (const r of [def, id]) expect(r.reply.length).toBeLessThanOrEqual(320);
+  });
+
+  it("R10: AU partner destination briefs get cards (not a conservation pitch)", () => {
+    const cases: Array<[string, string]> = [
+      ["my clients want the Great Barrier Reef", "Great Barrier Reef"],
+      ["Ningaloo for a group next year", "Ningaloo Reef"],
+      ["send them to the Whitsundays", "Whitsundays"]
+    ];
+    for (const [msg, dest] of cases) {
+      const r = buildBluePassPartnerReply({ latestMessage: msg, pitched: true });
+      expect(r.showCatalog, `no cards for "${msg}"`).toBe(true);
+      expect(r.catalogDestination, `wrong dest for "${msg}"`).toBe(dest);
+      expect(r.reply, `AU brief hit conservation: "${msg}"`).not.toContain("funds verified conservation");
+      expect(r.reply.length).toBeLessThanOrEqual(320);
+    }
+    // a genuine conservation question (no AU region) still hits conservation
+    const cons = buildBluePassPartnerReply({ latestMessage: "tell me about the conservation impact", pitched: true });
+    expect(cons.reply).toContain("funds verified conservation");
+    expect(cons.showCatalog).toBeFalsy();
+  });
+
   it("answers a partner currency/conversion question honestly (set with team)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "which currency am I paid in, and the exchange rate?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/your currency|converted|with the team/);
