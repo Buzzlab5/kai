@@ -1,5 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassLead } from "./lead";
+import { bluePassRegionsPitch, type BluePassMarket } from "./market";
 
 /**
  * BluePass first-touch triage.
@@ -533,6 +534,7 @@ export function buildBluePassOperatorReply(input: {
 export function buildBluePassPartnerReply(input: {
   latestMessage: string;
   pitched: boolean;
+  market?: BluePassMarket;
 }): BluePassPersonaReply {
   const message = input.latestMessage.toLowerCase();
   const has = (...needles: string[]) => includesAny(message, needles);
@@ -556,7 +558,7 @@ export function buildBluePassPartnerReply(input: {
   ) {
     return {
       reply:
-        "Straight up: we're Indonesia-first, with Komodo and Raja Ampat live now and more waters coming. Your clients get two of the best reef destinations on the planet through one link. Want the catalogue, or your claim link moving?"
+        `Straight up: ${bluePassRegionsPitch(input.market)} Want the catalogue, or your claim link moving?`
     };
   }
 

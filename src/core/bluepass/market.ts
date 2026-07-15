@@ -118,6 +118,17 @@ export function buildBluePassMarketGreeting(): string {
   return "Hey - Kai here, the BluePass ocean concierge. First up so I point you the right way: are you in Australia or Indonesia?";
 }
 
+/**
+ * Market-aware "where we're live" sentence for the persona pitch. Defaults to
+ * Indonesia (the established market) when the market is not yet known.
+ */
+export function bluePassRegionsPitch(market?: BluePassMarket): string {
+  if (market === "AUSTRALIA") {
+    return "In Australia we're live across the Great Barrier Reef, Whitsundays, Ningaloo and more - the best reef and coast the country has, through one link.";
+  }
+  return "We're Indonesia-first, with Komodo and Raja Ampat live now and more waters coming - two of the best reef destinations on the planet, through one link.";
+}
+
 /** Step 2 - once the market is known, ask which region, listing that market's coast. */
 export function buildBluePassRegionPrompt(market: BluePassMarket): string {
   const regions = BLUEPASS_REGIONS[market];

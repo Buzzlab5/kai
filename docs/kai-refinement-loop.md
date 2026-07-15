@@ -175,7 +175,10 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] market.ts: classifyBluePassMarket + classifyBluePassRegion (place names imply country; first-signal-wins; earliest-keyword within a message).
 - [x] market.ts: buildBluePassMarketGreeting (asks AU/ID first) + buildBluePassRegionPrompt(market) (lists that coast). market.test.ts 9 tests.
 - [ ] AU1: wire the gate into the server flow (bluepass-message-flow) - ask country, then region, BEFORE persona pitch; persist market+region on the session/lead. (server-side, @/-imports)
-- [ ] AU2: make persona replies MARKET-AWARE - the operator/partner branches hardcode "Indonesia-first / Komodo & Raja Ampat"; drive that copy from the chosen market+region instead.
+- [~] AU2: make persona replies MARKET-AWARE. DONE: threaded market into buildBluePassPartnerReply + partner regions branch now uses bluePassRegionsPitch(market). REMAINING:
+  - [ ] AU2b: operator + partner DEFAULT openers market-aware (they say "onboarding operators"/Indonesia framing).
+  - [ ] AU2c: operator "indonesia"/"outside" branches - market-aware (an AU operator saying "australia" should not hit the "outside/not in indonesia" expansion-list branch).
+  - [ ] AU2d: thread market into buildBluePassOperatorReply + operator regions/OTA-differentiation copy.
 - [ ] AU3: extend catalog region type + seed AU inventory (catalog.ts region is "Komodo"|"Raja Ampat" only) so traveller yacht-matching works for AU regions.
 - [ ] AU4: lead.ts knownRegions is Indonesia-only - add AU regions so lead/region extraction captures Australian places.
 
@@ -320,3 +323,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter103: ADDED C7 - deposit/balance branch (honest, no invented %, above guest-payment), 141 green.
 - iter104: ADDED C8 - partner trip-price branch (catalogue surfaced), 142 green.
 - iter105: AUSTRALIA LAUNCH phase 1 - new market.ts (country->region gate: classifiers + prompts, whole AU coast), market.test.ts 9 tests, 151 green. Wiring/market-aware-copy queued (AU1-AU4).
+- iter106: AU2a - partner regions branch market-aware (bluePassRegionsPitch), market threaded into partner builder, 152 green.

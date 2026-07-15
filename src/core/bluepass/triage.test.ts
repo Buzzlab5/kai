@@ -857,6 +857,17 @@ describe("buildBluePassPartnerReply", () => {
     expect(region.reply.toLowerCase()).toMatch(/indonesia-first|komodo and raja/);
   });
 
+  it("makes the partner regions answer market-aware (Australia vs Indonesia)", () => {
+    const au = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true, market: "AUSTRALIA" });
+    expect(au.reply).toContain("Great Barrier Reef");
+    expect(au.reply).not.toContain("Komodo");
+    const id = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true, market: "INDONESIA" });
+    expect(id.reply).toContain("Komodo and Raja Ampat");
+    // default (no market) stays Indonesia-first
+    const def = buildBluePassPartnerReply({ latestMessage: "which regions do you cover?", pitched: true });
+    expect(def.reply).toContain("Komodo and Raja Ampat");
+  });
+
   it("answers a partner regions question honestly (Indonesia-first, two live)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "which destinations do you cover?", pitched: true });
     expect(result.reply).toMatch(/Indonesia/i);
