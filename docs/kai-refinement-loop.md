@@ -179,7 +179,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
   - [x] AU2b: partner default opener market-aware (bluePassOperatorsDescriptor); operator default is market-neutral ("where do you operate") - no change needed.
   - [x] AU2c: threaded market into operator builder; added AU pre-built-page branch (australia/GBR/Whitsundays/... -> Australian operator onboarding); "outside" branch now names both live markets.
   - [ ] AU2d: thread market into buildBluePassOperatorReply + operator regions/OTA-differentiation copy.
-- [ ] AU3: extend catalog region type + seed AU inventory (catalog.ts region is "Komodo"|"Raja Ampat" only) so traveller yacht-matching works for AU regions.
+- [x] AU3: catalog region type widened to string; normalizeRegion (the real blocker - dropped non-ID regions to null) now maps AU regions; catalogDestination widened. AU inventory seeds + matches. NOTE: real AU yacht/operator DATA seeding is a task for Inov.
 - [x] AU4: lead.ts knownRegions now includes AU places (GBR/Whitsundays/Ningaloo/Gold Coast/Byron/Cairns/Port Douglas/Tasmania/Sydney/Perth/...); country-fallback logic handles Indonesia + Australia; guarded.
 
 ## Log
@@ -328,3 +328,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter108: AU2c - operator market-aware: AU pre-built-page branch + both-markets waitlist; updated outside-Indonesia test, 154 green.
 - iter109: AU2d - operator trust reply market-aware; AU2 (market-aware persona copy) COMPLETE, 155 green.
 - iter110: AU4 - lead.ts region extraction captures Australian places (specific-place-wins-over-country), 156 green.
+- iter111: AU3 - catalog accepts AU inventory (normalizeRegion extended - was silently dropping non-Indonesia yachts), 157 green.

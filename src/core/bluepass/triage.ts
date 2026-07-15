@@ -23,8 +23,8 @@ export type BluePassPersonaReply = {
   reply: string;
   /** Flow should attach catalog preview cards to this reply. */
   showCatalog?: boolean;
-  /** Narrow attached cards to one destination when set. */
-  catalogDestination?: "Komodo" | "Raja Ampat" | null;
+  /** Narrow attached cards to one destination when set (Indonesia or Australia region). */
+  catalogDestination?: string | null;
 };
 
 // Identity nouns that mark a referral partner. Checked BEFORE operator

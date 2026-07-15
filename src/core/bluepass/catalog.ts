@@ -3,7 +3,10 @@ import type { TruthPolicy } from "@/core/business-pack/types";
 export type BluePassYachtCard = {
   slug: string;
   name: string;
-  region: "Komodo" | "Raja Ampat";
+  // Free-form region label from the operator's inventory. Indonesia (Komodo,
+  // Raja Ampat) is live; Australian regions (Great Barrier Reef, Whitsundays,
+  // Ningaloo, ...) seed here as AU inventory comes online.
+  region: string;
   tier: string;
   maxGuests: number;
   cabins: number;
@@ -230,7 +233,18 @@ function normalizeBluePassCatalogSnapshot(catalogInput?: BluePassCatalogSnapshot
 }
 
 function normalizeRegion(value?: string) {
-  if (/komodo|labuan bajo|flores/i.test(value ?? "")) return "Komodo";
-  if (/raja\s*ampat|misool|sorong/i.test(value ?? "")) return "Raja Ampat";
+  const v = value ?? "";
+  // Indonesia
+  if (/komodo|labuan bajo|flores/i.test(v)) return "Komodo";
+  if (/raja\s*ampat|misool|sorong/i.test(v)) return "Raja Ampat";
+  // Australia
+  if (/great barrier|gbr|cairns|port douglas/i.test(v)) return "Great Barrier Reef";
+  if (/whitsunday|airlie/i.test(v)) return "Whitsundays";
+  if (/ningaloo|exmouth/i.test(v)) return "Ningaloo Reef";
+  if (/gold coast/i.test(v)) return "Gold Coast";
+  if (/byron/i.test(v)) return "Byron Bay";
+  if (/tasmania|hobart/i.test(v)) return "Tasmania";
+  if (/rottnest|perth/i.test(v)) return "Rottnest & Perth";
+  if (/sydney/i.test(v)) return "Sydney";
   return null;
 }
