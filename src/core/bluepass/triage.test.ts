@@ -420,8 +420,8 @@ describe("buildBluePassPartnerReply", () => {
       expect(reply).toBe(reply.trim());
       expect(reply.includes("  ")).toBe(false);
       expect(EMOJI.test(reply)).toBe(false);
-      for (const pct of reply.match(/(\d+)%/g) ?? []) {
-        expect(["3", "5", "18", "82"].includes(pct.replace("%", "")), `bad % in: ${reply}`).toBe(true);
+      for (const m of reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
+        expect(["3", "5", "18", "82"].includes(m[1]), `bad % in: ${reply}`).toBe(true);
       }
     };
     const leads = [
@@ -477,6 +477,15 @@ describe("buildBluePassPartnerReply", () => {
     expect(EMOJI.test(JSON.stringify(buildBluePassTriageGreeting()))).toBe(false);
   });
 
+  it("the honest-% guard catches word-form invented percentages, not just the symbol", () => {
+    const PCT = /(\d+)\s*(?:%|percent)/gi;
+    const bad = (s: string) => [...s.matchAll(PCT)].map((m) => m[1]).filter((n) => !["3", "5", "18", "82"].includes(n));
+    expect(bad("your cut is 20 percent")).toEqual(["20"]); // word form caught
+    expect(bad("we take 20%")).toEqual(["20"]); // symbol form caught
+    expect(bad("5% conservation and 18 percent capped")).toEqual([]); // honest values pass either form
+    expect(bad("a 60-day window, 3 payments")).toEqual([]); // non-% numbers ignored
+  });
+
   it("only ever states the honest percentages {3,5,18,82} - never invents a commission %", () => {
     const ALLOWED = new Set(["3", "5", "18", "82"]);
     const inputs = [
@@ -492,8 +501,8 @@ describe("buildBluePassPartnerReply", () => {
           buildBluePassOperatorReply({ latestMessage: m, pitched }).reply,
           buildBluePassPartnerReply({ latestMessage: m, pitched }).reply,
         ]) {
-          for (const pct of reply.match(/(\d+)%/g) ?? []) {
-            expect(ALLOWED.has(pct.replace("%", "")), `disallowed percentage ${pct} in: ${reply}`).toBe(true);
+          for (const m of reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
+            expect(ALLOWED.has(m[1]), `disallowed percentage ${m[0]} in: ${reply}`).toBe(true);
           }
         }
       }

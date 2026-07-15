@@ -332,3 +332,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter112: AU1 - resolveBluePassGate pure state machine + market.test gate walk; server wiring documented (section 2a). ALL AU core items done; remaining = Inov server-wire + AU data seed. 158 green.
 - iter113: ADDED C9 - operator setup-support branch, 159 green.
 - iter114: FIXED Q10 - dispatch honest-% guard non-vacuous (template has no %, user-echoed % isolated), 159 green.
+- iter115: FIXED Q11 - honest-% guards catch word-form percentages (dropped fragile \b after %), meta-test proves it, 160 green.

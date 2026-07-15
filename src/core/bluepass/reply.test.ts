@@ -54,8 +54,8 @@ describe("bluepass traveller replies (reply.ts)", () => {
 
   it("only ever states the honest 5% (no invented percentages)", () => {
     for (const reply of allTravellerReplies()) {
-      for (const pct of reply.match(/(\d+)%/g) ?? []) {
-        expect(["3", "5", "18", "82"].includes(pct.replace("%", "")), `bad % in: ${reply}`).toBe(true);
+      for (const m of reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
+        expect(["3", "5", "18", "82"].includes(m[1]), `bad % in: ${reply}`).toBe(true);
       }
     }
   });
