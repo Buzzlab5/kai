@@ -170,6 +170,15 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [ ] Q11 (med): broaden the honest-% guard from /(\d+)%/g to /(\d+)\s*(?:%|percent)/gi across triage/reply/dispatch tests so word-form invented commissions ("20 percent") are caught.
 - [ ] Q12 (low): triage.test.ts:269 near-vacuous "without inventing a percentage" assertion - replace with the strengthened honest-% whitelist (symbol+word, {3,5,18,82}).
 
+## Australia launch (country -> region gate) - user-directed
+- [x] market.ts: BluePassMarket (AUSTRALIA|INDONESIA) + BLUEPASS_REGIONS (whole AU coast: GBR/Whitsundays/Ningaloo/Gold Coast/Sydney/Byron/Tasmania/Rottnest&Perth; ID: Komodo/Raja Ampat).
+- [x] market.ts: classifyBluePassMarket + classifyBluePassRegion (place names imply country; first-signal-wins; earliest-keyword within a message).
+- [x] market.ts: buildBluePassMarketGreeting (asks AU/ID first) + buildBluePassRegionPrompt(market) (lists that coast). market.test.ts 9 tests.
+- [ ] AU1: wire the gate into the server flow (bluepass-message-flow) - ask country, then region, BEFORE persona pitch; persist market+region on the session/lead. (server-side, @/-imports)
+- [ ] AU2: make persona replies MARKET-AWARE - the operator/partner branches hardcode "Indonesia-first / Komodo & Raja Ampat"; drive that copy from the chosen market+region instead.
+- [ ] AU3: extend catalog region type + seed AU inventory (catalog.ts region is "Komodo"|"Raja Ampat" only) so traveller yacht-matching works for AU regions.
+- [ ] AU4: lead.ts knownRegions is Indonesia-only - add AU regions so lead/region extraction captures Australian places.
+
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
@@ -310,3 +319,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter102: ADDED C6 - operator free/cost-to-list branch, 140 green.
 - iter103: ADDED C7 - deposit/balance branch (honest, no invented %, above guest-payment), 141 green.
 - iter104: ADDED C8 - partner trip-price branch (catalogue surfaced), 142 green.
+- iter105: AUSTRALIA LAUNCH phase 1 - new market.ts (country->region gate: classifiers + prompts, whole AU coast), market.test.ts 9 tests, 151 green. Wiring/market-aware-copy queued (AU1-AU4).
