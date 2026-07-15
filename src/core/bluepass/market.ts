@@ -25,11 +25,14 @@ export const BLUEPASS_REGIONS: Record<BluePassMarket, readonly string[]> = {
 const marketSignals: Array<{ market: BluePassMarket; needles: string[] }> = [
   {
     market: "AUSTRALIA",
+    // Deliberately excludes bare city names that are ALSO common personal names
+    // ("byron", "cairns", "perth", "sydney") - those would mislock the market on
+    // ordinary self-introductions ("Hi, I'm Byron, I want to dive Komodo"). They
+    // still resolve a region once the market is known (see regionAliases below).
     needles: [
       "australia", "australian", "aussie", "great barrier", "gbr", "whitsunday",
-      "ningaloo", "exmouth", "gold coast", "sydney", "byron", "cairns",
-      "port douglas", "perth", "rottnest", "tasmania", "tassie", "brisbane",
-      "queensland", "airlie"
+      "ningaloo", "exmouth", "gold coast", "byron bay", "port douglas",
+      "rottnest", "tasmania", "tassie", "brisbane", "queensland", "airlie"
     ]
   },
   {

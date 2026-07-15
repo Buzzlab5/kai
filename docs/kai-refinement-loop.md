@@ -182,6 +182,25 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] AU3: catalog region type widened to string; normalizeRegion (the real blocker - dropped non-ID regions to null) now maps AU regions; catalogDestination widened. AU inventory seeds + matches. NOTE: real AU yacht/operator DATA seeding is a task for Inov.
 - [x] AU4: lead.ts knownRegions now includes AU places (GBR/Whitsundays/Ningaloo/Gold Coast/Byron/Cairns/Port Douglas/Tasmania/Sydney/Perth/...); country-fallback logic handles Indonesia + Australia; guarded.
 
+## Audit backlog 2 (adversarial audit wf_333987ed, 17 confirmed)
+- [ ] C16 (high, INOV/server): wire classifyBluePassMarket/resolveBluePassGate into bluepass-message-flow + pass market into the persona builders; add market to the flow input. (@/-server, untestable locally) + integration test.
+- [x] M1 (high): dropped name-ambiguous city tokens (byron/cairns/perth/sydney) from marketSignals (kept in regionAliases), added "byron bay"; name+destination misroute fixed; 2 stale tests corrected.
+- [ ] M6 (high): resolveBluePassGate can infinite-loop on REGION when first signal locks one market but user names the other. Flip market when locked market yields region=null but the other market matches; test.
+- [ ] R2 (high): operator "outside" branch (410) waitlists operators who name a live market ("in Indonesia, not Australia"). Move AU(424)+ID(431) pre-built branches above "outside", or drop "not in indonesia/australia" needles; test.
+- [ ] T9 (high): buildBluePassLeadCapturedReply exceeds 320 with a full 4-field AU lead (364/348). Trim fixed body / drop phone echo; test <=320 for OPERATOR+PARTNER.
+- [ ] R10 (high): add AU partner destination branches (Great Barrier Reef/Whitsundays/Ningaloo...) mirroring Komodo/Raja (showCatalog+catalogDestination) BEFORE the conservation branch so bare "reef" cant capture; test.
+- [ ] M11 (high): partner catalogue/trip-price/day-trip/group/book-on-behalf branches hardcode "Komodo and Raja Ampat" - route through market-aware region copy; test AU market surfaces AU regions.
+- [ ] R3 (med): operator AU pre-built branch (424) omits half the AU needles (sydney/perth/rottnest/exmouth/airlie/gbr...) or better drive off input.market; test.
+- [ ] M4 (med): residence-city ("Sydney") outranks destination-country ("Indonesia") for partners - weight explicit country over residence city; test partner Sydney->Indonesia.
+- [ ] M7 (med): firstIndexOfAny uses raw indexOf - use word boundaries so "Maharaja"/"perthshire" dont false-hit; drop/lengthen short needles ("raja"->"raja ampat"); test.
+- [ ] M12 (med): partner "is this legit?" hardcodes "vetted Indonesian operators" - use bluePassOperatorsDescriptor(input.market); test AU.
+- [ ] M13 (med): buildSelectedYachtMissingFieldsReply hardcodes "phinisi" for all boats incl AU - derive vessel noun or neutral; test AU yacht no "phinisi".
+- [ ] M14 (med): yacht-comparison always appends Komodo-vs-Raja sentence - derive from actual regions or omit; test AU-only comparison no Komodo/Raja.
+- [ ] M15 (med): partner markup branch hardcodes "rupiah" - use "never a cent more"; add AU GST operator branch + AUD currency (respect 5%-only copy rule); test.
+- [ ] Q17 (med): market.test.ts only tests Australia-first mixed signals - add Indonesia-first within-message + cross-message lock assertions.
+- [ ] R5 (low): broad "australia"/"indonesia" pre-built branches sit above topic branches and swallow on-topic Qs - move below FAQ branches or fallthrough; test cancellation-for-AU-trips hits cancellation.
+- [x] INVARIANT-HOLDS: no AU reply asserts a confirmed booking (audit confirmed) - no change.
+
 ## Log
 - (iterations append here)
 - iter1: trimmed operator replies ~20%, numbers preserved, 39 tests green.
@@ -334,3 +353,5 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter114: FIXED Q10 - dispatch honest-% guard non-vacuous (template has no %, user-echoed % isolated), 159 green.
 - iter115: FIXED Q11 - honest-% guards catch word-form percentages (dropped fragile \b after %), meta-test proves it, 160 green.
 - iter116: FIXED Q12 - commission honest-% whitelist; ALL 15 audit findings done. Launching adversarial audit 2 (incl. AU surface), 160 green.
+- iter117: adversarial audit 2 (69 agents) -> 17 confirmed AU-surface bugs written to Audit backlog 2; fixing M1 (name-like market needles) first.
+- iter117: FIXED M1 (audit 2) - name-like city tokens no longer mislock market; "Hi I'm Byron...Komodo"->INDONESIA, 161 green.

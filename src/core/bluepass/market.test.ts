@@ -11,7 +11,7 @@ import {
 describe("classifyBluePassMarket", () => {
   it("detects Australia from country + place names", () => {
     expect(classifyBluePassMarket(["we're an operator in Australia"])).toBe("AUSTRALIA");
-    expect(classifyBluePassMarket(["day trips out of Cairns"])).toBe("AUSTRALIA");
+    expect(classifyBluePassMarket(["day trips out of Port Douglas"])).toBe("AUSTRALIA");
     expect(classifyBluePassMarket(["charter on the Whitsundays"])).toBe("AUSTRALIA");
     expect(classifyBluePassMarket(["Ningaloo whale sharks"])).toBe("AUSTRALIA");
   });
@@ -22,12 +22,22 @@ describe("classifyBluePassMarket", () => {
     expect(classifyBluePassMarket(["Raja Ampat in March"])).toBe("INDONESIA");
   });
 
+  it("does not mislock the market on a personal name that looks like an AU city", () => {
+    // "byron"/"cairns"/"perth"/"sydney" are common names - must not beat a real destination
+    expect(classifyBluePassMarket(["Hi, I'm Byron, I want to dive Komodo"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["I'm Sarah Cairns, planning Raja Ampat"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["Perth here, thinking about Bali"])).toBe("INDONESIA");
+    // genuine AU destinations still lock Australia
+    expect(classifyBluePassMarket(["we run trips on the Great Barrier Reef"])).toBe("AUSTRALIA");
+    expect(classifyBluePassMarket(["charters out of Byron Bay"])).toBe("AUSTRALIA");
+  });
+
   it("returns UNKNOWN with no market signal, and locks the first signal", () => {
     expect(classifyBluePassMarket(["hi", "tell me more"])).toBe("UNKNOWN");
     // first message with a signal wins across the conversation
     expect(classifyBluePassMarket(["we're in Australia", "actually Komodo looks nice too"])).toBe("AUSTRALIA");
     // within one message, the earliest-appearing keyword wins
-    expect(classifyBluePassMarket(["based in Sydney, might add Komodo later"])).toBe("AUSTRALIA");
+    expect(classifyBluePassMarket(["in Australia, might add Komodo later"])).toBe("AUSTRALIA");
   });
 });
 
