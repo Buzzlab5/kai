@@ -180,7 +180,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
   - [x] AU2c: threaded market into operator builder; added AU pre-built-page branch (australia/GBR/Whitsundays/... -> Australian operator onboarding); "outside" branch now names both live markets.
   - [ ] AU2d: thread market into buildBluePassOperatorReply + operator regions/OTA-differentiation copy.
 - [ ] AU3: extend catalog region type + seed AU inventory (catalog.ts region is "Komodo"|"Raja Ampat" only) so traveller yacht-matching works for AU regions.
-- [ ] AU4: lead.ts knownRegions is Indonesia-only - add AU regions so lead/region extraction captures Australian places.
+- [x] AU4: lead.ts knownRegions now includes AU places (GBR/Whitsundays/Ningaloo/Gold Coast/Byron/Cairns/Port Douglas/Tasmania/Sydney/Perth/...); country-fallback logic handles Indonesia + Australia; guarded.
 
 ## Log
 - (iterations append here)
@@ -327,3 +327,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter107: AU2b - partner default opener market-aware ("vetted Australian reef and charter operators" for AU), 153 green.
 - iter108: AU2c - operator market-aware: AU pre-built-page branch + both-markets waitlist; updated outside-Indonesia test, 154 green.
 - iter109: AU2d - operator trust reply market-aware; AU2 (market-aware persona copy) COMPLETE, 155 green.
+- iter110: AU4 - lead.ts region extraction captures Australian places (specific-place-wins-over-country), 156 green.

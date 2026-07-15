@@ -24,6 +24,16 @@ describe("extractBluePassLead", () => {
     expect(merged.email).toBe("tim@bluehorizon.co");
   });
 
+  it("extracts Australian regions (specific place + country fallback)", () => {
+    expect(extractBluePassLead(["we run trips on the Great Barrier Reef"]).region).toBe("Great Barrier Reef");
+    expect(extractBluePassLead(["charters in the Whitsundays"]).region).toBe("Whitsundays");
+    expect(extractBluePassLead(["Ningaloo whale sharks"]).region).toBe("Ningaloo");
+    // bare country only -> country fallback
+    expect(extractBluePassLead(["we operate in Australia"]).region).toBe("Australia");
+    // a specific AU place wins over the bare country
+    expect(extractBluePassLead(["based in Cairns, Australia"]).region).toBe("Cairns");
+  });
+
   it("does not mistake a region for a company name", () => {
     const lead = extractBluePassLead(["We're in Indonesia"]);
 

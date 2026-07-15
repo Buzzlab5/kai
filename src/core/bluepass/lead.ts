@@ -16,6 +16,7 @@ export type BluePassLead = {
 };
 
 const knownRegions = [
+  // Indonesia
   "raja ampat",
   "komodo",
   "labuan bajo",
@@ -26,8 +27,27 @@ const knownRegions = [
   "lembeh",
   "sulawesi",
   "flores",
-  "indonesia"
+  // Australia (specific places first so they win over the country fallback)
+  "great barrier reef",
+  "whitsundays",
+  "ningaloo",
+  "gold coast",
+  "byron bay",
+  "port douglas",
+  "cairns",
+  "airlie",
+  "exmouth",
+  "rottnest",
+  "tasmania",
+  "sydney",
+  "perth",
+  // Country fallbacks (handled specially - never used as a specific region)
+  "indonesia",
+  "australia"
 ];
+
+// Country-level fallbacks that should not be returned as a specific region.
+const countryFallbacks = ["indonesia", "australia"];
 
 export function extractBluePassLead(messages: string[]): BluePassLead {
   const text = messages.join("\n");
@@ -60,8 +80,8 @@ export function extractBluePassLead(messages: string[]): BluePassLead {
   const lowerText = text.toLowerCase();
   const basedMatch = text.match(/\b(?:based in|out of|port is|home port is|from)\s+([A-Za-z][A-Za-z' -]{2,40}?)(?=,|\.|$|\s+and\b)/im);
   const region =
-    knownRegions.find((candidate) => candidate !== "indonesia" && lowerText.includes(candidate)) ??
-    (lowerText.includes("indonesia") ? "indonesia" : undefined);
+    knownRegions.find((candidate) => !countryFallbacks.includes(candidate) && lowerText.includes(candidate)) ??
+    countryFallbacks.find((country) => lowerText.includes(country));
   if (basedMatch) {
     lead.region = basedMatch[1].trim();
   } else if (region) {
