@@ -185,7 +185,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 ## Audit backlog 2 (adversarial audit wf_333987ed, 17 confirmed)
 - [ ] C16 (high, INOV/server): wire classifyBluePassMarket/resolveBluePassGate into bluepass-message-flow + pass market into the persona builders; add market to the flow input. (@/-server, untestable locally) + integration test.
 - [x] M1 (high): dropped name-ambiguous city tokens (byron/cairns/perth/sydney) from marketSignals (kept in regionAliases), added "byron bay"; name+destination misroute fixed; 2 stale tests corrected.
-- [ ] M6 (high): resolveBluePassGate can infinite-loop on REGION when first signal locks one market but user names the other. Flip market when locked market yields region=null but the other market matches; test.
+- [x] M6 (high): resolveBluePassGate flips market when the locked market yields region=null but the other market has a named region - no infinite REGION loop; test both directions.
 - [ ] R2 (high): operator "outside" branch (410) waitlists operators who name a live market ("in Indonesia, not Australia"). Move AU(424)+ID(431) pre-built branches above "outside", or drop "not in indonesia/australia" needles; test.
 - [ ] T9 (high): buildBluePassLeadCapturedReply exceeds 320 with a full 4-field AU lead (364/348). Trim fixed body / drop phone echo; test <=320 for OPERATOR+PARTNER.
 - [ ] R10 (high): add AU partner destination branches (Great Barrier Reef/Whitsundays/Ningaloo...) mirroring Komodo/Raja (showCatalog+catalogDestination) BEFORE the conservation branch so bare "reef" cant capture; test.
@@ -355,3 +355,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter116: FIXED Q12 - commission honest-% whitelist; ALL 15 audit findings done. Launching adversarial audit 2 (incl. AU surface), 160 green.
 - iter117: adversarial audit 2 (69 agents) -> 17 confirmed AU-surface bugs written to Audit backlog 2; fixing M1 (name-like market needles) first.
 - iter117: FIXED M1 (audit 2) - name-like city tokens no longer mislock market; "Hi I'm Byron...Komodo"->INDONESIA, 161 green.
+- iter118: FIXED M6 (audit 2) - gate flips market on cross-market region name (no infinite loop), 162 green.

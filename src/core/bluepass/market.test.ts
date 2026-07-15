@@ -105,6 +105,19 @@ describe("market gate copy", () => {
     expect(s4.region).toBe("Komodo");
   });
 
+  it("does not infinite-loop when a region names the other market (flips instead of looping)", () => {
+    // nationality locks AUSTRALIA, but the named region is Komodo (Indonesia) -> flip, not a loop
+    const g = resolveBluePassGate(["I'm Australian", "actually I want a liveaboard in Komodo, Indonesia"]);
+    expect(g.step).toBe("READY");
+    expect(g.market).toBe("INDONESIA");
+    expect(g.region).toBe("Komodo");
+    // and the reverse: locked Indonesia, but they name the Great Barrier Reef
+    const g2 = resolveBluePassGate(["we're Indonesian", "but our clients want the Great Barrier Reef"]);
+    expect(g2.step).toBe("READY");
+    expect(g2.market).toBe("AUSTRALIA");
+    expect(g2.region).toBe("Great Barrier Reef");
+  });
+
   it("offers the whole AU coast (8 regions) and 2 live Indonesia regions", () => {
     expect(BLUEPASS_REGIONS.AUSTRALIA).toHaveLength(8);
     expect(BLUEPASS_REGIONS.AUSTRALIA).toContain("Great Barrier Reef");

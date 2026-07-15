@@ -157,11 +157,23 @@ export type BluePassGate = {
  * A place name (e.g. "Cairns", "Komodo") settles both at once and skips ahead.
  */
 export function resolveBluePassGate(messages: string[]): BluePassGate {
-  const market = classifyBluePassMarket(messages);
+  let market = classifyBluePassMarket(messages);
   if (market === "UNKNOWN") {
     return { step: "MARKET", market: null, region: null, prompt: buildBluePassMarketGreeting() };
   }
-  const region = classifyBluePassRegion(market, messages);
+  let region = classifyBluePassRegion(market, messages);
+  if (!region) {
+    // The locked market has no region match - the user may have named a region in
+    // the OTHER market (e.g. locked AUSTRALIA via nationality, then names Komodo).
+    // A concrete region name disambiguates the country, so flip rather than loop
+    // forever asking for a region that will never be given.
+    const other: BluePassMarket = market === "AUSTRALIA" ? "INDONESIA" : "AUSTRALIA";
+    const otherRegion = classifyBluePassRegion(other, messages);
+    if (otherRegion) {
+      market = other;
+      region = otherRegion;
+    }
+  }
   if (!region) {
     return { step: "REGION", market, region: null, prompt: buildBluePassRegionPrompt(market) };
   }
