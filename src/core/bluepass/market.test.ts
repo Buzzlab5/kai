@@ -39,6 +39,28 @@ describe("classifyBluePassMarket", () => {
     // within one message, the earliest-appearing keyword wins
     expect(classifyBluePassMarket(["in Australia, might add Komodo later"])).toBe("AUSTRALIA");
   });
+
+  it("M4: an explicit destination country outranks an earlier residence/place token", () => {
+    expect(classifyBluePassMarket(["Gold Coast dive shop - our clients want Indonesia"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["I'm a Sydney-based agent, clients want Komodo, Indonesia"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["Bali shop sending guests to the Great Barrier Reef in Australia"])).toBe("AUSTRALIA");
+    // no country named -> earliest place still wins
+    expect(classifyBluePassMarket(["Gold Coast charters"])).toBe("AUSTRALIA");
+    // both countries named -> earliest country wins
+    expect(classifyBluePassMarket(["we're in Indonesia, not Australia"])).toBe("INDONESIA");
+  });
+
+  it("M7: matches needles on token boundaries, not bare substrings", () => {
+    expect(classifyBluePassMarket(["flights via Balikpapan in Borneo"])).toBe("UNKNOWN"); // not "bali"
+    expect(classifyBluePassMarket(["Hi, I'm Raja, a travel agent"])).toBe("UNKNOWN"); // bare "raja" dropped
+    // genuine standalone place names still classify, including plurals
+    expect(classifyBluePassMarket(["Raja Ampat in March"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["a Bali honeymoon"])).toBe("INDONESIA");
+    expect(classifyBluePassMarket(["charter on the Whitsundays"])).toBe("AUSTRALIA"); // "whitsunday" + plural s
+    // region aliases still resolve "raja" once the market is known, but not "Maharaja"
+    expect(classifyBluePassRegion("INDONESIA", ["heading to Raja"])).toBe("Raja Ampat");
+    expect(classifyBluePassRegion("INDONESIA", ["Maharaja Palace"])).toBeNull();
+  });
 });
 
 describe("classifyBluePassRegion", () => {
