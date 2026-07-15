@@ -148,6 +148,29 @@ export function bluePassVesselNoun(region?: string): string {
   return region && classifyBluePassMarket([region]) === "INDONESIA" ? "phinisi" : "boat";
 }
 
+/**
+ * Short inline region fragment for partner prompts that ask the partner to choose a
+ * destination ("... which region - X?"). AU-default (launch market); the AU form names
+ * two flagship reefs plus an open invite so the whole coast is welcome without an
+ * eight-item list blowing the 320-char budget. Question ("or") form.
+ */
+export function bluePassRegionChoice(market?: BluePassMarket): string {
+  if (market === "INDONESIA") return "Komodo or Raja Ampat";
+  return "the Great Barrier Reef, Ningaloo, or another stretch of coast";
+}
+
+/** Statement ("and") form of {@link bluePassRegionChoice} ("... operators across X"). AU-default. */
+export function bluePassRegionSpan(market?: BluePassMarket): string {
+  if (market === "INDONESIA") return "Komodo and Raja Ampat";
+  return "the Great Barrier Reef, Ningaloo and beyond";
+}
+
+/** Market-aware "flagship X" phrase for catalogue copy. AU-default. */
+export function bluePassFlagshipVessel(market?: BluePassMarket): string {
+  if (market === "INDONESIA") return "flagship phinisi";
+  return "premium charter boats";
+}
+
 export type BluePassGateStep = "MARKET" | "REGION" | "READY";
 
 export type BluePassGate = {

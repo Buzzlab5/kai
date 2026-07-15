@@ -336,11 +336,32 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/email|handle/);
   });
 
-  it("shows catalog cards for the catalogue branch", () => {
+  it("shows catalog cards for the catalogue branch (Australia-first default)", () => {
     const result = buildBluePassPartnerReply({ latestMessage: "What's in the catalogue?", pitched: true });
 
     expect(result.showCatalog).toBe(true);
-    expect(result.reply).toContain("Komodo and Raja Ampat");
+    expect(result.reply).toContain("Great Barrier Reef");
+    expect(result.reply).not.toContain("phinisi");
+  });
+
+  it("M11: partner region copy follows the market (catalogue/trip-price/group/book-on-behalf), AU-default", () => {
+    const msgs = [
+      "how much do the trips cost for my client?", // trip-price
+      "do you have day trips or liveaboards only?", // day-trip
+      "what's in the catalogue?", // catalogue
+      "can I do a group booking for clients?", // group/charter
+      "book for a client now" // book-on-behalf
+    ];
+    for (const m of msgs) {
+      // default (no market) -> Australia
+      const def = buildBluePassPartnerReply({ latestMessage: m, pitched: true });
+      expect(def.reply, `default not AU for "${m}"`).toContain("Great Barrier Reef");
+      expect(def.reply, `stale Komodo default for "${m}"`).not.toContain("Komodo");
+      expect(def.reply.length, `too long for "${m}": ${def.reply.length}`).toBeLessThanOrEqual(320);
+      // explicit Indonesia market still surfaces Komodo/Raja
+      const id = buildBluePassPartnerReply({ latestMessage: m, pitched: true, market: "INDONESIA" });
+      expect(id.reply, `ID lost Komodo for "${m}"`).toContain("Komodo");
+    }
   });
 
   it("answers a partner currency/conversion question honestly (set with team)", () => {

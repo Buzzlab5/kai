@@ -1,6 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassLead } from "./lead";
-import { bluePassOperatorsDescriptor, bluePassRegionsPitch, type BluePassMarket } from "./market";
+import { bluePassFlagshipVessel, bluePassOperatorsDescriptor, bluePassRegionChoice, bluePassRegionSpan, bluePassRegionsPitch, type BluePassMarket } from "./market";
 
 /**
  * BluePass first-touch triage.
@@ -739,7 +739,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("trip cost", "trip price", "how much are the trips", "how much do the trips", "price range", "what do the trips cost", "pricing for", "prices for", "quote for my client", "how much for my client")) {
     return {
       reply:
-        "Prices vary by boat, season, and length - I'll show you the live catalogue with price signals, then narrow by destination and your client's dates. A taste below - Komodo or Raja Ampat to start?",
+        `Prices vary by boat, season, and length - I'll show you the live catalogue with price signals, then narrow by destination and your client's dates. A taste below - ${bluePassRegionChoice(input.market)} to start?`,
       showCatalog: true
     };
   }
@@ -747,14 +747,14 @@ export function buildBluePassPartnerReply(input: {
   if (has("day trip", "day trips", "liveaboards only", "only liveaboards", "just liveaboards", "what kind of trip", "what trips", "type of trip", "half day", "single day", "day tours")) {
     return {
       reply:
-        "Right now it's mainly multi-day liveaboards and dive trips across Komodo and Raja Ampat; day trips and wider activities grow as we add operators. What are your clients after? Company, market, and best email to start."
+        `Right now it's mainly reef day trips, dive and sailing across ${bluePassRegionSpan(input.market)}; whole-boat charters and wider activities grow as we add operators. What are your clients after? Company, market, and best email to start.`
     };
   }
 
   if (has("catalogue", "catalog", "which operators", "what boats", "inventory")) {
     return {
       reply:
-        "Vetted liveaboards and dive operators across Komodo and Raja Ampat - from accessible Explorer boats to flagship phinisi, every one screened for safety, sustainability, and fair crew pay. A taste below - narrow by destination or budget?",
+        `Across ${bluePassRegionSpan(input.market)} we list ${bluePassOperatorsDescriptor(input.market)} - from accessible day boats to ${bluePassFlagshipVessel(input.market)}, every one screened for safety, sustainability, and fair crew pay. A taste below - narrow by destination or budget?`,
       showCatalog: true
     };
   }
@@ -783,7 +783,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("group booking", "charter for", "whole yacht", "private charter", "group trip", "book a group", "large group", "group hold", "group of clients")) {
     return {
       reply:
-        "Absolutely - group trips and whole-yacht charters for clients are our sweet spot. Tell me the destination, rough dates, and headcount and the team will hold space. Which region - Komodo or Raja Ampat?"
+        `Absolutely - group trips and whole-boat charters for clients are our sweet spot. Tell me the destination, rough dates, and headcount and the team will hold space. Which region - ${bluePassRegionChoice(input.market)}?`
     };
   }
 
@@ -804,7 +804,7 @@ export function buildBluePassPartnerReply(input: {
   if (has("book for a client", "book a trip for", "on behalf", "book now", "dates are set")) {
     return {
       reply:
-        "Let's do it - treat it like any trip brief, credited to you. Komodo or Raja Ampat? Then dates and group size, and I'll line up the right boat. The team makes sure it's attributed to your outfit."
+        `Let's do it - treat it like any trip brief, credited to you. Which region - ${bluePassRegionChoice(input.market)}? Then dates and group size, and I'll line up the right boat. The team makes sure it's attributed to your outfit.`
     };
   }
 
