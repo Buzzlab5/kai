@@ -237,7 +237,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("legit", "trustworthy", "who's behind", "who runs", "scam", "is this real", "can i trust", "reputable", "are you real")) {
     return {
       reply:
-        "Fair to ask - BluePass is a real marketplace onboarding vetted Indonesian operators, guest price never marked up and you keep 82%. Nothing's charged until you claim your own page. Want the 18% breakdown, or your claim link?"
+        `Fair to ask - BluePass is a real marketplace onboarding ${bluePassOperatorsDescriptor(input.market)}, guest price never marked up and you keep 82%. Nothing's charged until you claim your own page. Want the 18% breakdown, or your claim link?`
     };
   }
 

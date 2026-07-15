@@ -175,7 +175,7 @@ conversation stays on one track, with concise, non-dead-end replies. Runs unatte
 - [x] market.ts: classifyBluePassMarket + classifyBluePassRegion (place names imply country; first-signal-wins; earliest-keyword within a message).
 - [x] market.ts: buildBluePassMarketGreeting (asks AU/ID first) + buildBluePassRegionPrompt(market) (lists that coast). market.test.ts 9 tests.
 - [ ] AU1: wire the gate into the server flow (bluepass-message-flow) - ask country, then region, BEFORE persona pitch; persist market+region on the session/lead. (server-side, @/-imports)
-- [~] AU2: make persona replies MARKET-AWARE. DONE: threaded market into buildBluePassPartnerReply + partner regions branch now uses bluePassRegionsPitch(market). REMAINING:
+- [x] AU2: persona replies MARKET-AWARE (partner regions+default, operator trust+outside+AU-page). DONE: threaded market into buildBluePassPartnerReply + partner regions branch now uses bluePassRegionsPitch(market). REMAINING:
   - [x] AU2b: partner default opener market-aware (bluePassOperatorsDescriptor); operator default is market-neutral ("where do you operate") - no change needed.
   - [x] AU2c: threaded market into operator builder; added AU pre-built-page branch (australia/GBR/Whitsundays/... -> Australian operator onboarding); "outside" branch now names both live markets.
   - [ ] AU2d: thread market into buildBluePassOperatorReply + operator regions/OTA-differentiation copy.
@@ -326,3 +326,4 @@ and fixed by the test-per-branch discipline ("cut"/undercut, "resort"/opener).
 - iter106: AU2a - partner regions branch market-aware (bluePassRegionsPitch), market threaded into partner builder, 152 green.
 - iter107: AU2b - partner default opener market-aware ("vetted Australian reef and charter operators" for AU), 153 green.
 - iter108: AU2c - operator market-aware: AU pre-built-page branch + both-markets waitlist; updated outside-Indonesia test, 154 green.
+- iter109: AU2d - operator trust reply market-aware; AU2 (market-aware persona copy) COMPLETE, 155 green.

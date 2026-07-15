@@ -813,6 +813,14 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/partner network|pre-qualif|reach/);
   });
 
+  it("makes the operator trust reply market-aware (descriptor)", () => {
+    const au = buildBluePassOperatorReply({ latestMessage: "is this legit?", pitched: true, market: "AUSTRALIA" });
+    expect(au.reply).toContain("vetted Australian reef and charter operators");
+    expect(au.reply).not.toContain("Indonesian");
+    const def = buildBluePassOperatorReply({ latestMessage: "is this legit?", pitched: true });
+    expect(def.reply).toContain("vetted Indonesian liveaboards");
+  });
+
   it("reassures an operator BluePass is legit (real marketplace, keep 82%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "is this legit or a scam?", pitched: true });
     expect(result.reply.toLowerCase()).toMatch(/real|vetted|82%/);
