@@ -59,6 +59,21 @@ describe("BluePass inquiry intent", () => {
     });
   });
 
+  it("captures Australian destinations so the AU inquiry funnel can complete", () => {
+    const intent = extractBluePassInquiryIntent([
+      "diving the Great Barrier Reef in June, 6 guests, I'm Sam, sam@x.com"
+    ]);
+    expect(intent.destination).toBe("Great Barrier Reef");
+    expect(intent.guests).toBe(6);
+    // destination is captured, so it is no longer a missing field
+    expect(getMissingBluePassInquiryFields(intent)).not.toContain("destination");
+    // other AU regions resolve too
+    expect(extractBluePassInquiryIntent(["Ningaloo whale sharks next week"]).destination).toBe("Ningaloo Reef");
+    expect(extractBluePassInquiryIntent(["charter on the Whitsundays"]).destination).toBe("Whitsundays");
+    // Indonesian behaviour is unchanged (Indonesia still wins when both are relevant)
+    expect(extractBluePassInquiryIntent(["a Komodo liveaboard"]).destination).toBe("Komodo");
+  });
+
   it("reports required missing fields", () => {
     expect(
       getMissingBluePassInquiryFields({

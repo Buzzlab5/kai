@@ -1,3 +1,5 @@
+import { classifyBluePassRegion } from "./market";
+
 export type BluePassInquiryIntent = {
   destination?: string;
   tripType?: string;
@@ -35,6 +37,13 @@ export function extractBluePassInquiryIntent(messages: string[]): BluePassInquir
 
   if (/\b(?:komodo|labuan\s+bajo|flores)\b/i.test(text)) intent.destination = "Komodo";
   if (/\braja\s+ampat\b/i.test(text)) intent.destination = "Raja Ampat";
+  // Australia launch: an AU traveller ("Great Barrier Reef", "Ningaloo", "Whitsundays")
+  // must have their destination captured too, or the inquiry funnel re-asks forever.
+  // Delegate to the single-source region aliases in market.ts rather than re-hardcoding.
+  if (!intent.destination) {
+    const australianRegion = classifyBluePassRegion("AUSTRALIA", messages);
+    if (australianRegion) intent.destination = australianRegion;
+  }
   if (/\b(dive|diving)\b/i.test(text)) intent.interests = unique([...(intent.interests ?? []), "dive"]);
   if (/\b(private|charter)\b/i.test(text)) intent.interests = unique([...(intent.interests ?? []), "private"]);
   if (/\bcabin\b/i.test(text)) intent.interests = unique([...(intent.interests ?? []), "cabin"]);
