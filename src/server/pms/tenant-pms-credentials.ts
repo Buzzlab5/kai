@@ -52,6 +52,56 @@ function credentialsToRezdyEnv(credentials: Record<string, string>): PmsAdapterE
   };
 }
 
+function credentialsToFareHarborEnv(credentials: Record<string, string>): PmsAdapterEnvironment {
+  return {
+    FAREHARBOR_BASE_URL: credentials.baseUrl,
+    FAREHARBOR_APP_KEY: credentials.appKey,
+    FAREHARBOR_USER_KEY: credentials.userKey,
+    FAREHARBOR_COMPANY_SHORTNAME: credentials.companyShortname,
+    ...(credentials.timeoutMs ? { FAREHARBOR_TIMEOUT_MS: credentials.timeoutMs } : {})
+  };
+}
+
+// Per-tenant credential -> adapter-env mappers. A provider only participates in the
+// per-tenant path (self-serve "Connect") once it appears here.
+const CREDENTIAL_ENV_MAPPERS: Partial<
+  Record<PmsProvider, (credentials: Record<string, string>) => PmsAdapterEnvironment>
+> = {
+  REZDY: credentialsToRezdyEnv,
+  FAREHARBOR: credentialsToFareHarborEnv
+};
+
+/** Providers an operator can self-connect (paste credentials) via the "Connect" flow. */
+export function connectablePmsProviders(): PmsProvider[] {
+  return Object.keys(CREDENTIAL_ENV_MAPPERS) as PmsProvider[];
+}
+
+/** Map submitted credentials to adapter env for a connectable provider. Throws if unsupported. */
+export function pmsCredentialsToEnv(
+  provider: PmsProvider,
+  credentials: Record<string, string>
+): PmsAdapterEnvironment {
+  const toEnv = CREDENTIAL_ENV_MAPPERS[provider];
+  if (!toEnv) {
+    throw new Error(`Provider ${provider} does not support per-tenant credentials yet.`);
+  }
+  return toEnv(credentials);
+}
+
+/** The credential fields each connectable provider needs, for building the connect form. */
+export const PMS_CREDENTIAL_FIELDS: Partial<Record<PmsProvider, Array<{ key: string; label: string; required: boolean }>>> = {
+  REZDY: [
+    { key: "apiKey", label: "Rezdy API key", required: true },
+    { key: "baseUrl", label: "Rezdy API base URL (default https://api.rezdy.com)", required: false }
+  ],
+  FAREHARBOR: [
+    { key: "appKey", label: "FareHarbor API App key (X-FareHarbor-API-App)", required: true },
+    { key: "userKey", label: "FareHarbor API User key (X-FareHarbor-API-User)", required: true },
+    { key: "companyShortname", label: "FareHarbor company shortname", required: true },
+    { key: "baseUrl", label: "FareHarbor base URL (default https://fareharbor.com/api/external/v1)", required: false }
+  ]
+};
+
 /**
  * Prefers a tenant's own encrypted TenantIntegration credentials over the shared global env vars.
  * Falls back to fallbackEnv (unchanged) whenever no active per-tenant row exists, so tenants without
@@ -62,7 +112,8 @@ export async function resolveTenantPmsEnv(
   provider: PmsProvider,
   fallbackEnv: PmsAdapterEnvironment
 ): Promise<PmsAdapterEnvironment> {
-  if (provider !== "REZDY") {
+  const toEnv = CREDENTIAL_ENV_MAPPERS[provider];
+  if (!toEnv) {
     return fallbackEnv;
   }
 
@@ -81,7 +132,7 @@ export async function resolveTenantPmsEnv(
     }
 
     const credentials = decryptPmsCredentials(integration.encryptedCredentials, encryptionKey);
-    return { ...fallbackEnv, ...credentialsToRezdyEnv(credentials) };
+    return { ...fallbackEnv, ...toEnv(credentials) };
   } catch (error) {
     console.error("tenant_pms_credentials.resolve_failed", {
       tenantId,
