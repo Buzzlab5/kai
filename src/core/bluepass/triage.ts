@@ -88,6 +88,11 @@ const operatorSignals = [
   "as an operator",
   "join as an operator",
   "get listed",
+  "want to list",
+  "keen to list",
+  "like to list",
+  "ready to list",
+  "here to list",
   "get my page",
   "get my business listed",
   // Bahasa Indonesia — operators are Indonesian.
@@ -109,9 +114,22 @@ const OPERATOR_VERB_OBJECT =
 
 const travellerSignals = [
   "planning a trip",
+  // Australia (launch market) - activities and destinations a guest names.
+  "reef",
+  "great barrier",
+  "whitsunday",
+  "ningaloo",
+  "gold coast",
+  "byron bay",
+  "whale shark",
+  "diving",
+  "diver",
+  "scuba",
+  // Indonesia (demoted, still supported).
   "komodo",
   "raja ampat",
   "labuan bajo",
+  // Shared marine-tourism activity / trip words.
   "liveaboard",
   "dive",
   "snorkel",

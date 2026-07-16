@@ -30,6 +30,16 @@ describe("classifyBluePassPersona", () => {
     expect(classifyBluePassPersona(["Looking at a liveaboard cabin for two"])).toBe("TRAVELLER");
   });
 
+  it("classifies an Australian traveller from AU activities/destinations (launch market)", () => {
+    // "diving" (not just "dive"), the reef, whale sharks, and AU place names all count
+    expect(classifyBluePassPersona(["diving for 6 people on the Great Barrier Reef in June"])).toBe("TRAVELLER");
+    expect(classifyBluePassPersona(["we want to see whale sharks at Ningaloo"])).toBe("TRAVELLER");
+    expect(classifyBluePassPersona(["sailing the Whitsundays for our honeymoon"])).toBe("TRAVELLER");
+    expect(classifyBluePassPersona(["a scuba trip on the reef, 4 of us"])).toBe("TRAVELLER");
+    // an operator saying "we run reef trips" still wins OPERATOR (checked before traveller)
+    expect(classifyBluePassPersona(["we run reef day trips out of Cairns and want to list"])).toBe("OPERATOR");
+  });
+
   it("never mistakes a romantic partner or a referral code for a business partner", () => {
     expect(classifyBluePassPersona(["My partner and I want to dive Komodo"])).toBe("TRAVELLER");
     expect(classifyBluePassPersona(["I have referral code BP123 and want a Komodo trip"])).toBe("TRAVELLER");
