@@ -1,5 +1,12 @@
 import { bookingMemoryToContext, type BookingMemoryState } from "./booking-memory";
 import {
+  buildBluePassConservationReply,
+  buildBluePassValueReply,
+  isBluePassConservationQuestion,
+  isBluePassValuePropQuestion
+} from "@/core/bluepass/reply";
+import { buildCardDeclineReply, containsCardShapedInput } from "@/core/security/card-detection";
+import {
   analyzeTravellerBookingMessage,
   composeBookingBrainReply,
   type BookingBrainIntent,
@@ -112,6 +119,10 @@ export interface HandleTravellerBookingMessageInput {
   tenantContext?: AssistantTenantContext | null;
   /** Operator-authored answers (policies, logistics, FAQs). Loaded per tenant. */
   knowledgePack?: OperatorKnowledgePack | null;
+  /** Reference clock for date parsing (resolveDefaultYear in booking-brain.ts) - defaults to the
+   * real current time. Tests pin this so hardcoded expected dates stay deterministic regardless of
+   * the actual wall-clock date the suite runs on. */
+  now?: Date;
 }
 
 function formatPrice(currency: string, unitPriceCents: number) {
@@ -231,6 +242,17 @@ function formatProductOptionsList(products: PmsProduct[]) {
   );
 }
 
+// Only called from a gated context (product+date already known, guest count specifically the thing
+// being asked for, nothing else parsed from this message) - never treats an arbitrary bare number
+// as a guest count, since the same shape means "pick option 2" elsewhere in this file.
+function parseBareGuestCount(message: string) {
+  const match = message.trim().match(/^(\d{1,2})(?:\s*(?:guests?|people|pax|of us|adults?))?$/i);
+  if (!match) return null;
+
+  const guests = Number(match[1]);
+  return guests >= 1 && guests <= 20 ? guests : null;
+}
+
 function parseNumberedProductSelection(message: string) {
   const match = message
     .trim()
@@ -251,6 +273,20 @@ function recentAssistantOfferedProductList(
   const productMentions = products.filter((product) => lowerContent.includes(product.title.toLowerCase())).length;
 
   return productMentions >= 2 && /\b(you can choose from|available options|which one sounds|which tour)\b/i.test(lastAssistant.content);
+}
+
+// Unlike recentAssistantOfferedProductList (which only looks at the very last assistant turn, for
+// deciding whether a numbered reply like "1" refers to it), this scans the whole conversation so a
+// decline reply (buildScopeDeclineReply) - which doesn't itself mention any product - doesn't reset
+// "have we already shown this list" back to false on the very next turn, flipping back to re-showing
+// the full list instead of continuing to offer email capture.
+function productListWasEverShown(history: AssistantConversationMessage[] | undefined, products: PmsProduct[]) {
+  return (history ?? []).some((message) => {
+    if (message.role !== "assistant") return false;
+    const lowerContent = message.content.toLowerCase();
+    const productMentions = products.filter((product) => lowerContent.includes(product.title.toLowerCase())).length;
+    return productMentions >= 2 && /\b(you can choose from|available options|which one sounds|which tour)\b/i.test(message.content);
+  });
 }
 
 function selectedProductFromRecentList(input: {
@@ -642,6 +678,16 @@ export function formatRecommendationReply(products: PmsProduct[], dateText: stri
   )}\n\nWhich one sounds closest to what you want?`;
 }
 
+// kai-conversation-flow-notes.md's proposed copy for the "we don't have that" path - honest,
+// short, and converts a dead end into a lead instead of a silently repeated wrong-fit list.
+export function buildScopeDeclineReply() {
+  return "Not yet - none of these quite fit what you're after. Want to leave your email so we can follow up once we have something that does?";
+}
+
+export function extractEmailAddress(message: string) {
+  return message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? null;
+}
+
 function lowerFirstLetter(value: string) {
   return value.length === 0 ? value : value[0].toLowerCase() + value.slice(1);
 }
@@ -954,6 +1000,17 @@ function composeContactCollectionReply(capture: ReturnType<typeof evaluateBookin
 export async function handleTravellerBookingMessage(
   input: HandleTravellerBookingMessageInput
 ): Promise<BookingOrchestratorResult> {
+  // kai-conversation-flow-notes.md finding #16 (compliance): checked before anything else -
+  // classification, LLM calls, everything - so card-shaped input never has a chance to reach any of
+  // those, and always gets an explicit, deterministic refusal instead of an LLM improvising one.
+  if (containsCardShapedInput(input.message)) {
+    return {
+      action: "GENERAL_REPLY",
+      reply: buildCardDeclineReply(),
+      replySource: "DETERMINISTIC"
+    };
+  }
+
   let cachedProducts: PmsProduct[] | null = null;
   const listProducts = async () => {
     cachedProducts ??= await input.pmsAdapter.listProducts();
@@ -1060,16 +1117,30 @@ export async function handleTravellerBookingMessage(
     ...(input.priorTravellerMessages ?? []),
     input.message
   ].join(" ");
-  const currentMessageAnalysis = analyzeTravellerBookingMessage(input.message);
-  const contextAnalysis = analyzeTravellerBookingMessage(contextMessage);
+  const currentMessageAnalysis = analyzeTravellerBookingMessage(input.message, input.now);
+  const contextAnalysis = analyzeTravellerBookingMessage(contextMessage, input.now);
   const analysis =
     currentMessageAnalysis.intent === "GENERAL_QUESTION"
       ? contextAnalysis
       : currentMessageAnalysis;
+  // kai-conversation-flow-notes.md finding #5: a bare "2" in reply to "how many guests?" fell
+  // through every slot source (findGuests requires a unit word like "guests"/"adults") and re-asked
+  // the same question. Only trusted as a guest count when product+date are already known and this
+  // turn's own analysis found nothing else usable - i.e. Kai is specifically awaiting a guest-count
+  // reply, not some other bare-number moment (a numbered-menu pick, a ticket-option choice, etc.).
+  const bareGuestCountReply =
+    input.bookingMemory?.productTitle &&
+    input.bookingMemory?.dateText &&
+    !input.bookingMemory?.guests &&
+    currentMessageAnalysis.slots.guests === null &&
+    !currentMessageAnalysis.slots.productHint &&
+    !currentMessageAnalysis.slots.dateText
+      ? parseBareGuestCount(input.message)
+      : null;
   const effectiveSlots = {
     productHint: currentMessageAnalysis.slots.productHint ?? input.bookingMemory?.productTitle ?? contextAnalysis.slots.productHint ?? null,
     dateText: currentMessageAnalysis.slots.dateText ?? input.bookingMemory?.dateText ?? contextAnalysis.slots.dateText ?? null,
-    guests: currentMessageAnalysis.slots.guests ?? input.bookingMemory?.guests ?? contextAnalysis.slots.guests ?? null
+    guests: currentMessageAnalysis.slots.guests ?? bareGuestCountReply ?? input.bookingMemory?.guests ?? contextAnalysis.slots.guests ?? null
   };
   const missingSlots = [
     effectiveSlots.productHint ? null : "product",
@@ -1097,6 +1168,28 @@ export async function handleTravellerBookingMessage(
       })
     : null;
   const resolvedIntent = resolveFinalGenericBookingIntent({ llmIntent: routerIntent, regexResult: analysis });
+
+  // kai-conversation-flow-notes.md, stop-the-line item A + finding #7: this path had zero grounding
+  // for "why book through you" / "where does the 5% go" - the LLM was free to invent an answer (once:
+  // "streamlined and centralized process..." with no operator's-rate/never-a-markup/5% facts at all).
+  // Checked before any intent-specific branch (not just inside GENERAL_QUESTION) because a message
+  // like "Why is booking through you better..." contains the word "booking" and the regex cascade in
+  // booking-brain.ts classifies that as BOOKING_INQUIRY, not GENERAL_QUESTION - these are BluePass-wide
+  // truths, not a per-operator policy or a booking intent, so they take priority over both.
+  if (isBluePassConservationQuestion(input.message) || isBluePassValuePropQuestion(input.message)) {
+    const deterministicReply = isBluePassConservationQuestion(input.message)
+      ? buildBluePassConservationReply()
+      : buildBluePassValueReply();
+    return composeReplyResult({
+      action: "GENERAL_REPLY",
+      deterministicReply,
+      requiredFacts: ["operator's side", "never added to your fare"],
+      llmClient: input.llmClient,
+      tenantContext: input.tenantContext,
+      latestUserMessage: input.message,
+      conversationHistory: input.conversationHistory
+    });
+  }
 
   const capture = evaluateBookingCapture({
     message: input.message,
@@ -1756,6 +1849,33 @@ export async function handleTravellerBookingMessage(
           replySource: "DETERMINISTIC"
         };
       }
+    }
+
+    // kai-conversation-flow-notes.md finding #2 (critical): across 9 traveller turns Kai never once
+    // declined - it re-offered the same 4 products 3 times, including after "I don't want a yacht
+    // charter." Once the traveller has already seen this exact list and still doesn't match anything
+    // in it, silently re-showing it again reads as broken or dishonest - an honest "not yet, want me
+    // to note your interest?" is the correct answer, per the brief's own §"say no, then capture".
+    const alreadySawThisList = productListWasEverShown(input.conversationHistory, products);
+    if (alreadySawThisList && !analysis.slots.productHint) {
+      const email = extractEmailAddress(input.message);
+      if (email) {
+        return composeReplyResult({
+          action: "HUMAN_HANDOFF",
+          deterministicReply: `Got it, ${email} - I'll let the team know you're interested once we have something that fits, and they'll follow up.`,
+          requiredFacts: [email],
+          llmClient: input.llmClient,
+          tenantContext: input.tenantContext,
+          latestUserMessage: input.message,
+          conversationHistory: input.conversationHistory
+        });
+      }
+
+      return {
+        action: "PRODUCT_RECOMMENDATION",
+        reply: buildScopeDeclineReply(),
+        replySource: "DETERMINISTIC"
+      };
     }
 
     return {

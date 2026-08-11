@@ -100,8 +100,12 @@ describe("booking brain", () => {
     expect(result.missingSlots).toEqual([]);
   });
 
+  // A fixed reference "now" (well before June) so these stay deterministic regardless of the real
+  // wall-clock date the suite runs on - see resolveDefaultYear's "next real occurrence" logic below.
+  const REFERENCE_NOW = new Date("2026-01-01T00:00:00Z");
+
   it("treats ordinal month dates as availability follow-ups", () => {
-    const result = analyzeTravellerBookingMessage("what about for 23rd of June?");
+    const result = analyzeTravellerBookingMessage("what about for 23rd of June?", REFERENCE_NOW);
 
     expect(result.intent).toBe("CHECK_AVAILABILITY");
     expect(result.slots.dateText).toBe("2026-06-23");
@@ -118,7 +122,7 @@ describe("booking brain", () => {
     ["28th june for 3 people"],
     ["28th of june for 3 people"]
   ])("understands compact human date format: %s", (message) => {
-    const result = analyzeTravellerBookingMessage(message);
+    const result = analyzeTravellerBookingMessage(message, REFERENCE_NOW);
 
     expect(result.intent).toBe("CHECK_AVAILABILITY");
     expect(result.slots.dateText).toBe("2026-06-28");
@@ -140,4 +144,33 @@ describe("booking brain", () => {
     expect(result.missingSlots).toEqual(["product", "date", "guests"]);
   });
 
+  // kai-conversation-flow-notes.md finding #4 (booking-integrity, high): "14 March 2027" got echoed
+  // as "2026-03-14" - the year was matched by the old regex but never read.
+  it("resolves an explicit year the traveller actually gave, never silently dropping it", () => {
+    const dayFirst = analyzeTravellerBookingMessage("14 March 2027, 2 guests", REFERENCE_NOW);
+    expect(dayFirst.slots.dateText).toBe("2027-03-14");
+
+    const monthFirst = analyzeTravellerBookingMessage("March 14, 2027, 2 guests", REFERENCE_NOW);
+    expect(monthFirst.slots.dateText).toBe("2027-03-14");
+
+    const numeric = analyzeTravellerBookingMessage("14/03/2027, 2 guests", REFERENCE_NOW);
+    expect(numeric.slots.dateText).toBe("2027-03-14");
+  });
+
+  it("defaults a yearless date to the next real occurrence, not a hardcoded literal", () => {
+    // REFERENCE_NOW is 2026-01-01: June is still ahead this year.
+    const stillAhead = analyzeTravellerBookingMessage("23rd of June", REFERENCE_NOW);
+    expect(stillAhead.slots.dateText).toBe("2026-06-23");
+
+    // From a reference date after June, the same phrase must roll to next year, not stay stuck.
+    const alreadyPassed = analyzeTravellerBookingMessage("23rd of June", new Date("2026-08-11T00:00:00Z"));
+    expect(alreadyPassed.slots.dateText).toBe("2027-06-23");
+  });
+
+  // kai-conversation-flow-notes.md finding #5: "2 adults" failed the same way bare "2" did - only
+  // guest|guests|pax|people|person|persons were accepted as the unit word.
+  it("accepts 'adults' as a guest-count unit word, not just 'guests'/'people'", () => {
+    const result = analyzeTravellerBookingMessage("2 adults, 23rd of June", REFERENCE_NOW);
+    expect(result.slots.guests).toBe(2);
+  });
 });

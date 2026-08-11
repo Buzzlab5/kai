@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBluePassConservationReply,
   buildBluePassInquiryConfirmationReply,
   buildBluePassInquiryReadyReply,
   buildBluePassInquiryStatusReply,
@@ -7,7 +8,9 @@ import {
   buildBluePassSeasonReply,
   buildBluePassValueReply,
   buildBluePassYachtComparisonReply,
-  buildBluePassYachtOverviewReply
+  buildBluePassYachtOverviewReply,
+  isBluePassConservationQuestion,
+  isBluePassValuePropQuestion
 } from "./reply";
 
 // Minimal yacht shapes - the reply builders only read these fields.
@@ -183,5 +186,42 @@ describe("bluepass traveller replies (reply.ts)", () => {
   it("keeps booking-truth honest (no confirmed-booking language before operator confirms)", () => {
     const ready = buildBluePassInquiryReadyReply({ inquiryId: "BP-2001", dispatchQueued: true });
     expect(ready.toLowerCase()).toContain("not a confirmed booking");
+  });
+});
+
+// kai-conversation-flow-notes.md stop-the-line item A: Kai once told a traveller the 5% was
+// "likely a service fee... goes towards maintaining the platform" - the exact inverse of the truth.
+describe("conservation/value-prop grounding", () => {
+  it("buildBluePassValueReply never calls the 5% a platform/service fee, and gives the real direction", () => {
+    const reply = buildBluePassValueReply();
+    expect(reply.toLowerCase()).not.toMatch(/platform fee|service fee/);
+    expect(reply.toLowerCase()).toContain("operator's side");
+    expect(reply.toLowerCase()).toContain("never added to your fare");
+    expect(reply).toContain("5%");
+  });
+
+  it("buildBluePassConservationReply names the real, verified partners and explicitly denies it's a platform fee", () => {
+    const reply = buildBluePassConservationReply();
+    // The reply is allowed to say "not a platform fee" (an explicit rebuttal of the false claim) -
+    // what it must never do is affirm it, e.g. "is a platform fee" or "goes towards the platform".
+    expect(reply.toLowerCase()).not.toMatch(/\bis a platform fee\b|\bgoes towards.*platform\b|\bmaintaining the platform\b/);
+    expect(reply.toLowerCase()).toContain("never a platform fee");
+    expect(reply.toLowerCase()).toContain("operator's side");
+    expect(reply).toContain("Great Barrier Reef Foundation");
+    expect(reply).toContain("Whitsundays Marine Trust");
+    expect(reply).toContain("Hervey Bay Whale Research");
+    expect(reply).toContain("bluepass.co/conservation");
+  });
+
+  it("isBluePassConservationQuestion matches the real transcript question", () => {
+    expect(isBluePassConservationQuestion("Where exactly does the 5% go, and who verifies it?")).toBe(true);
+    expect(isBluePassConservationQuestion("what happens after I pay")).toBe(false);
+  });
+
+  it("isBluePassValuePropQuestion matches the real transcript question, without matching the conservation one", () => {
+    expect(isBluePassValuePropQuestion("Why is booking through you better than going direct to the operator?")).toBe(
+      true
+    );
+    expect(isBluePassValuePropQuestion("Where exactly does the 5% go, and who verifies it?")).toBe(false);
   });
 });

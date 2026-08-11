@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { findOrCreateWhatsAppConversation, setWhatsAppConversationControlMode } from "./conversation-repository";
+import {
+  createTravellerMessage,
+  findOrCreateWhatsAppConversation,
+  setWhatsAppConversationControlMode
+} from "./conversation-repository";
 
 async function createTestTenant(label: string) {
   return prisma.tenant.create({
@@ -14,6 +18,19 @@ async function createTestTenant(label: string) {
     }
   });
 }
+
+// No test DB exists in this repo - these tests write real rows to the same Supabase instance
+// production reads from.
+afterAll(async () => {
+  const testTenants = await prisma.tenant.findMany({
+    where: { slug: { startsWith: "conversation-repo-" } },
+    select: { id: true }
+  });
+  const tenantIds = testTenants.map((tenant) => tenant.id);
+  if (tenantIds.length === 0) return;
+  await prisma.conversation.deleteMany({ where: { tenantId: { in: tenantIds } } });
+  await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+});
 
 describe("findOrCreateWhatsAppConversation", () => {
   it("creates a new AI-mode WhatsApp conversation when none exists for the phone", async () => {
@@ -91,5 +108,38 @@ describe("setWhatsAppConversationControlMode", () => {
       where: { tenantId: tenant.id, whatsappPhone }
     });
     expect(conversations).toHaveLength(1);
+  });
+});
+
+// kai-conversation-flow-notes.md finding #16 (compliance): a real card number pasted by a traveller
+// must never survive verbatim in the transcript store, even though the payment itself was refused.
+describe("createTravellerMessage", () => {
+  it("redacts a card number/CVV before writing the message to the database", async () => {
+    const tenant = await createTestTenant("redact");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281111199999" });
+
+    const message = await createTravellerMessage({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      content: "Fine, book it. My card is 4111 1111 1111 1111, exp 04/29, cvv 123."
+    });
+
+    expect(message.content).not.toContain("4111");
+    expect(message.content).not.toContain("123.");
+    expect(message.content).toContain("[card number redacted]");
+    expect(message.content).toContain("Fine, book it.");
+  });
+
+  it("leaves an ordinary message completely unchanged", async () => {
+    const tenant = await createTestTenant("no-redact");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281111188888" });
+
+    const message = await createTravellerMessage({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      content: "2 guests, Saturday 15 August"
+    });
+
+    expect(message.content).toBe("2 guests, Saturday 15 August");
   });
 });

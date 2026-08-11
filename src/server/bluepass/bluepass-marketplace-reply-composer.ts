@@ -4,6 +4,7 @@ import {
   type AssistantLlmClient
 } from "@/core/llm/assistant-reply-composer";
 import { resolveBluePassCatalog, type BluePassCatalogSnapshotItem } from "@/core/bluepass/catalog";
+import { isBluePassConservationQuestion, isBluePassValuePropQuestion } from "@/core/bluepass/reply";
 import { isBluePassCommissionQuestion } from "./bluepass-message-flow";
 
 type BluePassMarketplaceComposerResult = {
@@ -34,15 +35,21 @@ export async function composeBluePassMarketplaceAssistantReply(input: {
 }): Promise<BluePassMarketplaceComposerResult> {
   const conciergeMode = input.marketplaceResult.replyMode === "CONCIERGE";
   const productTitles = buildMarketplaceProductTitles(input.marketplaceResult);
-  // Concierge-mode replies otherwise carry zero required facts (paraphrase is fine for open chat -
-  // e.g. buildBluePassValueReply's own "5% goes to reef conservation" is fine to summarize loosely).
-  // But when the traveller specifically asked a commission-shaped question, the percentages in the
-  // deterministic reply are the actual answer, not color - they must survive rewriting in every mode,
-  // or an LLM rewrite is free to replace them with a hallucinated hedge like "isn't publicly
-  // disclosed" and still pass isSafeRewrite on an otherwise-empty required-facts list.
+  // Concierge-mode replies otherwise carry zero required facts (paraphrase is fine for open chat).
+  // But three question shapes have a load-bearing, non-negotiable answer that must survive rewriting
+  // in every mode, or an LLM rewrite is free to replace it with something false and still pass
+  // isSafeRewrite on an otherwise-empty required-facts list:
+  // - commission-shaped questions: the percentages are the actual answer, not color.
+  // - conservation/value questions (kai-conversation-flow-notes.md stop-the-line item A): a real
+  //   conversation once got "the 5% is likely a service fee... goes towards maintaining the
+  //   platform" - the exact inverse of the truth. "operator's side" / "never added to your fare" is
+  //   required so a hallucinated rewrite that keeps "5%" but flips the direction still gets rejected.
+  const isValueOrConservationQuestion =
+    isBluePassConservationQuestion(input.latestMessage) || isBluePassValuePropQuestion(input.latestMessage);
   const requiredFacts = [
     ...(conciergeMode ? [] : buildMarketplaceRequiredFacts(input.marketplaceResult, input.deterministicReply)),
-    ...(isBluePassCommissionQuestion(input.latestMessage) ? extractBluePassPercentageFacts(input.deterministicReply) : [])
+    ...(isBluePassCommissionQuestion(input.latestMessage) ? extractBluePassPercentageFacts(input.deterministicReply) : []),
+    ...(isValueOrConservationQuestion ? ["operator's side", "never added to your fare"] : [])
   ];
   // Derived from the actual resolved catalog (not a hardcoded literal) so it's self-updating as
   // soon as a real catalog snapshot carries new regions - no code change needed for the next one.
@@ -68,6 +75,13 @@ export async function composeBluePassMarketplaceAssistantReply(input: {
         conciergeMode
           ? "Act as a knowledgeable Indonesia travel concierge: freely use your own general travel knowledge to answer questions about any destination, activity, culture, or logistics, even outside the BluePass catalog, as long as you stay honest about what BluePass has actually vetted."
           : null,
+        // kai-conversation-flow-notes.md stop-the-line item B: a real conversation, when the
+        // traveller's budget didn't match any catalog yacht, volunteered "I can try to suggest
+        // alternative liveaboard options... although they may not be part of the BluePass catalog" -
+        // offering unvetted inventory BluePass cannot book and earns nothing on, breaking the
+        // vetting promise on every page footer. General travel knowledge (seasons, regions, culture)
+        // stays fine; naming or offering to find a specific non-catalog operator/vessel does not.
+        "Never suggest, name, or offer to find a specific operator, vessel, or booking option that is not in the BluePass catalog - if nothing in the catalog fits the traveller's ask (budget, dates, style), say so honestly and offer to note their interest or connect them once a fit exists, instead of naming or offering to source alternatives BluePass cannot book.",
         "Do not confirm live availability, final price, payment, or booking before operator confirmation.",
         "Do not invent operator responses, payment links, dates, or live availability.",
         "If the traveller asks general questions, answer helpfully before asking for booking details."

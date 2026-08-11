@@ -24,6 +24,7 @@ import { extractBluePassPersonaLead } from "@/core/bluepass/persona-lead";
 import type { BluePassRouterAction, BluePassRouterLlmClient } from "@/core/llm/bluepass-router";
 import {
   buildBluePassCommissionReply,
+  buildBluePassConservationReply,
   buildBluePassInquiryConfirmationReply,
   buildBluePassInquiryReadyReply,
   buildBluePassInquiryStatusReply,
@@ -35,8 +36,11 @@ import {
   buildBluePassSmallTalkReply,
   buildBluePassValueReply,
   buildBluePassYachtComparisonReply,
-  buildBluePassYachtOverviewReply
+  buildBluePassYachtOverviewReply,
+  isBluePassConservationQuestion,
+  isBluePassValuePropQuestion
 } from "@/core/bluepass/reply";
+import { buildCardDeclineReply, containsCardShapedInput } from "@/core/security/card-detection";
 import type { BluePassLead } from "@/core/bluepass/lead";
 import {
   buildBluePassLeadCapturedReply,
@@ -71,6 +75,12 @@ export type BluePassMarketplaceMessageInput = {
 };
 
 export async function handleBluePassMarketplaceMessage(input: BluePassMarketplaceMessageInput) {
+  // kai-conversation-flow-notes.md finding #16 (compliance): checked before persona/market
+  // classification or any LLM call, so card-shaped input never has a chance to reach any of those.
+  if (containsCardShapedInput(input.content)) {
+    return buildConciergeResponse("TRAVELLER", buildCardDeclineReply());
+  }
+
   // Oldest-first: classifyBluePassPersona/classifyBluePassMarket are sticky, first-signal-wins
   // scans that expect the earliest message first, so an established persona/market from earlier
   // in the conversation isn't overridden by a later, unrelated message.
@@ -366,9 +376,11 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
 
   switch (action) {
     case "VALUE_QUESTION":
+      // The deeper "where does it go / who verifies it" question gets the fuller, named-partner
+      // answer; the general "why book through you" question gets the shorter value-prop line.
       return buildConciergeResponse(
         persona,
-        buildBluePassValueReply(),
+        isBluePassConservationQuestion(input.content) ? buildBluePassConservationReply() : buildBluePassValueReply(),
         [],
         showYachtsSuggestedReplies,
         missingFields,
@@ -797,12 +809,24 @@ function resolveFinalBluePassRouterAction(input: {
       (llmAction === "SUBMIT_INQUIRY" || llmAction === "CONFIRM_INQUIRY") && input.missingFields.length > 0;
     const missingFieldsFalselyClaimed =
       (llmAction === "REQUEST_MISSING_FIELDS" || llmAction === "BROWSE_OPTIONS") && input.missingFields.length === 0;
+    // kai-conversation-flow-notes.md, stop-the-line item A: a real conversation asked "where does
+    // the 5% go, who verifies it" and the LLM router classified it as something else entirely
+    // (likely still a yacht-recommendation action, since the same stale cards re-attached to the
+    // reply) - which meant the grounded conservation answer never got a chance to run. An
+    // unambiguous conservation/value question must always resolve to VALUE_QUESTION or
+    // COMMISSION_QUESTION; any other LLM verdict here is treated as a hard precondition failure,
+    // same as a hallucinated yacht/season, and falls back to the regex cascade.
+    const missesConservationOrValueQuestion =
+      (isBluePassConservationQuestion(input.content) || isBluePassValuePropQuestion(input.content)) &&
+      llmAction !== "VALUE_QUESTION" &&
+      llmAction !== "COMMISSION_QUESTION";
     const hasHardPreconditionFailure =
       (llmAction === "YACHT_COMPARISON" && input.latestMentionedYachts.length < 2) ||
       (llmAction === "YACHT_INFO" && !input.overviewYacht) ||
       (llmAction === "SEASON_QUESTION" && !input.seasonDestination) ||
       missingFieldsMismatch ||
-      missingFieldsFalselyClaimed;
+      missingFieldsFalselyClaimed ||
+      missesConservationOrValueQuestion;
 
     if (!hasHardPreconditionFailure) {
       return llmAction;
@@ -829,7 +853,7 @@ function resolveFallbackBluePassRouterAction(input: {
   const { content } = input;
   const knownRegions = input.knownRegions ?? ["Komodo", "Raja Ampat"];
 
-  if (isBluePassValueQuestion(content)) return "VALUE_QUESTION";
+  if (isBluePassConservationQuestion(content) || isBluePassValuePropQuestion(content)) return "VALUE_QUESTION";
   if (isBluePassCommissionQuestion(content)) return "COMMISSION_QUESTION";
   if (isBluePassSmallTalkRequest(content)) return "SMALL_TALK";
   if (input.seasonDestination) return "SEASON_QUESTION";
@@ -1055,17 +1079,6 @@ function mentionsOffCatalogDestination(content: string, knownRegions: string[] =
   return offCatalogDestinationPattern.test(normalized);
 }
 
-function isBluePassValueQuestion(content: string) {
-  const normalized = content.toLowerCase();
-
-  return (
-    /\b(?:what is|what's|tell me about|explain)\s+bluepass\b/.test(normalized) ||
-    /\b(?:why|how)\s+(?:should\s+i\s+)?(?:use|book\s+with|choose)\s+bluepass\b/.test(normalized) ||
-    /\b(?:why|how)\s+bluepass\b/.test(normalized) ||
-    /\b(?:booking direct|book direct|direct booking|same price|conservation|give back|5%)\b/.test(normalized)
-  );
-}
-
 // Commission/fee-structure questions are real, public numbers (see buildBluePassCommissionReply)
 // that anyone can ask about, not just an already-identified operator/partner - persona is sticky/
 // first-signal-wins (classifyBluePassPersona), so a traveller-flavored opener can otherwise lock a
@@ -1215,7 +1228,7 @@ function shouldCarryBluePassHistoryYacht(input: {
 }) {
   const normalized = input.content.toLowerCase();
 
-  if (isBluePassValueQuestion(input.content)) return false;
+  if (isBluePassConservationQuestion(input.content) || isBluePassValuePropQuestion(input.content)) return false;
   if (isBluePassSmallTalkRequest(input.content)) return false;
   if (resolveSeasonDestination(input.content, input.knownRegions)) return false;
   if (isBluePassDestinationComparisonRequest(input.content, input.knownRegions)) return false;

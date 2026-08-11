@@ -475,8 +475,8 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("BluePass lets travellers");
-    expect(sentBody).toContain("vetted ocean operators");
+    expect(sentBody).toContain("Same price as booking direct");
+    expect(sentBody).toContain("Every operator is vetted");
     expect(sentBody).not.toContain("latest BluePass inquiry");
     expect(sentBody).not.toContain("Current status");
     expect(contextEvent).toBeNull();

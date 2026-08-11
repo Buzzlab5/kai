@@ -1447,7 +1447,7 @@ describe("/api/whatsapp/webhook", () => {
     const requestBodyText = requestBody.text?.body ?? requestBody.interactive?.body?.text ?? "";
 
     expect(response.status).toBe(200);
-    expect(requestBodyText).toContain("BluePass lets travellers");
+    expect(requestBodyText).toContain("Same price as booking direct");
     expect(requestBodyText).not.toContain("Current status");
     expect(requestBodyText).not.toContain("Operator Pending");
   }, 20_000);
@@ -1468,7 +1468,7 @@ describe("/api/whatsapp/webhook", () => {
       if (String(url).includes("api.openai.com")) {
         return Response.json({
           output_text:
-            "BluePass is your ocean-travel concierge for vetted liveaboards and marine trips. I can explain destinations, compare yachts, and prepare operator inquiries without pretending availability or payment is confirmed."
+            "BluePass is your ocean-travel concierge for vetted liveaboards and marine trips. Every price is the same as booking direct - our commission comes from the operator's side, never added to your fare, and 5% of every booking supports ocean conservation before we take anything."
         });
       }
 

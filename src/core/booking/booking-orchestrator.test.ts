@@ -295,6 +295,9 @@ describe("booking orchestrator", () => {
     const result = await handleTravellerBookingMessage({
       message: "for 24th of june for 2 people",
       priorTravellerMessages: ["what do you have for me?", "i want gold coast whale escape"],
+      // Fixed reference "now" (well before June) - see resolveDefaultYear in booking-brain.ts;
+      // without this, the hardcoded "2026-06-24" expectation below drifts once June is in the past.
+      now: new Date("2026-01-01T00:00:00Z"),
       bookingMemory: {
         productExternalId: "boattime-whale-escape",
         productTitle: "Gold Coast Whale Escape",
@@ -355,6 +358,7 @@ describe("booking orchestrator", () => {
     const result = await handleTravellerBookingMessage({
       message: "28june, 3 people",
       priorTravellerMessages: ["can you give me recommendation?", "info on gold coast whale escape please"],
+      now: new Date("2026-01-01T00:00:00Z"),
       bookingMemory: {
         productExternalId: "boattime-whale-escape",
         productTitle: "Gold Coast Whale Escape",
@@ -1988,6 +1992,7 @@ describe("booking orchestrator", () => {
         "i think i want that gold coast whale escape",
         "can you check for 26th of june?"
       ],
+      now: new Date("2026-01-01T00:00:00Z"),
       bookingMemory: {
         productExternalId: "boattime-whale-escape",
         productTitle: "Gold Coast Whale Escape",
@@ -2040,6 +2045,104 @@ describe("booking orchestrator", () => {
         bookingError: null,
         ticketQuantities: null
       }
+    });
+  });
+
+  // kai-conversation-flow-notes.md finding #5: a bare "2" in reply to "how many guests?" fell
+  // through and re-asked the same question - only "2 guests"/"2 people" etc. worked before.
+  it("accepts a bare numeral as the guest count when Kai specifically just asked for it", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "2",
+      priorTravellerMessages: ["yup i think i want it!", "can you check the availability for tomorrow?"],
+      bookingMemory: {
+        productExternalId: "mock-komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: "tomorrow",
+        guests: null
+      },
+      bookingWriteEnabled: true,
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result.action).toBe("AVAILABILITY_CHECKED");
+    expect(result.reply).not.toMatch(/please share the number of guests/i);
+    expect((result.bookingStatePatch as { guests?: number } | null)?.guests).toBe(2);
+  });
+
+  // kai-conversation-flow-notes.md finding #2 (critical): across 9 traveller turns Kai never once
+  // declined - it kept re-offering the same 4 products, including after an explicit "I don't want
+  // a yacht charter." This is the "say no, then capture" fix.
+  it("declines instead of re-showing the same product list once it's already been seen and still doesn't fit", async () => {
+    const conversationHistory = [
+      { role: "traveller" as const, content: "what do you have for me?" },
+      {
+        role: "assistant" as const,
+        content:
+          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you want?"
+      }
+    ];
+
+    const result = await handleTravellerBookingMessage({
+      message: "none of those, what else do you have?",
+      priorTravellerMessages: ["what do you have for me?"],
+      conversationHistory,
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result.action).toBe("PRODUCT_RECOMMENDATION");
+    expect(result.reply.toLowerCase()).not.toContain("komodo day trip");
+    expect(result.reply.toLowerCase()).toMatch(/not yet|email/);
+  });
+
+  it("hands off to a human with the traveller's email once they leave one after a decline", async () => {
+    const conversationHistory = [
+      { role: "traveller" as const, content: "what do you have for me?" },
+      {
+        role: "assistant" as const,
+        content:
+          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you want?"
+      },
+      { role: "traveller" as const, content: "none of those" },
+      { role: "assistant" as const, content: "Not yet - none of these quite fit what you're after. Want to leave your email so we can follow up once we have something that does?" }
+    ];
+
+    const result = await handleTravellerBookingMessage({
+      message: "sure, sarah@example.com",
+      priorTravellerMessages: ["what do you have for me?", "none of those"],
+      conversationHistory,
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result.action).toBe("HUMAN_HANDOFF");
+    expect(result.reply).toContain("sarah@example.com");
+  });
+
+  // kai-conversation-flow-notes.md finding #16 (compliance): checked before anything else, so a
+  // pasted card number never reaches intent classification, availability checks, or an LLM call.
+  it("refuses card-shaped input immediately, before any booking logic runs", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "Fine, book Komodo Day Trip. My card is 4111 1111 1111 1111, exp 04/29, cvv 123.",
+      pmsAdapter: {
+        provider: "MOCK",
+        listProducts: async () => {
+          throw new Error("Card-shaped input must short-circuit before any PMS call.");
+        },
+        getAvailability: async () => {
+          throw new Error("Card-shaped input must short-circuit before any PMS call.");
+        },
+        createBooking: async () => {
+          throw new Error("Card-shaped input must never reach booking creation.");
+        },
+        cancelBooking: async () => ({ cancelled: false }),
+        getBooking: async () => null
+      }
+    });
+
+    expect(result).toEqual({
+      action: "GENERAL_REPLY",
+      reply:
+        "I can't take card or payment details in chat, so I didn't save that - please don't paste it here. When you're ready to pay, I'll send a secure checkout link that Kai never sees or stores.",
+      replySource: "DETERMINISTIC"
     });
   });
 
@@ -3010,6 +3113,7 @@ describe("handleTravellerBookingMessage with a generic booking router client", (
     const result = await handleTravellerBookingMessage({
       message: "22july for 2 poeple",
       priorTravellerMessages: ["what options do you have?", "1"],
+      now: new Date("2026-01-01T00:00:00Z"),
       bookingMemory: {
         productExternalId: "mock-komodo-day-trip",
         productTitle: "Komodo Day Trip",

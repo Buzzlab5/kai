@@ -3,6 +3,7 @@ import type { BookingFlowStatus } from "@/core/booking/booking-state-machine";
 import type { PmsExtraOption, PmsExtraQuantity, PmsTicketOption, PmsTicketQuantity, PmsTimeOption } from "@/core/pms/types";
 import { Prisma, type ManualInquiryStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { redactCardShapedInput } from "@/core/security/card-detection";
 
 const bookingFlowStatuses = new Set<BookingFlowStatus>([
   "DRAFT",
@@ -222,12 +223,16 @@ export async function createTravellerMessage(input: {
   conversationId: string;
   content: string;
 }) {
+  // kai-conversation-flow-notes.md finding #16: a traveller pasted a full card number/expiry/CVV -
+  // Kai correctly refused to transact with it, but the raw PAN was still written to this table
+  // verbatim. This is the single choke point every traveller-message write path goes through
+  // (WhatsApp, web chat, inquiry capture), so redacting here catches all of them, not just one path.
   return prisma.message.create({
     data: {
       tenantId: input.tenantId,
       conversationId: input.conversationId,
       role: "TRAVELLER",
-      content: input.content
+      content: redactCardShapedInput(input.content)
     }
   });
 }

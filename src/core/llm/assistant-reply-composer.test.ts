@@ -250,4 +250,40 @@ describe("assistant reply composer", () => {
       reply: deterministicReply
     });
   });
+
+  // kai-conversation-flow-notes.md stop-the-line item B: a real conversation volunteered "I can try
+  // to suggest alternative liveaboard options... although they may not be part of the BluePass
+  // catalog" when the traveller's budget didn't fit - offering unvetted inventory BluePass can't book.
+  it("rejects an LLM rewrite that offers to suggest a non-catalog operator, falling back to deterministic", async () => {
+    const deterministicReply = "Those don't fit your budget - want me to note your interest for now?";
+
+    const result = await composeAssistantReply({
+      deterministicReply,
+      llmClient: {
+        async composeReply() {
+          return "I can try to suggest alternative liveaboard options that might be more budget-friendly, although they may not be part of the BluePass catalog. Are you open to considering other operators?";
+        }
+      }
+    });
+
+    expect(result).toEqual({ source: "DETERMINISTIC", reply: deterministicReply });
+  });
+
+  it("does not reject an honest decline that mentions the catalog without offering an alternative", async () => {
+    const deterministicReply = "Not in our catalog yet - want me to email you when it is?";
+
+    const result = await composeAssistantReply({
+      deterministicReply,
+      llmClient: {
+        async composeReply() {
+          return "That's not in our catalog yet. Want me to email you the moment it is?";
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      source: "LLM",
+      reply: "That's not in our catalog yet. Want me to email you the moment it is?"
+    });
+  });
 });

@@ -121,8 +121,43 @@ export function buildBluePassOpenQuestionReply() {
   return "Happy to help with that. BluePass covers a growing set of vetted liveaboard trips, so I might not have live details on absolutely everything, but I can talk it through and help you compare real BluePass options whenever you are ready.";
 }
 
+// Kai conversation flow audit (kai-conversation-flow-notes.md), stop-the-line item A: an LLM rewrite
+// once described the 5% as "likely a service fee... goes towards maintaining the platform" - the
+// exact inverse of the truth. This is the grounded source of truth, verified against the real copy
+// on bluepass.co/conservation (ConservationHero.tsx: "Bluepass' commission comes from the operator's
+// side - never added to your fare"; PromiseGrid.tsx: Operator 95% / Ocean 5%) - never paraphrase this
+// away from those two facts, and never call the 5% a platform/service fee.
 export function buildBluePassValueReply() {
-  return "BluePass lets travellers book vetted ocean operators, honestly: catalog prices are signals until the operator confirms. Every trip gives back - 5% goes to reef conservation and coastal communities. I can explain options, compare yachts, and prepare an operator inquiry - never fake a confirmed booking.";
+  return "Same price as booking direct - Bluepass' commission comes from the operator's side, never added to your fare. Every operator is vetted, and 5% of every booking is reserved for ocean conservation before we take anything.";
+}
+
+// Deeper "where does it go / who verifies it" question gets the fuller answer with named partners -
+// verified against lib/conservation.ts's real partner list, not invented. Points to the public page
+// rather than re-stating every detail, so this never drifts out of sync with the actual page.
+export function buildBluePassConservationReply() {
+  return "5% of every booking is reserved for the ocean before we take anything - it is never a platform fee. Bluepass' commission comes from the operator's side, never added to your fare. Every partner is named and every report is dated: Great Barrier Reef Foundation in Cairns, Whitsundays Marine Trust in Airlie Beach, and Hervey Bay Whale Research in Hervey Bay. Full record: bluepass.co/conservation.";
+}
+
+// Split from a single merged detector (kai-conversation-flow-notes.md) so the deeper "where does it
+// go / who verifies it" question gets buildBluePassConservationReply's fuller, named-partner answer
+// instead of the shorter general value-prop line.
+export function isBluePassConservationQuestion(content: string) {
+  const normalized = content.toLowerCase();
+  return /\b(?:5\s*%|five\s*percent|conservation|give\s*back|goes?\s+to\s+the\s+ocean|verif(?:y|ies|ied|ication))\b/.test(
+    normalized
+  );
+}
+
+export function isBluePassValuePropQuestion(content: string) {
+  const normalized = content.toLowerCase();
+  return (
+    /\b(?:what is|what's|tell me about|explain)\s+bluepass\b/.test(normalized) ||
+    /\b(?:why|how)\s+(?:should\s+i\s+)?(?:use|book\s+with|choose)\s+bluepass\b/.test(normalized) ||
+    /\b(?:why|how)\s+bluepass\b/.test(normalized) ||
+    /\b(?:book(?:ing)?\s+direct|direct\s+booking|same\s+price|better\s+than\s+(?:going\s+)?direct|instead\s+of\s+(?:going\s+)?direct)\b/.test(
+      normalized
+    )
+  );
 }
 
 // Real, public numbers - safe to state plainly to anyone who asks (traveller, operator, or
