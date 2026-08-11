@@ -92,6 +92,9 @@ describe("handlePmsBookingConfirmFailureRefundAndAlert", () => {
     expect(updated.status).toBe("CONFIRM_FAILED_REFUNDED");
     expect(updated.failureReason).toBe("Slot no longer available");
     expect(updated.adminAlertSentAt).not.toBeNull();
+    // Regression: stripeRefundId existed on the schema but was never actually persisted - fixed
+    // 2026-08-06.
+    expect(updated.stripeRefundId).toBe("re_1");
 
     const messages = await prisma.message.findMany({ where: { conversationId: attempt.conversationId } });
     expect(messages.some((message) => message.content.includes("fully refunded"))).toBe(true);

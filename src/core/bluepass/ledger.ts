@@ -5,6 +5,8 @@ export type BluePassLedgerEstimateInput = {
   referralLinkId?: string | null;
   referralCode?: string | null;
   referralRole?: string | null;
+  /** See BluePassLedgerSplitInput.market - same opt-in-only-for-AU convention. */
+  market?: BluePassLedgerMarket;
 };
 
 export type BluePassLedgerCurrency = "USD" | "IDR" | "EUR" | "AUD";
@@ -29,6 +31,8 @@ export type BluePassLedgerEstimate = {
   };
 };
 
+export type BluePassLedgerMarket = "AUSTRALIA" | "INDONESIA";
+
 export type BluePassLedgerSplitInput = {
   inquiryId: string;
   grossAmountCents: number;
@@ -38,6 +42,16 @@ export type BluePassLedgerSplitInput = {
   referralLinkId?: string | null;
   referralCode?: string | null;
   referralRole?: string | null;
+  /**
+   * Region for the commission split. Deliberately opt-in and NOT the same "undefined = Australia"
+   * convention used by market.ts's copy helpers - here, undefined (and "INDONESIA") both mean the
+   * original 18%/82% split, so every existing caller (including Boattime's confirm-bluepass-pms-payment.ts,
+   * which never passes this) keeps its exact current numbers with zero code change. Only an explicit
+   * "AUSTRALIA" opts into the new 20%/80% split. Confirmed 2026-08-06: Boattime stays on 18/82
+   * indefinitely even though it's an AU operator, because it's still on Supplier API and the user's
+   * instruction was to freeze it completely, percentage included - don't pass "AUSTRALIA" for it.
+   */
+  market?: BluePassLedgerMarket;
 };
 
 // The real, tested split - Tony's own "Economics stated by the playbooks (source of truth)"
@@ -48,11 +62,25 @@ export type BluePassLedgerSplitInput = {
 // platform-fee bucket is smaller (5% vs 10%) so the operator's 82% net never depends on whether a
 // referral happened to be attached. No dollar cap - the previous 15%/$750-cap/30%-of-commission
 // figures were an outdated first draft that was never reconciled with the refined 18% figure.
+//
+// Australia moved to a 20%/82->80% split on 2026-08-05 (confirmed by Tony) - the extra 2% lands
+// entirely in the platform-fee bucket (7% referred / 12% unreferred vs 5%/10%); conservation and
+// payment-processing stay identical across regions. Indonesia is unchanged and untouched by this -
+// don't harmonize it to the AU numbers without a separate confirmation.
 const conservationPct = 0.05;
 const partnerCommissionPct = 0.05;
 const paymentProcessingPct = 0.03;
 const platformFeePctReferred = 0.05;
 const platformFeePctUnreferred = 0.1;
+
+const platformFeePctReferredByMarket: Record<BluePassLedgerMarket, number> = {
+  AUSTRALIA: 0.07,
+  INDONESIA: platformFeePctReferred
+};
+const platformFeePctUnreferredByMarket: Record<BluePassLedgerMarket, number> = {
+  AUSTRALIA: 0.12,
+  INDONESIA: platformFeePctUnreferred
+};
 
 // Core split, operating directly on a real amount in cents - shared by the pre-booking PENDING
 // estimate (parsed from operator free text, see calculateBluePassLedgerEstimate below) and the
@@ -62,10 +90,15 @@ const platformFeePctUnreferred = 0.1;
 export function calculateBluePassLedgerSplit(input: BluePassLedgerSplitInput): BluePassLedgerEstimate[] {
   const budgetAmount = input.grossAmountCents / 100;
   const hasReferral = Boolean(input.referralPartnerId);
+  const platformFeePctReferredForMarket =
+    input.market === "AUSTRALIA" ? platformFeePctReferredByMarket.AUSTRALIA : platformFeePctReferred;
+  const platformFeePctUnreferredForMarket =
+    input.market === "AUSTRALIA" ? platformFeePctUnreferredByMarket.AUSTRALIA : platformFeePctUnreferred;
   const conservation = budgetAmount * conservationPct;
   const partnerCommission = hasReferral ? budgetAmount * partnerCommissionPct : 0;
   const paymentProcessing = budgetAmount * paymentProcessingPct;
-  const platformFee = budgetAmount * (hasReferral ? platformFeePctReferred : platformFeePctUnreferred);
+  const platformFee =
+    budgetAmount * (hasReferral ? platformFeePctReferredForMarket : platformFeePctUnreferredForMarket);
   // Derived as the remainder (not a separate budgetAmount * 0.82) so the four ledger rows always
   // sum to exactly budgetAmount, with no rounding-cent leakage between buckets.
   const operatorNet = budgetAmount - conservation - partnerCommission - paymentProcessing - platformFee;
@@ -108,7 +141,8 @@ export function calculateBluePassLedgerEstimate(input: BluePassLedgerEstimateInp
     referralPartnerId: input.referralPartnerId,
     referralLinkId: input.referralLinkId,
     referralCode: input.referralCode,
-    referralRole: input.referralRole
+    referralRole: input.referralRole,
+    market: input.market
   });
 }
 

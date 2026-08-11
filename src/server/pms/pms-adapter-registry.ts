@@ -1,6 +1,7 @@
 import { FareHarborPmsAdapter } from "@/core/pms/fareharbor-pms-adapter";
 import { InseanqPmsAdapter } from "@/core/pms/inseanq-pms-adapter";
 import { MockPmsAdapter, type MockPmsCatalog } from "@/core/pms/mock-pms-adapter";
+import { RezdyAgentPmsAdapter } from "@/core/pms/rezdy-agent-pms-adapter";
 import { RezdyPmsAdapter } from "@/core/pms/rezdy-pms-adapter";
 import type { PmsAdapter } from "@/core/pms/types";
 import type { PmsProvider } from "@/core/tenant/types";
@@ -32,6 +33,8 @@ export function getPmsAdapter(
   }
 
   if (provider === "REZDY") {
+    // Boattime's live demo path (Supplier API) - do not repoint this branch at Agent API endpoints
+    // or its credentials; see "REZDY_AGENT" below for the separate new path.
     return new RezdyPmsAdapter({
       baseUrl: env.REZDY_BASE_URL,
       apiKey: env.REZDY_API_KEY,
@@ -40,6 +43,21 @@ export function getPmsAdapter(
       availabilityPath: env.REZDY_AVAILABILITY_PATH,
       bookingPath: env.REZDY_BOOKING_PATH,
       timeoutMs: readTimeout(env.REZDY_TIMEOUT_MS),
+      fetcher
+    });
+  }
+
+  if (provider === "REZDY_AGENT") {
+    // BluePass's own Rezdy Agent/reseller account - a distinct provider value and a distinct set of
+    // env vars from "REZDY" above, on purpose (see that branch's comment and the PmsProvider type).
+    return new RezdyAgentPmsAdapter({
+      baseUrl: env.REZDY_AGENT_BASE_URL,
+      apiKey: env.REZDY_AGENT_API_KEY,
+      apiKeyPlacement: "query",
+      productListPath: env.REZDY_AGENT_PRODUCT_LIST_PATH,
+      availabilityPath: env.REZDY_AGENT_AVAILABILITY_PATH,
+      bookingPath: env.REZDY_AGENT_BOOKING_PATH,
+      timeoutMs: readTimeout(env.REZDY_AGENT_TIMEOUT_MS),
       fetcher
     });
   }

@@ -6,7 +6,7 @@ import type {
   PmsCreateBookingResult
 } from "./types";
 
-type UnknownRecord = Record<string, unknown>;
+export type UnknownRecord = Record<string, unknown>;
 
 function addDays(date: Date, days: number) {
   const next = new Date(date);
@@ -18,7 +18,14 @@ function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function resolveRezdyDateRange(dateText: string) {
+/**
+ * Exported so rezdy-agent-pms-adapter.ts can reuse this without duplicating it - the underlying
+ * Rezdy data model (sessions/priceOptions) is shared between Supplier and Agent API, per Rezdy's own
+ * docs, though this is unconfirmed against a real Agent API payload (see that file's own comments).
+ * Only `export` was added here; the function body is untouched, so Boattime's Supplier API behavior
+ * is unaffected.
+ */
+export function resolveRezdyDateRange(dateText: string) {
   const lowerDateText = dateText.toLowerCase();
   const explicitDate = dateText.match(/\d{4}-\d{2}-\d{2}/)?.[0];
   const startDate = explicitDate
@@ -33,7 +40,7 @@ function resolveRezdyDateRange(dateText: string) {
   };
 }
 
-function asRecord(value: unknown): UnknownRecord {
+export function asRecord(value: unknown): UnknownRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
@@ -41,7 +48,7 @@ function asRecord(value: unknown): UnknownRecord {
   return value as UnknownRecord;
 }
 
-function readNumber(record: UnknownRecord, keys: string[]) {
+export function readNumber(record: UnknownRecord, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -51,7 +58,7 @@ function readNumber(record: UnknownRecord, keys: string[]) {
   return 0;
 }
 
-function readString(record: UnknownRecord, keys: string[]) {
+export function readString(record: UnknownRecord, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -61,7 +68,7 @@ function readString(record: UnknownRecord, keys: string[]) {
   return "";
 }
 
-function splitTravellerName(name: string) {
+export function splitTravellerName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const firstName = parts.shift() ?? name.trim();
   const lastName = parts.length > 0 ? parts.join(" ") : "-";
@@ -69,7 +76,7 @@ function splitTravellerName(name: string) {
   return { firstName, lastName };
 }
 
-function readNestedRecord(record: UnknownRecord, keys: string[]) {
+export function readNestedRecord(record: UnknownRecord, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
     if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -80,25 +87,25 @@ function readNestedRecord(record: UnknownRecord, keys: string[]) {
   return record;
 }
 
-function readArrayRecords(record: UnknownRecord, key: string) {
+export function readArrayRecords(record: UnknownRecord, key: string) {
   const value = record[key];
 
   return Array.isArray(value) ? value.map(asRecord) : [];
 }
 
-function readPriceOptionLabel(priceOption: UnknownRecord | undefined) {
+export function readPriceOptionLabel(priceOption: UnknownRecord | undefined) {
   if (!priceOption) return "";
 
   return readString(priceOption, ["label", "optionLabel", "name", "title"]);
 }
 
-function readExtraOptionLabel(extraOption: UnknownRecord | undefined) {
+export function readExtraOptionLabel(extraOption: UnknownRecord | undefined) {
   if (!extraOption) return "";
 
   return readString(extraOption, ["label", "optionLabel", "name", "title"]);
 }
 
-function readExtraOptionPrice(extraOption: UnknownRecord) {
+export function readExtraOptionPrice(extraOption: UnknownRecord) {
   return readNumber(extraOption, ["unitPrice", "price", "advertisedPrice", "amount", "value"]);
 }
 
@@ -114,17 +121,17 @@ function scorePriceOption(priceOption: UnknownRecord) {
   return 10;
 }
 
-function selectPriceOption(priceOptions: UnknownRecord[]) {
+export function selectPriceOption(priceOptions: UnknownRecord[]) {
   return priceOptions
     .map((priceOption, index) => ({ priceOption, index, score: scorePriceOption(priceOption) }))
     .sort((left, right) => right.score - left.score || left.index - right.index)[0]?.priceOption;
 }
 
-function isRezdyLocalDateTime(dateText: string) {
+export function isRezdyLocalDateTime(dateText: string) {
   return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateText.trim());
 }
 
-function formatRezdyTimeLabel(startTimeLocal: string) {
+export function formatRezdyTimeLabel(startTimeLocal: string) {
   const match = startTimeLocal.match(/\b(\d{2}):(\d{2}):\d{2}\b/);
   if (!match) return startTimeLocal;
 

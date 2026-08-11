@@ -1,6 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassLead } from "./lead";
-import { bluePassFlagshipVessel, bluePassOperatorsDescriptor, bluePassRegionChoice, bluePassRegionSpan, bluePassRegionsPitch, classifyBluePassRegion, type BluePassMarket } from "./market";
+import { bluePassCommissionSummary, bluePassFlagshipVessel, bluePassOperatorsDescriptor, bluePassRegionChoice, bluePassRegionSpan, bluePassRegionsPitch, classifyBluePassRegion, type BluePassMarket } from "./market";
 
 /**
  * BluePass first-touch triage.
@@ -255,13 +255,14 @@ export function buildBluePassOperatorReply(input: {
 }): BluePassPersonaReply {
   const message = input.latestMessage.toLowerCase();
   const has = (...needles: string[]) => includesAny(message, needles);
+  const commission = bluePassCommissionSummary(input.market);
 
   if (needsHumanHandoff(message)) return { reply: buildBluePassHandoffReply() };
 
   if (has("legit", "trustworthy", "who's behind", "who runs", "scam", "is this real", "can i trust", "reputable", "are you real")) {
     return {
       reply:
-        `Fair to ask - BluePass is a real marketplace onboarding ${bluePassOperatorsDescriptor(input.market)}, guest price never marked up and you keep 82%. Nothing's charged until you claim your own page. Want the 18% breakdown, or your claim link?`
+        `Fair to ask - BluePass is a real marketplace onboarding ${bluePassOperatorsDescriptor(input.market)}, guest price never marked up and you keep ${commission.operatorNet}%. Nothing's charged until you claim your own page. Want the ${commission.total}% breakdown, or your claim link?`
     };
   }
 
@@ -275,21 +276,21 @@ export function buildBluePassOperatorReply(input: {
   if (has("is it free", "free to list", "free to join", "cost to list", "cost to join", "how much to list", "how much to join", "how much does it cost", "upfront cost", "any upfront", "sign-up fee", "signup fee")) {
     return {
       reply:
-        "Free to list - no sign-up fee, no subscription, no listing fee. You keep 82%; the capped 18% only kicks in when a booking completes, so there's zero upfront. What do you run, and where?"
+        `Free to list - no sign-up fee, no subscription, no listing fee. You keep ${commission.operatorNet}%; the capped ${commission.total}% only kicks in when a booking completes, so there's zero upfront. What do you run, and where?`
     };
   }
 
   if (has("per lead", "pay for leads", "pay per lead", "lead fee", "cost per lead", "charge per inquiry", "pay per inquiry", "per enquiry", "charge me upfront", "pay to be listed", "pay for placement", "listing fee")) {
     return {
       reply:
-        "No - we never charge per lead or to be listed. No listing fee, no pay-per-inquiry; we only earn the capped 18% when a booking actually completes. Zero risk upfront. What do you run, and where?"
+        `No - we never charge per lead or to be listed. No listing fee, no pay-per-inquiry; we only earn the capped ${commission.total}% when a booking actually completes. Zero risk upfront. What do you run, and where?`
     };
   }
 
-  if (has("18%", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
+  if (has("18%", "20%", "break down", "breakdown", "fee", "cut", "take rate", "commission")) {
     return {
       reply:
-        "Every point: 5% conservation in your waters (co-brandable), 5% to the partners sending you guests, 3% payments, 5% platform. You keep 82% - no listing fees, no subscription, we only earn when you do. Claim link, or vetting first?"
+        `Every point: 5% conservation in your waters (co-brandable), 5% to the partners sending you guests, 3% payments, ${commission.platformFee}% platform. You keep ${commission.operatorNet}% - no listing fees, no subscription, we only earn when you do. Claim link, or vetting first?`
     };
   }
 
@@ -317,7 +318,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("booking.com", "getyourguide", "viator", "tripadvisor", "expedia", "already list", "already on", "another platform", "listing site", "why not just", "why switch")) {
     return {
       reply:
-        "List wherever you like - we're not exclusive. The difference: guests pay your rate direct, never marked up, you keep 82%, 5% funds conservation in your waters, and a partner network sends you guests. What do you run, and where?"
+        `List wherever you like - we're not exclusive. The difference: guests pay your rate direct, never marked up, you keep ${commission.operatorNet}%, 5% funds conservation in your waters, and a partner network sends you guests. What do you run, and where?`
     };
   }
 
@@ -336,7 +337,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("what's the catch", "whats the catch", "the catch", "how do you make money", "how do you earn", "what's in it for you", "whats in it for you", "how do you profit", "where's your money")) {
     return {
       reply:
-        "No catch - we make the capped 18% only when a booking completes, nothing else. No listing fees, no per-lead charges, no selling your data. We earn when you earn. What do you run, and where?"
+        `No catch - we make the capped ${commission.total}% only when a booking completes, nothing else. No listing fees, no per-lead charges, no selling your data. We earn when you earn. What do you run, and where?`
     };
   }
 
@@ -350,7 +351,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("set my own", "my own rate", "my own price", "who sets the price", "control the price", "set prices", "set the rate", "i set the")) {
     return {
       reply:
-        "You set your own rate - it's your price, full stop. You keep 82% of it, and we never mark it up to your guests. Where do you operate, and what do you run?"
+        `You set your own rate - it's your price, full stop. You keep ${commission.operatorNet}% of it, and we never mark it up to your guests. Where do you operate, and what do you run?`
     };
   }
 
@@ -413,7 +414,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("talk to other operators", "speak to other operators", "other operators i can", "references", "operator references", "who else is on board", "operators using you", "operator testimonial", "operators like me", "vouch for you", "who else uses you")) {
     return {
       reply:
-        "We're early - I won't hand you references I can't stand behind. What I can say: every operator is vetted for safety, sustainability, and fair pay, and founding operators shape how this grows. Want the 18% breakdown, or your claim link?"
+        `We're early - I won't hand you references I can't stand behind. What I can say: every operator is vetted for safety, sustainability, and fair pay, and founding operators shape how this grows. Want the ${commission.total}% breakdown, or your claim link?`
     };
   }
 
@@ -502,7 +503,7 @@ export function buildBluePassOperatorReply(input: {
   if (has("how do guests pay", "pay by card", "payment method", "guests pay", "how do they pay", "do they pay", "card payment", "credit card", "how is payment taken")) {
     return {
       reply:
-        "Guests pay securely through BluePass at checkout - card and the usual methods, no cash to chase. The money reaches you via the team's payout setup, minus only the capped 18%. Where do you operate, and what do you run?"
+        `Guests pay securely through BluePass at checkout - card and the usual methods, no cash to chase. The money reaches you via the team's payout setup, minus only the capped ${commission.total}%. Where do you operate, and what do you run?`
     };
   }
 
@@ -558,13 +559,13 @@ export function buildBluePassOperatorReply(input: {
   if (has("saya", "kapal", "perahu", "daftar")) {
     return {
       reply:
-        "Waktu yang tepat - kami onboarding operator. Anda menyimpan 82% dari tarif Anda. 18% dibatasi: 5% konservasi di perairan Anda, 5% mitra pengirim tamu, 3% pembayaran, 5% platform - harga tamu tidak pernah dinaikkan. Di mana Anda beroperasi, dan apa yang Anda jalankan?"
+        `Waktu yang tepat - kami onboarding operator. Anda menyimpan ${commission.operatorNet}% dari tarif Anda. ${commission.total}% dibatasi: 5% konservasi di perairan Anda, 5% mitra pengirim tamu, 3% pembayaran, ${commission.platformFee}% platform - harga tamu tidak pernah dinaikkan. Di mana Anda beroperasi, dan apa yang Anda jalankan?`
     };
   }
 
   return {
     reply:
-      "We're onboarding operators now. You keep 82%; our 18% is capped - 5% conservation, 5% to partners who send you guests, 3% payments, 5% platform - and your guests' price is never marked up. Where do you operate, and what do you run?"
+      `We're onboarding operators now. You keep ${commission.operatorNet}%; our ${commission.total}% is capped - 5% conservation, 5% to partners who send you guests, 3% payments, ${commission.platformFee}% platform - and your guests' price is never marked up. Where do you operate, and what do you run?`
   };
 }
 

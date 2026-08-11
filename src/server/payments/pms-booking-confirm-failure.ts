@@ -39,10 +39,12 @@ export async function handlePmsBookingConfirmFailureRefundAndAlert(
   }
 
   let refundSucceeded = false;
+  let stripeRefundId: string | null = null;
   if (input.attempt.stripePaymentIntentId) {
     try {
       const stripe = deps.stripeClient ?? getBluePassStripeClient(env);
-      await stripe.refunds.create({ payment_intent: input.attempt.stripePaymentIntentId });
+      const refund = await stripe.refunds.create({ payment_intent: input.attempt.stripePaymentIntentId });
+      stripeRefundId = refund.id;
       refundSucceeded = true;
     } catch (error) {
       console.error("pms_booking_confirm_failure.refund_failed", {
@@ -58,7 +60,10 @@ export async function handlePmsBookingConfirmFailureRefundAndAlert(
     where: { id: input.attempt.id },
     data: {
       status: refundSucceeded ? "CONFIRM_FAILED_REFUNDED" : "REFUND_FAILED",
-      failureReason: reason
+      failureReason: reason,
+      // stripeRefundId was declared on the schema from the start but never actually written here -
+      // fixed 2026-08-06, so a successful refund's Stripe id is preserved for audit/reconciliation.
+      ...(stripeRefundId ? { stripeRefundId } : {})
     }
   });
 

@@ -225,6 +225,25 @@ export function bluePassFlagshipVessel(market?: BluePassMarket): string {
   return "premium charter boats";
 }
 
+/**
+ * Commission numbers for operator-facing chat copy. AU moved to 20%/80% (7% platform fee) on
+ * 2026-08-05, confirmed by Tony; Indonesia is unchanged at 18%/82% (5% platform fee) and is the
+ * default here - unlike the other helpers in this file, deliberately NOT "undefined = Australia",
+ * because the pre-2026-08-05 baseline these strings quote was 18/82 everywhere and Indonesia was
+ * never asked to move. The platformFee figure quoted is the referred-booking one (conservation 5% +
+ * partner 5% + processing 3% + this), matching what the existing copy already showed - it never
+ * mentions the higher unreferred platform-fee bucket (10%/12%) that ledger.ts absorbs the unused
+ * partner slice into. See ledger.ts's BluePassLedgerMarket for the actual split calculation.
+ */
+export function bluePassCommissionSummary(market?: BluePassMarket): {
+  total: number;
+  operatorNet: number;
+  platformFee: number;
+} {
+  if (market === "AUSTRALIA") return { total: 20, operatorNet: 80, platformFee: 7 };
+  return { total: 18, operatorNet: 82, platformFee: 5 };
+}
+
 export type BluePassGateStep = "MARKET" | "REGION" | "READY";
 
 export type BluePassGate = {
