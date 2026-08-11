@@ -218,6 +218,15 @@ describe("conservation/value-prop grounding", () => {
     expect(isBluePassConservationQuestion("what happens after I pay")).toBe(false);
   });
 
+  // Regression: a trailing `\b` right after a literal "%" never matches, since "%" isn't a word
+  // character - that silently broke the detector for "5%" followed by whitespace/punctuation, which
+  // is nearly every real sentence. The test above happened to also contain "verifies", masking this.
+  it("isBluePassConservationQuestion matches bare '5%' phrasing with no other trigger word", () => {
+    expect(isBluePassConservationQuestion("isn't the 5% just a service fee for bluepass?")).toBe(true);
+    expect(isBluePassConservationQuestion("is the 5% a platform fee?")).toBe(true);
+    expect(isBluePassConservationQuestion("so where does the 5%. actually go")).toBe(true);
+  });
+
   it("isBluePassValuePropQuestion matches the real transcript question, without matching the conservation one", () => {
     expect(isBluePassValuePropQuestion("Why is booking through you better than going direct to the operator?")).toBe(
       true

@@ -254,7 +254,7 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
 
   if (featuredYacht?.imageUrl) {
     const caption = featuredYacht.productUrl
-      ? `${featuredYacht.name} — ${featuredYacht.productUrl}`
+      ? `${featuredYacht.name}: ${featuredYacht.productUrl}`
       : featuredYacht.name;
 
     await sendWhatsAppImage({

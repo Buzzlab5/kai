@@ -143,8 +143,14 @@ export function buildBluePassConservationReply() {
 // instead of the shorter general value-prop line.
 export function isBluePassConservationQuestion(content: string) {
   const normalized = content.toLowerCase();
-  return /\b(?:5\s*%|five\s*percent|conservation|give\s*back|goes?\s+to\s+the\s+ocean|verif(?:y|ies|ied|ication))\b/.test(
-    normalized
+  // "%" is not a word character, so a trailing `\b` right after it never matches when the sign is
+  // followed by whitespace or punctuation (i.e. almost always in real sentences like "the 5% fee") -
+  // that silently broke this detector for the single most common phrasing of the question. The
+  // numeric branch is checked separately, without a trailing \b, so it isn't subject to that bug.
+  return (
+    /\b5\s*%/.test(normalized) ||
+    /\bfive\s*percent\b/.test(normalized) ||
+    /\b(?:conservation|give\s*back|goes?\s+to\s+the\s+ocean|verif(?:y|ies|ied|ication))\b/.test(normalized)
   );
 }
 

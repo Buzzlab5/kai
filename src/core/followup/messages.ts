@@ -25,22 +25,22 @@ export function buildFollowUpMessage(kind: FollowUpKind, candidate: FollowUpCand
     case "QUOTE_AWAITING_TRAVELLER": {
       const from = operator ? ` from ${operator}` : "";
       const link = candidate.quoteUrl ? ` ${candidate.quoteUrl}` : "";
-      return `Hi ${name} — your quote for ${trip(candidate)}${from} is ready and still holding. Want me to help you lock it in?${link}`;
+      return `Hi ${name}, your quote for ${trip(candidate)}${from} is ready and still holding. Want me to help you lock it in?${link}`;
     }
     case "OPERATOR_UNRESPONSIVE": {
       const when = candidate.dateWindow ? ` for ${candidate.dateWindow}` : "";
       const party = candidate.guests ? `, ${candidate.guests} guest${candidate.guests === 1 ? "" : "s"}` : "";
-      return `Hi — a BluePass guest is waiting on your reply for ${trip(candidate)}${when}${party}. Accept, decline, or counter whenever you can and I'll take it from there.`;
+      return `Hi, a BluePass guest is waiting on your reply for ${trip(candidate)}${when}${party}. Accept, decline, or counter whenever you can and I'll take it from there.`;
     }
     case "DECLINED_NEEDS_ALTERNATIVE": {
       const place = candidate.destination?.trim() || "that trip";
-      return `Hi ${name} — that boat didn't work out for your dates, but I've got a couple of strong alternatives for ${place}. Want me to line them up?`;
+      return `Hi ${name}, that boat didn't work out for your dates, but I've got a couple of strong alternatives for ${place}. Want me to line them up?`;
     }
     case "LEAD_UNCLAIMED":
-      return `Hi ${name} — your BluePass page is ready to claim whenever you are: one click, no password, and it's yours to run. Want me to resend the link?`;
+      return `Hi ${name}, your BluePass page is ready to claim whenever you are: one click, no password, and it's yours to run. Want me to resend the link?`;
     case "TRIP_ABANDONED": {
       const place = candidate.destination?.trim() || "your ocean trip";
-      return `Hi ${name} — still thinking about ${place}? Tell me your dates and group size and I'll line up the right boat.`;
+      return `Hi ${name}, still thinking about ${place}? Tell me your dates and group size and I'll line up the right boat.`;
     }
   }
 }

@@ -96,7 +96,7 @@ export const KNOWLEDGE_INTERVIEW_QUESTIONS: KnowledgeInterviewQuestion[] = [
   {
     id: "vessel-specs",
     prompt: "Tell me about your main vessel(s): capacity, length, amenities.",
-    question: "What is the boat like — capacity, size, amenities?",
+    question: "What is the boat like? Capacity, size, amenities.",
     category: "itinerary",
     isPolicy: false,
     keywords: ["boat", "vessel", "yacht", "capacity", "how many people", "length", "cabins", "amenities", "toilet"],
@@ -104,7 +104,7 @@ export const KNOWLEDGE_INTERVIEW_QUESTIONS: KnowledgeInterviewQuestion[] = [
   },
   {
     id: "inclusions",
-    prompt: "What's included in the price — meals, gear, guide?",
+    prompt: "What's included in the price? Meals, gear, guide?",
     question: "What's included in the price?",
     category: "itinerary",
     isPolicy: false,
@@ -140,7 +140,7 @@ export const KNOWLEDGE_INTERVIEW_QUESTIONS: KnowledgeInterviewQuestion[] = [
   },
   {
     id: "handoff-line",
-    prompt: "Last one — if Kai can't answer something, what should it tell guests before handing to your team?",
+    prompt: "Last one: if Kai can't answer something, what should it tell guests before handing to your team?",
     question: "",
     category: "faq",
     isPolicy: false,
