@@ -1,6 +1,6 @@
 import type { BluePassRequiredInquiryField } from "./intent";
 import type { BluePassYachtCard, BluePassYachtCatalogItem } from "./catalog";
-import { bluePassVesselNoun } from "./market";
+import { bluePassCommissionSummary, bluePassVesselNoun, type BluePassMarket } from "./market";
 
 type BluePassYachtSummary = Pick<
   BluePassYachtCard,
@@ -130,8 +130,9 @@ export function buildBluePassValueReply() {
 // is sticky/first-signal-wins (see classifyBluePassPersona), so a traveller-flavored opener can lock
 // out ever reaching those playbooks in the same conversation - this keeps the commission figures
 // factually answerable regardless of what persona got locked in.
-export function buildBluePassCommissionReply() {
-  return "BluePass takes a capped 18% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 5% is the platform fee. Operators keep 82% of their own rate, and guests never pay more than booking direct.";
+export function buildBluePassCommissionReply(market?: BluePassMarket) {
+  const commission = bluePassCommissionSummary(market);
+  return `BluePass takes a capped ${commission.total}% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and ${commission.platformFee}% is the platform fee. Operators keep ${commission.operatorNet}% of their own rate, and guests never pay more than booking direct.`;
 }
 
 export function buildBluePassSmallTalkReply(input?: { gratitude?: boolean }) {

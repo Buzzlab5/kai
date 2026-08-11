@@ -89,6 +89,16 @@ enum PmsBookingPaymentAttemptStatus {
   PAYMENT_FAILED
   CONFIRM_FAILED_REFUNDED
   REFUND_FAILED
+  // Reachable only from CONFIRMED - the trip has happened (or was manually marked as such by an
+  // admin) and the operator's OPERATOR_PAYOUT_PLACEHOLDER ledger entry has been released. Added
+  // 2026-08-06: before this, nothing in the schema represented "trip completed," so settlement had
+  // no trigger at all - see settledAt below and PmsBookingOperatorPayout.
+  SETTLED
+  // Milestone 3 (payment-settlement plan): reachable only from CONFIRMED - cancelled/refunded before
+  // the trip sailed and before settlement paid the operator, so per PAYMENT_ARCHITECTURE.md the
+  // refund is clean (funds were still held, no operator clawback needed). A CONFIRMED booking ends
+  // up as either SETTLED (trip happened) or this (it didn't) - never both. Added 2026-08-10.
+  CANCELLED_REFUNDED
 }
 
 model Tenant {
@@ -123,24 +133,24 @@ model TenantBranding {
 }
 
 model TenantConfig {
-  id                 String      @id @default(cuid())
-  tenantId           String      @unique
-  supportedChannels  String[]
-  enabledFeatures    String[]
-  requiredSlots      Json
-  bookingMode        String
-  bookingWriteEnabled Boolean    @default(false)
-  pmsProvider        PmsProvider @default(MOCK)
-  publicProductCatalog Json       @default("[]")
-  operatorKnowledgePack Json      @default("{}")
-  escalationRules    String[]
-  responseGuardrails String[]
+  id                    String      @id @default(cuid())
+  tenantId              String      @unique
+  supportedChannels     String[]
+  enabledFeatures       String[]
+  requiredSlots         Json
+  bookingMode           String
+  bookingWriteEnabled   Boolean     @default(false)
+  pmsProvider           PmsProvider @default(MOCK)
+  publicProductCatalog  Json        @default("[]")
+  operatorKnowledgePack Json        @default("{}")
+  escalationRules       String[]
+  responseGuardrails    String[]
   // Operator's own ops/admin WhatsApp number, e.g. for a direct-PMS booking payment-confirm
   // failure alert. Falls back to a per-tenant env var when unset (see resolveTenantAdminWhatsAppPhone).
-  adminWhatsAppPhone String?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adminWhatsAppPhone    String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model TenantIntegration {
@@ -158,17 +168,17 @@ model TenantIntegration {
 }
 
 model Conversation {
-  id          String                  @id @default(cuid())
-  tenantId    String
-  controlMode ConversationControlMode @default(AI)
-  channel     String
-  travellerId String?
-  leadId      String?
+  id            String                  @id @default(cuid())
+  tenantId      String
+  controlMode   ConversationControlMode @default(AI)
+  channel       String
+  travellerId   String?
+  leadId        String?
   // E.164 digits (no "+") - set for WhatsApp-channel conversations so the webhook can find the
   // thread for an inbound sender, and so a Business-app human-takeover can be toggled per number.
   whatsappPhone String?
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
 
   tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   messages        Message[]
@@ -192,28 +202,28 @@ model Message {
 }
 
 model ConversationBookingState {
-  id                String   @id @default(cuid())
-  tenantId          String
-  conversationId    String   @unique
-  productExternalId String?
-  productTitle      String?
-  dateText          String?
-  guests            Int?
-  travellerName     String?
-  travellerEmail    String?
-  travellerPhone    String?
-  bookingStatus     String   @default("DRAFT")
+  id                  String   @id @default(cuid())
+  tenantId            String
+  conversationId      String   @unique
+  productExternalId   String?
+  productTitle        String?
+  dateText            String?
+  guests              Int?
+  travellerName       String?
+  travellerEmail      String?
+  travellerPhone      String?
+  bookingStatus       String   @default("DRAFT")
   confirmationSummary String?
-  externalBookingId String?
-  externalProvider  String?
-  bookingError      String?
-  timeOptions       Json?
-  ticketOptions     Json?
-  ticketQuantities  Json?
-  extraOptions      Json?
-  extraQuantities   Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  externalBookingId   String?
+  externalProvider    String?
+  bookingError        String?
+  timeOptions         Json?
+  ticketOptions       Json?
+  ticketQuantities    Json?
+  extraOptions        Json?
+  extraQuantities     Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -425,6 +435,18 @@ model PmsBookingPaymentAttempt {
   status                  PmsBookingPaymentAttemptStatus @default(AWAITING_PAYMENT)
   failureReason           String?
   adminAlertSentAt        DateTime?
+  // Set when this attempt transitions CONFIRMED -> SETTLED (see the enum comment). Null until then.
+  settledAt               DateTime?
+  // Milestone 3 (payment-settlement plan): set together when this attempt transitions CONFIRMED ->
+  // CANCELLED_REFUNDED. cancelledBy is "CUSTOMER" | "OPERATOR" | "ADMIN" (plain String, matching the
+  // paidOutBy/releasedBy "who" convention elsewhere in this schema, not a new enum). refundTierPercent
+  // is 0-100, the tier actually applied (operator-initiated cancellations always record 100 - see
+  // cancelPmsBookingPaymentAttempt). refundAmountCents is the real amount Stripe refunded.
+  cancelledAt             DateTime?
+  cancelledBy             String?
+  cancellationReason      String?
+  refundTierPercent       Int?
+  refundAmountCents       Int?
   createdAt               DateTime                       @default(now())
   updatedAt               DateTime                       @updatedAt
 
@@ -461,10 +483,63 @@ model PmsBookingLedgerEntry {
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
 
-  attempt PmsBookingPaymentAttempt @relation(fields: [pmsBookingPaymentAttemptId], references: [id], onDelete: Cascade)
+  attempt PmsBookingPaymentAttempt  @relation(fields: [pmsBookingPaymentAttemptId], references: [id], onDelete: Cascade)
+  payout  PmsBookingOperatorPayout?
 
   @@index([tenantId, conversationId, status, createdAt])
   @@index([pmsBookingPaymentAttemptId, status])
+}
+
+// Direct-PMS/Rezdy flow's equivalent of BluePassOperatorPayout (the marketplace flow's payout
+// record) - added 2026-08-06 because PmsBookingLedgerEntry had no payout-release path at all before
+// this: Boattime/Rezdy bookings could only be "paid" via the manual paidOutReference attestation on
+// the ledger entry itself, never a real Stripe transfer. Mirrors BluePassOperatorPayout's shape and
+// status semantics exactly (see releaseBluePassLedgerEntryPayoutViaStripe in bluepass-stripe.ts,
+// and its new PmsBookingLedgerEntry sibling) - a separate model, not a generalized shared one,
+// because BluePassLedgerEntry and PmsBookingLedgerEntry are themselves separate models with no
+// common parent to hang a single payout table off safely.
+model PmsBookingOperatorPayout {
+  id                      String                       @id @default(cuid())
+  tenantId                String
+  pmsBookingLedgerEntryId String                       @unique
+  stripeConnectAccountId  String
+  stripeTransferId        String?                      @unique
+  amountCents             Int
+  currency                String
+  status                  BluePassOperatorPayoutStatus @default(PENDING_RELEASE)
+  releasedBy              String?
+  releasedAt              DateTime?
+  failureReason           String?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+
+  ledgerEntry PmsBookingLedgerEntry @relation(fields: [pmsBookingLedgerEntryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+enum CronRunStatus {
+  SUCCESS
+  PARTIAL
+  FAILURE
+}
+
+// Milestone 3.5 (BOOKING_INTEGRATION_PLAN.md's "per-platform monitoring: availability freshness,
+// booking-write failures, cancellations sync") - one row per cron job execution, written by the
+// cron route itself (see /api/cron/settle-pms-bookings) so a job that silently stops running or
+// starts failing leaves a queryable trail instead of nobody noticing until an operator complains
+// about a missed payout. `summary` is whatever structured result the job's own function already
+// returns (e.g. runSettlementSweep's {checked, settled, skipped}) - not re-derived, just persisted.
+model CronRunLog {
+  id           String        @id @default(cuid())
+  jobName      String
+  status       CronRunStatus
+  summary      Json?
+  errorMessage String?
+  startedAt    DateTime
+  finishedAt   DateTime      @default(now())
+
+  @@index([jobName, finishedAt])
 }
 
 // One row per LLM (Groq/OpenAI) call - router or polish. Written best-effort from

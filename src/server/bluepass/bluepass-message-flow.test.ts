@@ -61,8 +61,11 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
 
     expect(result.persona).toBe("TRAVELLER");
-    expect(result.assistantContent).toContain("18%");
-    expect(result.assistantContent).toContain("82%");
+    // "Australia" in the opener resolves market to AUSTRALIA, so this should reflect the 20%/80%
+    // split confirmed 2026-08-05 (see ledger.ts's BluePassLedgerMarket), not the Indonesia/default
+    // 18%/82% figures.
+    expect(result.assistantContent).toContain("20%");
+    expect(result.assistantContent).toContain("80%");
     expect(result.assistantContent).not.toContain("not publicly disclosed");
     expect(result.assistantContent).not.toContain("isn't publicly disclosed");
   });

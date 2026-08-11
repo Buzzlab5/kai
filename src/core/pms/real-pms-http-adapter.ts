@@ -75,7 +75,7 @@ export abstract class RealPmsHttpAdapter implements PmsAdapter {
   }
 
   protected async requestJson(
-    method: "GET" | "POST" | "PUT",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     body?: unknown,
     query?: Record<string, string>

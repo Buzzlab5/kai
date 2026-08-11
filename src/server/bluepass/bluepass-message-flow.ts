@@ -378,7 +378,7 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     case "COMMISSION_QUESTION":
       return buildConciergeResponse(
         persona,
-        buildBluePassCommissionReply(),
+        buildBluePassCommissionReply(market),
         [],
         showYachtsSuggestedReplies,
         missingFields,

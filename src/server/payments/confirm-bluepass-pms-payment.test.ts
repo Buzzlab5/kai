@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import * as pmsAdapterRegistry from "@/server/pms/pms-adapter-registry";
 import * as tenantPmsCredentials from "@/server/pms/tenant-pms-credentials";
@@ -10,6 +10,23 @@ import type { PmsCreateBookingResult } from "@/core/pms/types";
 vi.mock("@/server/whatsapp/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/whatsapp/client")>();
   return { ...actual, sendWhatsAppText: vi.fn(async () => ({ providerMessageId: "wamid.fake" })) };
+});
+
+// No test DB exists in this repo - these tests write real CONFIRMED rows (dateText fixture
+// "2026-06-26 13:30:00") to the same Supabase instance production reads from. Without this cleanup
+// they pile up in production forever and get picked up by the Milestone 2 settlement cron sweep
+// (src/server/payments/settlement-cron.ts) - confirmed this actually happened: 106 leftover CONFIRMED
+// rows across this file and stripe/route.test.ts were found live in production before this was added.
+afterAll(async () => {
+  const testTenants = await prisma.tenant.findMany({
+    where: { slug: { startsWith: "confirm-pms-" } },
+    select: { id: true }
+  });
+  const tenantIds = testTenants.map((tenant) => tenant.id);
+  if (tenantIds.length === 0) return;
+  await prisma.pmsBookingPaymentAttempt.deleteMany({ where: { tenantId: { in: tenantIds } } });
+  await prisma.conversation.deleteMany({ where: { tenantId: { in: tenantIds } } });
+  await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
 });
 
 async function createTestTenant(label: string) {
