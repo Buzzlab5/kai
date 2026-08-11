@@ -30,6 +30,22 @@ afterEach(() => {
 });
 
 describe("handleBluePassMarketplaceMessage", () => {
+  // kai-conversation-flow-notes.md finding #16 (compliance): checked before persona/market
+  // classification or any DB/LLM call, so a pasted card number never reaches any of those.
+  it("refuses card-shaped input immediately, before persona classification or any other logic", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "Fine, book Carpe Diem. My card is 4111 1111 1111 1111, exp 04/29, cvv 123.",
+      priorTravellerMessages: []
+    });
+
+    expect(result.assistantContent).toContain("I can't take card or payment details in chat");
+    expect(result.assistantContent).toContain("didn't save");
+    expect(result.bluepassMatches).toEqual([]);
+    expect(result.bluepassInquiry).toBeNull();
+  });
+
   it("answers operator onboarding questions without entering traveller inquiry collection", async () => {
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,

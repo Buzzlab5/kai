@@ -88,6 +88,18 @@ function respectsTenantProductContext(reply: string, tenantContext?: AssistantTe
   return true;
 }
 
+// kai-conversation-flow-notes.md stop-the-line item B: a real conversation volunteered to suggest
+// operators "outside the BluePass catalog" once the traveller's budget didn't fit - defense-in-depth
+// alongside the system-prompt guardrail (LLM instructions are not always followed), catching the
+// specific "here's an alternative, but it's not in our catalog" shape rather than any mention of
+// "catalog" at all (which would also false-positive on an honest "not in our catalog, want me to note
+// your interest?" decline - that phrasing is the one we want Kai to use, not reject).
+function offersNonCatalogOperator(reply: string) {
+  return /\b(?:suggest|recommend|try|find|look\s+for|search\s+for)\b[^.!?]{0,160}\b(?:not|outside|besides|other\s+than|may\s+not\s+be)\b[^.!?]{0,60}\b(?:catalog|vetted)\b/i.test(
+    reply
+  );
+}
+
 function removeRepeatedGreeting(reply: string) {
   return reply
     .replace(
@@ -272,12 +284,17 @@ export async function composeAssistantReply(
 
   const safeRewrite = isSafeRewrite(rewrite, requiredFacts);
   const respectsProductContext = respectsTenantProductContext(rewrite, input.tenantContext);
+  const offersOffCatalog = offersNonCatalogOperator(rewrite);
 
-  if (!safeRewrite || !respectsProductContext) {
+  if (!safeRewrite || !respectsProductContext || offersOffCatalog) {
     console.warn("assistant_reply_composer.llm_rewrite_rejected", {
       tenantName: input.tenantContext?.tenantName,
       requiredFacts,
-      reason: !safeRewrite ? "unsafe_or_missing_required_facts" : "product_context_mismatch",
+      reason: !safeRewrite
+        ? "unsafe_or_missing_required_facts"
+        : !respectsProductContext
+          ? "product_context_mismatch"
+          : "offers_non_catalog_operator",
       rewrite
     });
 

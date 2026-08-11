@@ -70,7 +70,19 @@ function findProductHint(message: string) {
   );
 }
 
-function findDateText(message: string) {
+// kai-conversation-flow-notes.md finding #4 (booking-integrity, high): a traveller typed "14 March
+// 2027" and Kai echoed "2026-03-14" - it silently defaulted to a hardcoded current year and dropped
+// the explicit year the traveller actually gave. Copy rule: "Always resolve the year explicitly."
+// When no year is given at all, picks the next real occurrence of that month/day (this year if it
+// hasn't passed yet, else next year) instead of a hardcoded literal that goes stale every January.
+function resolveDefaultYear(month: number, day: number, now: Date = new Date()) {
+  const currentYear = now.getUTCFullYear();
+  const candidate = new Date(Date.UTC(currentYear, month - 1, day));
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return candidate.getTime() >= today.getTime() ? currentYear : currentYear + 1;
+}
+
+function findDateText(message: string, now: Date = new Date()) {
   const lowerMessage = message.toLowerCase();
   const relativeDate = lowerMessage.match(/\b(today|tomorrow|tonight)\b/);
   if (relativeDate) {
@@ -87,25 +99,49 @@ function findDateText(message: string) {
     const day = Number(numericDayMonthDate[1]);
     const month = Number(numericDayMonthDate[2]);
     const rawYear = numericDayMonthDate[3];
-    const year = rawYear ? (rawYear.length === 2 ? `20${rawYear}` : rawYear) : "2026";
 
     if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      const year = rawYear ? (rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear)) : resolveDefaultYear(month, day, now);
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
 
+  // Day-first ordinal ("14th of March 2027", "14 March") with an optional trailing explicit year -
+  // previously this pattern had no year-capturing group at all, so any explicit year the traveller
+  // gave was matched by the regex but never read, silently discarded.
   const ordinalMonthDate = lowerMessage.match(
-    new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?(${MONTH_PATTERN})\\b`)
+    new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?(${MONTH_PATTERN})\\b(?:\\s*,?\\s*(\\d{4}))?`)
   );
   if (ordinalMonthDate) {
-    return `2026-${MONTHS[ordinalMonthDate[2]]}-${ordinalMonthDate[1].padStart(2, "0")}`;
+    const day = Number(ordinalMonthDate[1]);
+    const month = Number(MONTHS[ordinalMonthDate[2]]);
+    const explicitYear = ordinalMonthDate[3];
+    const year = explicitYear ? Number(explicitYear) : resolveDefaultYear(month, day, now);
+    return `${year}-${MONTHS[ordinalMonthDate[2]]}-${String(day).padStart(2, "0")}`;
+  }
+
+  // Month-first ("March 14, 2027" / "March 14 2027") - not handled by either pattern above at all.
+  const monthFirstDate = lowerMessage.match(
+    new RegExp(`\\b(${MONTH_PATTERN})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?\\b`)
+  );
+  if (monthFirstDate) {
+    const day = Number(monthFirstDate[2]);
+    const month = Number(MONTHS[monthFirstDate[1]]);
+    const explicitYear = monthFirstDate[3];
+    const year = explicitYear ? Number(explicitYear) : resolveDefaultYear(month, day, now);
+    return `${year}-${MONTHS[monthFirstDate[1]]}-${String(day).padStart(2, "0")}`;
   }
 
   return null;
 }
 
+// kai-conversation-flow-notes.md finding #5: "2 adults" failed the same way bare "2" did - only
+// guest|guests|pax|people|person|persons were accepted as the unit word, so a completely normal
+// reply to "how many guests?" fell through to null and re-triggered the same question.
 function findGuests(message: string) {
-  const guestCount = message.match(/\b(\d{1,2})\s*(guest|guests|pax|people|person|persons)\b/i);
+  const guestCount = message.match(
+    /\b(\d{1,2})\s*(guest|guests|pax|people|person|persons|adult|adults|traveller|travellers|traveler|travelers)\b/i
+  );
   if (!guestCount) {
     return null;
   }
@@ -113,9 +149,9 @@ function findGuests(message: string) {
   return Number(guestCount[1]);
 }
 
-function classifyIntent(message: string): BookingBrainIntent {
+function classifyIntent(message: string, now: Date = new Date()): BookingBrainIntent {
   const lowerMessage = message.toLowerCase();
-  const dateText = findDateText(message);
+  const dateText = findDateText(message, now);
   const guests = findGuests(message);
   const productHint = findProductHint(message);
 
@@ -205,11 +241,11 @@ function getConfidence(intent: BookingBrainIntent, missingSlots: BookingBrainMis
   return missingSlots.length === 3 ? "LOW" : "MEDIUM";
 }
 
-export function analyzeTravellerBookingMessage(message: string): BookingBrainResult {
-  const intent = classifyIntent(message);
+export function analyzeTravellerBookingMessage(message: string, now: Date = new Date()): BookingBrainResult {
+  const intent = classifyIntent(message, now);
   const slots = {
     productHint: findProductHint(message),
-    dateText: findDateText(message),
+    dateText: findDateText(message, now),
     guests: findGuests(message)
   };
   const missingSlots = getMissingSlots(intent, slots);

@@ -105,6 +105,11 @@ function createBoattimeEvalAdapter(): PmsAdapter {
   };
 }
 
+// Fixed reference "now" (well before June) so hardcoded "2026-06-*" expectations in these evals stay
+// deterministic regardless of the real wall-clock date the suite runs on - see resolveDefaultYear in
+// booking-brain.ts.
+const REFERENCE_NOW = new Date("2026-01-01T00:00:00Z");
+
 async function runConversation(messages: string[]) {
   const pmsAdapter = createBoattimeEvalAdapter();
   let memory: BookingMemoryState | null = null;
@@ -125,7 +130,8 @@ async function runConversation(messages: string[]) {
       conversationHistory: [...conversationHistory, { role: "traveller", content: message }],
       bookingMemory,
       pmsAdapter,
-      bookingWriteEnabled: true
+      bookingWriteEnabled: true,
+      now: REFERENCE_NOW
     });
 
     turns.push(result);
