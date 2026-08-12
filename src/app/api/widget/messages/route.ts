@@ -22,10 +22,12 @@ import { getWidgetRequestOrigin } from "@/server/widget/request-origin";
 import { resolveWidgetRequest } from "@/server/widget/resolve-widget-request";
 import {
   buildAuOperatorRecommendationReply,
-  buildTenantProductsHandoffReply,
+  buildTenantProductsHandoffCards,
   listAuRecommendationCandidates,
-  resolveAuOperatorRecommendationSelection
+  resolveAuOperatorRecommendationSelection,
+  type AuRecommendationCandidate
 } from "@/server/whatsapp/au-operator-recommendation";
+import type { BookingProductCard } from "@/core/booking/booking-orchestrator";
 import { shouldUseGenericBookingFlow } from "./business-pack-gate";
 
 export const runtime = "nodejs";
@@ -251,6 +253,41 @@ export async function POST(request: NextRequest) {
   if (tenantConfigForAuRecommendation?.enabledFeatures?.includes(WHATSAPP_GENERIC_ELIGIBLE_FEATURE)) {
     const candidates = await listAuRecommendationCandidates();
 
+    // Shared by the explicit-pick branch below and the single-operator auto-skip (item 13): a lone
+    // candidate goes straight to the same handoff a traveller would reach by picking option 1.
+    const buildPickedReply = async (
+      picked: AuRecommendationCandidate
+    ): Promise<{ reply: string; productCards: BookingProductCard[] }> => {
+      if (picked.isPlaceholder) {
+        return {
+          reply: `Sorry, ${picked.name} is not available right now - want to try one of the other options instead?`,
+          productCards: []
+        };
+      }
+      if (picked.tenantId === resolved.tenant.id && tenantConfigForAuRecommendation) {
+        // Shows this tenant's actual live product list (with item 9's cards) right away, instead of
+        // a vague "what would you like to explore?" the traveller has no way to answer without
+        // already knowing the catalog.
+        return buildTenantProductsHandoffCards(
+          {
+            id: resolved.tenant.id,
+            slug: resolved.tenant.slug,
+            name: resolved.tenant.name,
+            config: tenantConfigForAuRecommendation
+          },
+          process.env,
+          content
+        );
+      }
+      // Picking a different real operator than the one this widget is already bound to isn't
+      // wired up yet (no cross-tenant hand-off on the website today) - say so honestly rather
+      // than silently mishandling it.
+      return {
+        reply: `I can only help with ${resolved.tenant.name} directly from this site right now - want to continue with them?`,
+        productCards: []
+      };
+    };
+
     if (candidates.length > 0) {
       const lastAssistantMessage =
         [...priorConversationMessages].reverse().find((entry) => entry.role === "assistant")?.content ?? null;
@@ -266,22 +303,7 @@ export async function POST(request: NextRequest) {
           conversationId: conversation.id,
           content
         });
-        const reply = picked.isPlaceholder
-          ? `Sorry, ${picked.name} is not available right now - want to try one of the other options instead?`
-          : picked.tenantId === resolved.tenant.id && tenantConfigForAuRecommendation
-            ? // Shows this tenant's actual live product list right away (same numbered "- live
-              // availability" format used everywhere else), instead of a vague "what would you like
-              // to explore?" the traveller has no way to answer without already knowing the catalog.
-              await buildTenantProductsHandoffReply({
-                id: resolved.tenant.id,
-                slug: resolved.tenant.slug,
-                name: resolved.tenant.name,
-                config: tenantConfigForAuRecommendation
-              })
-            : // Picking a different real operator than the one this widget is already bound to isn't
-              // wired up yet (no cross-tenant hand-off on the website today) - say so honestly rather
-              // than silently mishandling it.
-              `I can only help with ${resolved.tenant.name} directly from this site right now - want to continue with them?`;
+        const { reply, productCards } = await buildPickedReply(picked);
         const assistantMessage = await createAssistantMessage({
           tenantId: resolved.tenant.id,
           conversationId: conversation.id,
@@ -305,7 +327,8 @@ export async function POST(request: NextRequest) {
           },
           manualInquiry: null,
           paymentRequest: null,
-          contactRequest: null
+          contactRequest: null,
+          productCards
         });
       }
 
@@ -315,10 +338,16 @@ export async function POST(request: NextRequest) {
           conversationId: conversation.id,
           content
         });
+        // kai-conversation-flow-notes.md item 13: a single operator never needs the "which one?"
+        // turn - skip straight to the same handoff a traveller would reach by picking option 1.
+        const { reply: singleReply, productCards: singleProductCards } =
+          candidates.length === 1
+            ? await buildPickedReply(candidates[0])
+            : { reply: buildAuOperatorRecommendationReply(candidates), productCards: [] as BookingProductCard[] };
         const assistantMessage = await createAssistantMessage({
           tenantId: resolved.tenant.id,
           conversationId: conversation.id,
-          content: buildAuOperatorRecommendationReply(candidates)
+          content: singleReply
         });
 
         return NextResponse.json({
@@ -338,7 +367,8 @@ export async function POST(request: NextRequest) {
           },
           manualInquiry: null,
           paymentRequest: null,
-          contactRequest: null
+          contactRequest: null,
+          productCards: singleProductCards
         });
       }
     }
@@ -353,7 +383,7 @@ export async function POST(request: NextRequest) {
   const llmClient = createAssistantLlmClient(process.env);
   const routerClient = createGenericBookingRouterClient(process.env);
 
-  const { assistantContent, manualInquiry, paymentRequest, contactRequest } = await runGenericBookingTurn({
+  const { assistantContent, manualInquiry, paymentRequest, contactRequest, bookingResult } = await runGenericBookingTurn({
     tenant: resolved.tenant,
     conversationId: conversation.id,
     content,
@@ -401,6 +431,7 @@ export async function POST(request: NextRequest) {
         }
       : null,
     paymentRequest,
-    contactRequest
+    contactRequest,
+    productCards: bookingResult?.productCards ?? null
   });
 }

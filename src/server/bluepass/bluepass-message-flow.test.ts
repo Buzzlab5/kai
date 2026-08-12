@@ -639,6 +639,36 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.paymentRequest).toBeNull();
   });
 
+  // kai-conversation-flow-notes.md item 11: a price objection used to silently fall through to
+  // RECOMMENDATION/BROWSE_OPTIONS, recomputing the exact same deterministic top-3 from sticky,
+  // budget-blind context - looking exactly like stale cards to the traveller. This proves the
+  // dedicated PRICE_OBJECTION path answers honestly instead of repeating the same unaffordable list.
+  it("answers a price objection honestly with budget-aware results instead of repeating the same unfiltered list", async () => {
+    const tenantId = `tenant_${randomUUID()}`;
+    const conversationId = `conversation_${randomUUID()}`;
+
+    const first = await handleBluePassMarketplaceMessage({
+      tenantId,
+      conversationId,
+      content: "yachts in Komodo for 4 guests",
+      priorTravellerMessages: []
+    });
+    expect(first.assistantContent).toContain("Good BluePass liveaboard options");
+    expect(first.bluepassMatches.length).toBeGreaterThan(0);
+
+    // Every Komodo preview yacht is well over USD 100/cabin - nothing should fit.
+    const second = await handleBluePassMarketplaceMessage({
+      tenantId,
+      conversationId,
+      content: "those are way too expensive, my budget is only $100 each. any other options?",
+      priorTravellerMessages: ["yachts in Komodo for 4 guests"]
+    });
+
+    expect(second.assistantContent).not.toContain("Good BluePass liveaboard options");
+    expect(second.assistantContent).toContain("budget");
+    expect(second.bluepassMatches).toEqual([]);
+  });
+
   it("keeps showing Komodo matches for ambiguous browsing follow-ups instead of demanding contact details", async () => {
     const tenantId = `tenant_${randomUUID()}`;
     const conversationId = `conversation_${randomUUID()}`;

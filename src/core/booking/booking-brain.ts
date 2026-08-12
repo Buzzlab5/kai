@@ -12,6 +12,9 @@ export interface BookingBrainSlots {
   productHint: string | null;
   dateText: string | null;
   guests: number | null;
+  /** kai-conversation-flow-notes.md item 10. AUD-only (Boattime is AUD-only) - never a booking-
+   * blocking slot, so it's not in BookingBrainMissingSlot/getMissingSlots. */
+  budget: number | null;
 }
 
 export interface BookingBrainResult {
@@ -60,6 +63,16 @@ const MONTHS: Record<string, string> = {
 const MONTH_PATTERN = Object.keys(MONTHS)
   .sort((left, right) => right.length - left.length)
   .join("|");
+const WEEKDAYS: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6
+};
+const WEEKDAY_PATTERN = Object.keys(WEEKDAYS).join("|");
 
 function findProductHint(message: string) {
   const lowerMessage = message.toLowerCase();
@@ -132,6 +145,23 @@ function findDateText(message: string, now: Date = new Date()) {
     return `${year}-${MONTHS[monthFirstDate[1]]}-${String(day).padStart(2, "0")}`;
   }
 
+  // Weekday names ("Saturday", "this Saturday", "next Saturday") - not covered by any pattern above.
+  // Resolves to the next real calendar occurrence of that weekday; "next" skips past the closest one
+  // to the following week (so "next Saturday" said on a Monday means 12 days out, not 5).
+  const weekdayDate = lowerMessage.match(new RegExp(`\\b(next\\s+)?(?:this\\s+)?(${WEEKDAY_PATTERN})\\b`));
+  if (weekdayDate) {
+    const wantsFollowingWeek = Boolean(weekdayDate[1]);
+    const targetDay = WEEKDAYS[weekdayDate[2]];
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const currentDay = today.getUTCDay();
+    let daysUntil = (targetDay - currentDay + 7) % 7;
+    if (wantsFollowingWeek) {
+      daysUntil += 7;
+    }
+    const target = new Date(today.getTime() + daysUntil * 24 * 60 * 60 * 1000);
+    return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}`;
+  }
+
   return null;
 }
 
@@ -147,6 +177,17 @@ function findGuests(message: string) {
   }
 
   return Number(guestCount[1]);
+}
+
+// kai-conversation-flow-notes.md item 10: "budget about $500 each"/"budget $500" - AUD-only since
+// Boattime is AUD-only (no currency code needed, unlike the Indonesia path's multi-currency parsing
+// in bluepass/intent.ts).
+function findBudget(message: string) {
+  const match = message.match(/\bbudget\b[^\d]{0,15}(\d[\d,]*)/i);
+  if (!match) return null;
+
+  const amount = Number(match[1].replace(/,/g, ""));
+  return amount > 0 ? amount : null;
 }
 
 function classifyIntent(message: string, now: Date = new Date()): BookingBrainIntent {
@@ -246,7 +287,8 @@ export function analyzeTravellerBookingMessage(message: string, now: Date = new 
   const slots = {
     productHint: findProductHint(message),
     dateText: findDateText(message, now),
-    guests: findGuests(message)
+    guests: findGuests(message),
+    budget: findBudget(message)
   };
   const missingSlots = getMissingSlots(intent, slots);
 
@@ -274,7 +316,7 @@ export function composeBookingBrainReply(analysis: BookingBrainResult) {
       return "I can help with that. Which tour, date, and number of guests should I check first?";
     }
 
-    return `I can help with that. Please share the ${missing.join(", ")} so I can check safely.`;
+    return `I can help with that. Please share the ${missing.join(", ")} and I'll check availability.`;
   }
 
   return `I can check ${analysis.slots.productHint} for ${analysis.slots.guests} guest${

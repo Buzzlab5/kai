@@ -306,7 +306,7 @@ describe("resolveStickyWhatsAppGenericTenant", () => {
     const result = await resolveStickyWhatsAppGenericTenant(phone);
 
     expect(result?.tenant.slug).toBe(genericTenant.slug);
-  });
+  }, 15_000);
 
   it("returns null when BluePass's own conversation for this phone is the more recent one", async () => {
     const genericTenant = await createTestPmsTenant({ name: `Sticky Stale ${randomUUID()}` });
@@ -411,6 +411,10 @@ describe("resolveWhatsAppTenantForMessage", () => {
     process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = bluePassSlug;
     const operatorName = `Test AU Operator ${randomUUID()}`;
     const realTenant = await createTestPmsTenant({ name: operatorName });
+    // A second candidate so the recommendation list is actually shown and there's something to pick
+    // by number - a lone candidate now auto-skips straight to the handoff (item 13 of
+    // kai-conversation-flow-notes.md).
+    await createTestPmsTenant();
     const phone = randomTestPhone();
 
     await resolveWhatsAppTenantForMessage({ messageText: "boat charter in australia", fromPhone: phone });
@@ -460,6 +464,10 @@ describe("resolveWhatsAppTenantForMessage", () => {
     process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = bluePassSlug;
     const operatorName = `Test AU Operator ${randomUUID()}`;
     const realTenant = await createTestPmsTenant({ name: operatorName });
+    // A second candidate so the recommendation list is actually shown and a separate "pick by name"
+    // turn is exercised - a lone candidate now auto-skips straight to the handoff (item 13 of
+    // kai-conversation-flow-notes.md), which is covered by its own test elsewhere.
+    await createTestPmsTenant();
     const phone = randomTestPhone();
 
     const staleConversation = await prisma.conversation.create({

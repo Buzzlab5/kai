@@ -16,6 +16,7 @@ import {
   getMissingBluePassInquiryFields,
   isRegionMentioned,
   mergeBluePassInquiryIntent,
+  parseBluePassBudgetAmount,
   type BluePassInquiryIntent,
   type BluePassRequiredInquiryField
 } from "@/core/bluepass/intent";
@@ -31,6 +32,7 @@ import {
   buildBluePassDestinationComparisonReply,
   buildBluePassMissingFieldsReply,
   buildBluePassOpenQuestionReply,
+  buildBluePassPriceObjectionReply,
   buildBluePassRecommendationReply,
   buildBluePassSeasonReply,
   buildBluePassSmallTalkReply,
@@ -358,7 +360,10 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     : null;
 
   const intent = routerDecision ? mergeBluePassInquiryIntent(regexIntent, routerDecision.intent) : regexIntent;
-  const bluepassMatches = searchBluePassYachts(intent, catalog);
+  const bluepassMatches = searchBluePassYachts(
+    { ...intent, budget: parseBluePassBudgetAmount(intent.budget) ?? undefined },
+    catalog
+  );
   const missingFields = getMissingBluePassInquiryFields(intent);
   const seasonDestination =
     (routerDecision?.action === "SEASON_QUESTION" ? routerDecision.seasonDestination : null) ?? regexSeasonDestination;
@@ -467,7 +472,8 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         {
           destination: recommendationDestination,
           guests: intent.guests,
-          interests: intent.interests
+          interests: intent.interests,
+          budget: parseBluePassBudgetAmount(intent.budget) ?? undefined
         },
         catalog,
         12
@@ -487,6 +493,54 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         }),
         recommendationMatches,
         buildBrowsingSuggestedReplies(recommendationMatches),
+        missingFields,
+        contactRequestYacht
+      );
+    }
+
+    // kai-conversation-flow-notes.md item 11: dedicated action so a price objection gets an honest,
+    // budget-aware answer instead of silently re-triggering RECOMMENDATION/BROWSE_OPTIONS with the
+    // same sticky, budget-blind search - see isBluePassPriceObjection's comment for the full bug.
+    case "PRICE_OBJECTION": {
+      const objectionBudget = parseBluePassBudgetAmount(intent.budget) ?? undefined;
+
+      // No numeric budget captured yet - asking one instead of guessing what "too expensive" means.
+      if (!objectionBudget) {
+        return buildConciergeResponse(
+          persona,
+          "Understood - what's your budget so I can find something that actually fits?",
+          [],
+          showYachtsSuggestedReplies,
+          missingFields,
+          contactRequestYacht
+        );
+      }
+
+      const objectionDestination = resolveRecommendationDestination({
+        content: input.content,
+        intentDestination: intent.destination,
+        priorTravellerMessages: input.priorTravellerMessages,
+        knownRegions
+      });
+      const objectionMatches = searchBluePassYachts(
+        {
+          destination: objectionDestination,
+          guests: intent.guests,
+          interests: intent.interests,
+          budget: objectionBudget
+        },
+        catalog,
+        12
+      ).filter((match) =>
+        objectionDestination ? match.region.toLowerCase().includes(objectionDestination.toLowerCase()) : true
+      );
+      const fittingMatches = objectionMatches.filter((match) => match.reasons.includes("within budget")).slice(0, 3);
+
+      return buildConciergeResponse(
+        persona,
+        buildBluePassPriceObjectionReply({ matches: objectionMatches, destination: objectionDestination }),
+        fittingMatches,
+        fittingMatches.length > 0 ? buildBrowsingSuggestedReplies(fittingMatches) : showYachtsSuggestedReplies,
         missingFields,
         contactRequestYacht
       );
@@ -859,6 +913,7 @@ function resolveFallbackBluePassRouterAction(input: {
   if (input.seasonDestination) return "SEASON_QUESTION";
   if (isBluePassDestinationComparisonRequest(content, knownRegions)) return "DESTINATION_COMPARISON";
   if (isBluePassYachtComparisonRequest(content) && input.latestMentionedYachts.length >= 2) return "YACHT_COMPARISON";
+  if (isBluePassPriceObjection(content)) return "PRICE_OBJECTION";
   if (isBluePassRecommendationRequest(content) && !isBluePassInquirySubmissionRequest(content)) return "RECOMMENDATION";
   if (isBluePassTravelInspirationRequest(content) && !isBluePassInquirySubmissionRequest(content)) {
     return "TRAVEL_INSPIRATION";
@@ -1304,6 +1359,17 @@ function resolveRecommendationDestination(input: {
 
 function isBluePassOtherOptionsRequest(content: string) {
   return /\b(?:anything else|something else|another|other than|rather than|besides|instead of|those\s+\d+|the other ones)\b/i.test(
+    content
+  );
+}
+
+// kai-conversation-flow-notes.md item 11: "these are 20x my budget, any other options?" used to
+// silently fall through to isBluePassRecommendationRequest/BROWSE_OPTIONS's catch-all, recomputing
+// the exact same deterministic top-3 from sticky, budget-blind context every time - indistinguishable
+// from stale cards from the traveller's side. A dedicated detector, checked before RECOMMENDATION,
+// gets an honest, budget-aware reply instead.
+function isBluePassPriceObjection(content: string) {
+  return /\b(?:too\s+(?:expensive|much|pricey)|over\s+(?:my\s+|our\s+)?budget|can'?t\s+afford|cheaper|lower\s+price|out\s+of\s+(?:my\s+|our\s+)?(?:price\s+)?range)\b/i.test(
     content
   );
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AU_RECOMMENDATION_PLACEHOLDER_FEATURE, WHATSAPP_GENERIC_ELIGIBLE_FEATURE } from "@/core/tenant/feature-flags";
 import {
   buildAuOperatorRecommendationReply,
+  buildTenantProductsHandoffCards,
   listAuRecommendationCandidates,
   resolveAuOperatorRecommendationPick,
   resolveAuOperatorRecommendationSelection,
@@ -289,6 +290,9 @@ describe("resolveAuOperatorRecommendationPick", () => {
     process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = await createBluePassStandIn();
     const operatorName = `Test AU Operator ${randomUUID()}`;
     const { tenant: realTenant } = await createRealCandidate(operatorName);
+    // A second candidate so the recommendation list is actually shown - a lone candidate now
+    // auto-skips straight to the handoff (item 13), which is covered by its own test below.
+    await createPlaceholderCandidate();
     const phone = randomTestPhone();
 
     await triggerAuOperatorRecommendation({
@@ -332,6 +336,9 @@ describe("resolveAuOperatorRecommendationPick", () => {
     process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = await createBluePassStandIn();
     const operatorName = `Test AU Operator ${randomUUID()}`;
     const { tenant: realTenant } = await createRealCandidate(operatorName);
+    // A second candidate so the recommendation list is actually shown - a lone candidate now
+    // auto-skips straight to the handoff (item 13), which is covered by its own test below.
+    await createPlaceholderCandidate();
     const phone = randomTestPhone();
 
     const staleConversation = await prisma.conversation.create({
@@ -407,4 +414,92 @@ describe("resolveAuOperatorRecommendationPick", () => {
 
     expect(pickResult).toEqual({ kind: "NONE" });
   }, 20_000);
+
+  // kai-conversation-flow-notes.md item 13: a single operator never needs the "which one?" turn.
+  it("skips straight to the handoff when there is only one real candidate", async () => {
+    process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = await createBluePassStandIn();
+    const operatorName = `Test AU Operator ${randomUUID()}`;
+    const { tenant: realTenant } = await createRealCandidate(operatorName);
+    const phone = randomTestPhone();
+
+    const result = await triggerAuOperatorRecommendation({
+      messageText: "boat charter in australia",
+      fromPhone: phone,
+      isAuRegionSignal: true
+    });
+
+    expect(result).toEqual({ kind: "HANDLED" });
+
+    const realTenantConversation = await prisma.conversation.findFirst({
+      where: { tenantId: realTenant.id, whatsappPhone: phone }
+    });
+    expect(realTenantConversation).not.toBeNull();
+
+    const seededMessage = await prisma.message.findFirst({
+      where: { conversationId: realTenantConversation!.id, role: "ASSISTANT" },
+      orderBy: { createdAt: "desc" }
+    });
+    // Straight to the handoff line, never the "Here's who I can check for you..." list.
+    expect(seededMessage?.content).toContain(`Connecting you with ${operatorName}`);
+    expect(seededMessage?.content).not.toContain("Reply with the number (or the name) to continue");
+  }, 20_000);
+
+  it("skips straight to the honest placeholder reply when the only candidate is a placeholder", async () => {
+    process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = await createBluePassStandIn();
+    const placeholderName = `Test Placeholder Operator ${randomUUID()}`;
+    await createPlaceholderCandidate(placeholderName);
+    const phone = randomTestPhone();
+
+    const result = await triggerAuOperatorRecommendation({
+      messageText: "boat charter in australia",
+      fromPhone: phone,
+      isAuRegionSignal: true
+    });
+
+    expect(result).toEqual({ kind: "HANDLED" });
+  }, 20_000);
+
+  // kai-conversation-flow-notes.md item 9: this handoff (via the single-operator auto-skip, item 13)
+  // is the FIRST reply most AU travellers ever see - confirmed live that it was shipping without
+  // productCards at all, since buildTenantProductsHandoffReply/Cards previously only fed the WhatsApp
+  // text path. Cards must be attached here too, not just from booking-orchestrator's own
+  // PRODUCT_RECOMMENDATION/NEEDS_PRODUCT_SELECTION branches.
+  it("attaches product cards to the operator handoff, not just the numbered text list", async () => {
+    const { tenant } = await createRealCandidate();
+
+    const { reply, productCards } = await buildTenantProductsHandoffCards({
+      id: tenant.id,
+      slug: tenant.slug,
+      name: tenant.name,
+      config: { pmsProvider: "MOCK", publicProductCatalog: [] }
+    });
+
+    expect(reply).toContain(`Connecting you with ${tenant.name}`);
+    expect(productCards.length).toBeGreaterThan(0);
+    expect(productCards[0]).toHaveProperty("slug");
+    expect(productCards[0]).toHaveProperty("title");
+  }, 15_000);
+
+  // Caught live testing item 9: a traveller can already state date/guests in the very first message
+  // that triggers this handoff ("Gold Coast, 2 people, this Saturday"), but this function used to
+  // always call buildProductCards with dateText/guests hardcoded to null - discarding that info and
+  // showing "share your date for pricing" even though a date was already given.
+  it("reads date and guests already stated in the triggering message instead of discarding them", async () => {
+    const { tenant } = await createRealCandidate();
+
+    const { reply, productCards } = await buildTenantProductsHandoffCards(
+      {
+        id: tenant.id,
+        slug: tenant.slug,
+        name: tenant.name,
+        config: { pmsProvider: "MOCK", publicProductCatalog: [] }
+      },
+      process.env,
+      "Gold Coast, 2 people, tomorrow"
+    );
+
+    expect(reply).toContain("For tomorrow,");
+    expect(productCards.length).toBeGreaterThan(0);
+    expect(productCards.some((card) => typeof card.priceLabel === "string")).toBe(true);
+  }, 15_000);
 });

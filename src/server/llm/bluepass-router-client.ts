@@ -26,6 +26,7 @@ const systemPrompt = [
   "- YACHT_COMPARISON: comparing two or more specific yachts already mentioned in this conversation",
   "- YACHT_INFO: asking for details about one specific yacht already mentioned or selected",
   "- RECOMMENDATION: asking for yacht/trip recommendations, options, or alternatives, or browsing by destination",
+  "- PRICE_OBJECTION: traveller says the shown options are too expensive, over budget, or asks for cheaper options",
   "- TRAVEL_INSPIRATION: undecided on destination, describing a mood or occasion (honeymoon, relax, family) and wants inspiration",
   "- GENERAL_QUESTION: any other genuine travel, destination, or logistics question, including topics outside BluePass's catalog (other places, visas, weather, diving certification, etc). Answer these like a knowledgeable, well-travelled concierge.",
   "- BROWSE_OPTIONS: traveller is still exploring or has not committed to sending an inquiry yet, even if some trip details are known",

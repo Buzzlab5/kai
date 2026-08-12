@@ -11,6 +11,17 @@ export type BluePassInquiryIntent = {
   interests?: string[];
 };
 
+// kai-conversation-flow-notes.md item 10: intent.budget was parsed but never consumed by
+// searchBluePassYachts - a traveller who said "budget about $500 each" got quoted $8,580+ boats with
+// no filtering at all. This parses the display string (e.g. "USD 500") back into a number so the
+// catalog search can score against it.
+export function parseBluePassBudgetAmount(budget?: string): { currency: string; amount: number } | null {
+  const match = budget?.match(/^([A-Z]{3})\s+([\d,]+)$/);
+  if (!match) return null;
+
+  return { currency: match[1], amount: Number(match[2].replace(/,/g, "")) };
+}
+
 export type BluePassRequiredInquiryField =
   | "destination"
   | "dateWindow"

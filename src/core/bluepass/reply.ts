@@ -1,10 +1,10 @@
 import type { BluePassRequiredInquiryField } from "./intent";
-import type { BluePassYachtCard, BluePassYachtCatalogItem } from "./catalog";
+import { resolveBluePassDisplayPrice, type BluePassYachtCard, type BluePassYachtCatalogItem } from "./catalog";
 import { bluePassCommissionSummary, bluePassVesselNoun, type BluePassMarket } from "./market";
 
 type BluePassYachtSummary = Pick<
   BluePassYachtCard,
-  "name" | "region" | "tier" | "maxGuests" | "cabins" | "priceSignal" | "charterPriceSignal" | "productUrl"
+  "name" | "region" | "tier" | "maxGuests" | "cabins" | "priceSignal" | "charterPriceSignal" | "displayPrice" | "productUrl"
 >;
 
 const fieldLabels: Record<BluePassRequiredInquiryField, string> = {
@@ -81,9 +81,13 @@ export function buildBluePassInquiryStatusReply(input: {
 }
 
 export function buildBluePassYachtOverviewReply(yacht: BluePassYachtCard) {
-  const charter = yacht.charterPriceSignal ? ` Charter signal: ${yacht.charterPriceSignal}.` : "";
+  // kai-conversation-flow-notes.md item 12/14: one price (resolveBluePassDisplayPrice's pick), no
+  // "Price signal:"/"Charter signal:" internal labels - the charter total only appears as a secondary
+  // parenthetical when it's a genuinely different figure from the displayed price.
+  const charter =
+    yacht.charterPriceSignal && yacht.charterPriceSignal !== yacht.displayPrice ? ` (${yacht.charterPriceSignal}.)` : "";
 
-  return `${yacht.name} is a ${yacht.tier} BluePass preview ${bluePassVesselNoun(yacht.region)} in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. Price signal: ${yacht.priceSignal}.${charter} I can compare it with similar boats or prepare an operator inquiry to check real availability.`;
+  return `${yacht.name} is a ${yacht.tier} BluePass preview ${bluePassVesselNoun(yacht.region)} in ${yacht.region}, up to ${yacht.maxGuests} guests across ${yacht.cabins} cabins. ${yacht.displayPrice}.${charter} I can compare it with similar boats or prepare an operator inquiry to check real availability.`;
 }
 
 export function buildBluePassRecommendationReply(input: {
@@ -106,7 +110,7 @@ export function buildBluePassRecommendationReply(input: {
       const capacity = `${yacht.cabins} cabins, up to ${yacht.maxGuests} guests`;
       const link = yacht.productUrl ? ` Details: ${yacht.productUrl}` : "";
 
-      return `${index + 1}. ${yacht.name} - ${yacht.tier} in ${yacht.region}, ${capacity}. Price signal: ${yacht.priceSignal}.${link}`;
+      return `${index + 1}. ${yacht.name} - ${yacht.tier} in ${yacht.region}, ${capacity}. ${yacht.displayPrice}.${link}`;
     })
     .join("\n");
 
@@ -115,6 +119,34 @@ export function buildBluePassRecommendationReply(input: {
     : `Here is what BluePass can speak to directly in ${formatNaturalList(Array.from(new Set(matches.map((yacht) => yacht.region))))}${excluded}:`;
 
   return `${intro}\n${rows}\n\nI can compare these, explain who each yacht suits, or narrow them by dates, group size, diving versus cruising style, and budget before preparing an operator inquiry.`;
+}
+
+// kai-conversation-flow-notes.md item 11: a traveller who objected to price ("way over budget, any
+// other options?") used to get the same unfiltered top-3 shown again, since nothing changed in the
+// sticky search context. Now paired with a budget-aware search (catalog.ts's resolveBluePassDisplayPrice/
+// budget scoring), this either shows what genuinely fits or says so honestly instead of re-showing the
+// same boats with different words.
+export function buildBluePassPriceObjectionReply(input: {
+  matches: (BluePassYachtSummary & { reasons?: string[] })[];
+  destination?: string;
+}) {
+  const destination = input.destination ? ` in ${input.destination}` : "";
+  const fitting = input.matches.filter((yacht) => yacht.reasons?.includes("within budget")).slice(0, 3);
+
+  if (fitting.length === 0) {
+    return `I don't have anything${destination} that fits that budget in the BluePass catalog right now. I can note your budget and let you know the moment something fits, or you're welcome to see the full range anyway - just say the word.`;
+  }
+
+  const rows = fitting
+    .map((yacht, index) => {
+      const capacity = `${yacht.cabins} cabins, up to ${yacht.maxGuests} guests`;
+      const link = yacht.productUrl ? ` Details: ${yacht.productUrl}` : "";
+
+      return `${index + 1}. ${yacht.name} - ${yacht.tier} in ${yacht.region}, ${capacity}. ${yacht.displayPrice}.${link}`;
+    })
+    .join("\n");
+
+  return `Here's what actually fits your budget${destination}:\n${rows}\n\nI can compare these or narrow further by dates and group size before preparing an operator inquiry.`;
 }
 
 export function buildBluePassOpenQuestionReply() {
@@ -218,7 +250,9 @@ export function buildBluePassDestinationComparisonReply(regions: string[] = ["Ko
   return `I can walk through what's different between ${formatNaturalList(regions)}, but I don't have detailed side-by-side notes memorized for that pairing yet - tell me what matters most (trip style, length, budget) and I will compare what actually fits.`;
 }
 
-export function buildBluePassYachtComparisonReply(yachts: BluePassYachtSummary[]) {
+export function buildBluePassYachtComparisonReply(
+  yachts: Pick<BluePassYachtCard, "name" | "region" | "tier" | "maxGuests">[]
+) {
   const shortlist = yachts.slice(0, 3);
   const rows = shortlist
     .map((yacht) => `${yacht.name}: ${yacht.tier}, ${yacht.region}, ${yacht.maxGuests} guests.`)
@@ -249,9 +283,8 @@ function buildSelectedYachtMissingFieldsReply(input: {
   missingFields: BluePassRequiredInquiryField[];
 }) {
   const yacht = input.yacht;
-  const primaryPrice =
-    yacht.priceSignal && yacht.priceSignal !== "Quote on request" ? yacht.priceSignal : yacht.charterPriceSignal;
-  const priceText = primaryPrice ? ` Price signal: ${primaryPrice}.` : "";
+  const primaryPrice = resolveBluePassDisplayPrice(yacht);
+  const priceText = primaryPrice ? ` ${primaryPrice}.` : "";
   const cabinText = [yacht.cabins ? `${yacht.cabins} cabins` : null, yacht.maxGuests ? `up to ${yacht.maxGuests} guests` : null]
     .filter(Boolean)
     .join(", ");

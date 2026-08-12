@@ -24,6 +24,39 @@ describe("booking orchestrator", () => {
     ticketQuantities: null
   };
 
+  // kai-conversation-flow-notes.md item 9: what buildProductCards attaches for MockPmsAdapter's
+  // fixed product list when a date is already known (Komodo Day Trip/Reef Day Snorkel get a real
+  // priceLabel from getAvailability; Private Charter is MANUAL_INQUIRY, no live price to fetch).
+  const defaultProductCards = [
+    {
+      slug: "mock-komodo-day-trip",
+      title: "Komodo Day Trip",
+      description: "A shared day trip with auto-booking.",
+      bookingMode: "AUTO_BOOKING",
+      productUrl: null,
+      priceLabel: "US$185",
+      dateChecked: true
+    },
+    {
+      slug: "mock-private-charter",
+      title: "Private Charter",
+      description: "A custom charter that requires operator confirmation.",
+      bookingMode: "MANUAL_INQUIRY",
+      productUrl: null,
+      priceLabel: null,
+      dateChecked: true
+    },
+    {
+      slug: "mock-reef-day-snorkel",
+      title: "Reef Day Snorkel",
+      description: "A guided snorkeling tour over bright reef sites.",
+      bookingMode: "AUTO_BOOKING",
+      productUrl: null,
+      priceLabel: "US$85",
+      dateChecked: true
+    }
+  ];
+
   it("checks PMS availability when product, date, and guests are known", async () => {
     const result = await handleTravellerBookingMessage({
       message: "Can you check Komodo Day Trip for 3 guests tomorrow?",
@@ -33,7 +66,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: komodoDayTripAvailabilityCheckedPatch
     });
@@ -45,7 +78,7 @@ describe("booking orchestrator", () => {
       pmsAdapter: new MockPmsAdapter(),
       llmClient: {
         async composeReply() {
-          return "Komodo Day Trip is available for 3 guests tomorrow. PMS shows 7 spots remaining at USD 185.00 per guest. I have not confirmed a booking yet.";
+          return "Komodo Day Trip is available for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed a booking yet.";
         }
       }
     });
@@ -53,7 +86,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Komodo Day Trip is available for 3 guests tomorrow. PMS shows 7 spots remaining at USD 185.00 per guest. I have not confirmed a booking yet.",
+        "Komodo Day Trip is available for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed a booking yet.",
       replySource: "LLM",
       bookingStatePatch: komodoDayTripAvailabilityCheckedPatch
     });
@@ -74,7 +107,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: komodoDayTripAvailabilityCheckedPatch
     });
@@ -100,7 +133,8 @@ describe("booking orchestrator", () => {
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
         "Which one sounds closest to what you want?",
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: defaultProductCards
     });
   });
 
@@ -118,7 +152,8 @@ describe("booking orchestrator", () => {
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
         "Which one sounds closest to what you want?",
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: defaultProductCards
     });
   });
 
@@ -147,7 +182,8 @@ describe("booking orchestrator", () => {
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
         "Which one sounds closest to what you want?",
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: defaultProductCards
     });
   });
 
@@ -271,7 +307,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Gold Coast Whale Escape has availability for 2 guests tomorrow. There are 22 spots left at AUD 99.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Gold Coast Whale Escape has availability for 2 guests tomorrow. There are 22 seats available at A$99 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -334,7 +370,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Gold Coast Whale Escape has availability for 2 guests on 2026-06-24. There are 18 spots left at AUD 99.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Gold Coast Whale Escape has availability for 2 guests on 2026-06-24. There are 18 seats available at A$99 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -641,13 +677,13 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_TICKET_SELECTION_REQUIRED",
       reply:
-        "Gold Coast Whale Escape is available for 3 guests tomorrow. There are 22 spots left.\n\n" +
+        "Gold Coast Whale Escape is available for 3 guests tomorrow. There are 22 seats available.\n\n" +
         "Ticket options:\n" +
-        "1. 2 people for $149.00 - AUD 149.00\n" +
-        "2. Family (2A +2C) 3-13 - AUD 249.00\n" +
-        "3. Child (3-13) - AUD 59.00\n" +
-        "4. Infant (under 3) - AUD 0.00\n" +
-        "5. Adult (Winter Special) - AUD 79.00\n\n" +
+        "1. 2 people - A$149\n" +
+        "2. Family (2A +2C) 3-13 - A$249\n" +
+        "3. Child (3-13) - A$59\n" +
+        "4. Infant (under 3) - A$0\n" +
+        "5. Adult (Winter Special) - A$79\n\n" +
         "Which ticket option should I use? You can say \"option 2\" or \"1 x 2 people\". Nothing is booked yet.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
@@ -786,8 +822,8 @@ describe("booking orchestrator", () => {
       reply:
         "Got it: Gold Coast Whale Escape on 2026-06-27 at 12:00 PM for 2 guests.\n\n" +
         "Ticket options:\n" +
-        "1. 2 people for $149.00 - AUD 149.00\n" +
-        "2. Adult (Winter Special) - AUD 79.00\n\n" +
+        "1. 2 people - A$149\n" +
+        "2. Adult (Winter Special) - A$79\n\n" +
         "Which ticket option should I use? You can say \"option 2\" or \"1 x 2 people\".",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
@@ -1731,7 +1767,8 @@ describe("booking orchestrator", () => {
       action: "NEEDS_PRODUCT_SELECTION",
       reply:
         "For tomorrow, you can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n3. Reef Day Snorkel - live availability\n\nWhich one sounds closest to what you want?",
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: defaultProductCards
     });
   });
   it("uses product matcher aliases before deciding PMS action", async () => {
@@ -1778,7 +1815,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests on 2026-06-23. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests on 2026-06-23. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -1859,7 +1896,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -1896,7 +1933,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -1954,7 +1991,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
-      reply: "I have Komodo Day Trip for tomorrow. Please share the number of guests so I can check safely.",
+      reply: "I have Komodo Day Trip for tomorrow. How many guests will be joining?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -1980,7 +2017,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
-      reply: "I have Komodo Day Trip for tomorrow. Please share the number of guests so I can check safely.",
+      reply: "I have Komodo Day Trip for tomorrow. How many guests will be joining?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2006,7 +2043,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
       reply:
-        "I have Gold Coast Whale Escape for 2026-06-26. Please share the number of guests so I can check safely.",
+        "I have Gold Coast Whale Escape for 2026-06-26. How many guests will be joining?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2028,7 +2065,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2183,7 +2220,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2223,7 +2260,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2260,7 +2297,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2302,7 +2339,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 spots left at USD 185.00 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2638,9 +2675,9 @@ describe("booking orchestrator", () => {
       reply:
         "Got it: Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 2 people for $149.00.\n\n" +
         "Optional extras:\n" +
-        "1. Corona Bucket - AUD 30.00\n" +
-        "2. Sparkling for 2 - AUD 40.00\n" +
-        "3. Cheese Platter for 2 - AUD 10.00\n\n" +
+        "1. Corona Bucket - A$30\n" +
+        "2. Sparkling for 2 - A$40\n" +
+        "3. Cheese Platter for 2 - A$10\n\n" +
         "Would you like to add any extras? You can say \"no extras\" or \"1 x Corona Bucket\".",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
@@ -3139,7 +3176,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "GENERAL_QUESTION",
           confidence: "HIGH",
-          slots: { productHint: null, dateText: null, guests: null },
+          slots: { productHint: null, dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3152,7 +3189,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "HUMAN_HANDOFF",
           confidence: "HIGH",
-          slots: { productHint: null, dateText: null, guests: null },
+          slots: { productHint: null, dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3165,7 +3202,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "CHECK_AVAILABILITY",
           confidence: "HIGH",
-          slots: { productHint: "Komodo Day Trip", dateText: "tomorrow", guests: 3 },
+          slots: { productHint: "Komodo Day Trip", dateText: "tomorrow", guests: 3, budget: null },
           missingSlots: []
         }
       })
@@ -3178,7 +3215,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "CHECK_AVAILABILITY",
           confidence: "MEDIUM",
-          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null },
+          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null, budget: null },
           missingSlots: ["date", "guests"]
         }
       })
@@ -3191,7 +3228,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "PRODUCT_RECOMMENDATION",
           confidence: "HIGH",
-          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null },
+          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3204,7 +3241,7 @@ describe("shouldEscalateGenericBookingRouterToLlm", () => {
         regexResult: {
           intent: "PRODUCT_RECOMMENDATION",
           confidence: "HIGH",
-          slots: { productHint: null, dateText: null, guests: null },
+          slots: { productHint: null, dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3220,7 +3257,7 @@ describe("resolveFinalGenericBookingIntent", () => {
         regexResult: {
           intent: "CHECK_AVAILABILITY",
           confidence: "HIGH",
-          slots: { productHint: null, dateText: null, guests: null },
+          slots: { productHint: null, dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3234,7 +3271,7 @@ describe("resolveFinalGenericBookingIntent", () => {
         regexResult: {
           intent: "GENERAL_QUESTION",
           confidence: "HIGH",
-          slots: { productHint: null, dateText: null, guests: null },
+          slots: { productHint: null, dateText: null, guests: null, budget: null },
           missingSlots: []
         }
       })
@@ -3248,7 +3285,7 @@ describe("resolveFinalGenericBookingIntent", () => {
         regexResult: {
           intent: "CHECK_AVAILABILITY",
           confidence: "HIGH",
-          slots: { productHint: "Komodo Day Trip", dateText: "tomorrow", guests: 3 },
+          slots: { productHint: "Komodo Day Trip", dateText: "tomorrow", guests: 3, budget: null },
           missingSlots: []
         }
       })
@@ -3262,7 +3299,7 @@ describe("resolveFinalGenericBookingIntent", () => {
         regexResult: {
           intent: "BOOKING_INQUIRY",
           confidence: "HIGH",
-          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null },
+          slots: { productHint: "Komodo Day Trip", dateText: null, guests: null, budget: null },
           missingSlots: ["date", "guests"]
         }
       })

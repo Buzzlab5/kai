@@ -92,6 +92,26 @@ export interface PmsCheckoutHold {
   currency: string;
 }
 
+// kai-conversation-flow-notes.md item 9: the AU/Boattime equivalent of BluePassYachtCard - the
+// structured shape a product-recommendation turn attaches so the widget can render tappable cards
+// instead of a numbered text menu. Deliberately thinner than the BluePass card (no image, tier,
+// region, cabins - Boattime products carry none of that, and the user decided not to source photos
+// for this pass). `priceLabel` is null until a date is known; buildProductCards fills it in via a
+// real per-product availability lookup once one is.
+export interface BookingProductCard {
+  slug: string;
+  title: string;
+  description: string;
+  bookingMode: "MANUAL_INQUIRY" | "AUTO_BOOKING";
+  productUrl?: string | null;
+  priceLabel?: string | null;
+  /** True once a date was actually given and this product's availability was checked for it (whether
+   * or not it had a session that day) - lets the client tell "share your date" (dateChecked: false)
+   * apart from "checked, but sold out/no session that day" (dateChecked: true, priceLabel: null), so
+   * a traveller who already gave a date is never told to give it again. */
+  dateChecked?: boolean;
+}
+
 export interface BookingOrchestratorResult {
   action: BookingOrchestratorAction;
   reply: string;
@@ -100,6 +120,7 @@ export interface BookingOrchestratorResult {
   bookingStatePatch?: BookingFlowState | null;
   paymentHandoffUrl?: string | null;
   pmsCheckoutHold?: PmsCheckoutHold | null;
+  productCards?: BookingProductCard[] | null;
 }
 
 export interface HandleTravellerBookingMessageInput {
@@ -125,8 +146,13 @@ export interface HandleTravellerBookingMessageInput {
   now?: Date;
 }
 
-function formatPrice(currency: string, unitPriceCents: number) {
-  return currency + " " + (unitPriceCents / 100).toFixed(2);
+// kai-conversation-flow-notes.md item 12: the single source of price formatting for this whole
+// file - one currency symbol, one figure, whole dollars, every time. Replaces the old formatPrice,
+// which produced "AUD 159.00" and, combined with raw PMS ticket labels that sometimes already embed
+// their own price, was how a traveller ended up seeing "$159.00 - AUD 159.00" for the same option.
+export function formatCurrencyAmount(currency: string, unitPriceCents: number) {
+  const symbol = currency === "AUD" ? "A$" : currency === "USD" ? "US$" : `${currency} `;
+  return `${symbol}${Math.round(unitPriceCents / 100)}`;
 }
 
 function formatList(values: string[]) {
@@ -242,6 +268,72 @@ function formatProductOptionsList(products: PmsProduct[]) {
   );
 }
 
+// kai-conversation-flow-notes.md item 9: builds the structured card list attached alongside
+// formatRecommendationReply's text (BookingOrchestratorResult.productCards), so the widget can render
+// tappable cards instead of a numbered menu. Without a date, cards ship price-less (the widget shows
+// a "share your date for pricing" prompt); once a date is known, this calls the PMS's existing
+// getAvailability once per product to get a real price - no PMS/adapter changes needed, this method
+// already exists and is already called elsewhere in this file, just not this early. Capped at 8
+// products since nothing upstream limits the product list size and this issues one live PMS call per
+// card.
+const PRODUCT_CARD_LIMIT = 8;
+
+export async function buildProductCards(input: {
+  products: PmsProduct[];
+  dateText: string | null;
+  guests: number | null;
+  pmsAdapter: PmsAdapter;
+  /** kai-conversation-flow-notes.md item 10, AUD dollars (Boattime is AUD-only). Sorts cards that fit
+   * ahead of ones that don't, rather than hard-filtering - never produces an empty card set just
+   * because nothing fits. */
+  budgetAud?: number | null;
+}): Promise<BookingProductCard[]> {
+  const products = input.products.slice(0, PRODUCT_CARD_LIMIT);
+  const base = (product: PmsProduct): BookingProductCard & { unitPriceCents: number | null } => ({
+    slug: product.externalProductId,
+    title: product.title,
+    description: product.description,
+    bookingMode: product.bookingMode,
+    productUrl: product.productUrl ?? null,
+    priceLabel: null,
+    unitPriceCents: null
+  });
+
+  const cards = input.dateText
+    ? await Promise.all(
+        products.map(async (product) => {
+          try {
+            const availability = await input.pmsAdapter.getAvailability({
+              productId: product.externalProductId,
+              date: input.dateText!,
+              guests: input.guests ?? 1
+            });
+            return availability.available
+              ? {
+                  ...base(product),
+                  priceLabel: formatCurrencyAmount(availability.currency, availability.unitPriceCents),
+                  unitPriceCents: availability.unitPriceCents,
+                  dateChecked: true
+                }
+              : { ...base(product), dateChecked: true };
+          } catch {
+            return base(product);
+          }
+        })
+      )
+    : products.map(base);
+
+  if (!input.budgetAud) {
+    return cards.map(({ unitPriceCents: _unitPriceCents, ...card }) => card);
+  }
+
+  const budgetCents = input.budgetAud * 100;
+  return cards
+    .map((card, index) => ({ card, index, fits: card.unitPriceCents !== null && card.unitPriceCents <= budgetCents }))
+    .sort((a, b) => Number(b.fits) - Number(a.fits) || a.index - b.index)
+    .map(({ card: { unitPriceCents: _unitPriceCents, ...card } }) => card);
+}
+
 // Only called from a gated context (product+date already known, guest count specifically the thing
 // being asked for, nothing else parsed from this message) - never treats an arbitrary bare number
 // as a guest count, since the same shape means "pick option 2" elsewhere in this file.
@@ -302,19 +394,31 @@ function selectedProductFromRecentList(input: {
   return input.products[selectedNumber - 1] ?? null;
 }
 
+// Strips both wrapping quote characters and a trailing embedded price/currency segment some raw PMS
+// ticket labels already carry (e.g. an operator-configured "Adult - $159.00") - without this, that
+// embedded price plus this file's own appended price doubled up into things like
+// "Adult - $159.00 - AUD 159.00" for the same ticket option.
 function formatTicketLabelForReply(label: string) {
   return label.replace(/^"+\s*/, "").replace(/\s*"+$/g, "");
 }
 
-function formatTicketOptions(options: PmsTicketOption[], currency: string) {
-  return formatList(
-    options.map((option) => `${formatTicketLabelForReply(option.label)} (${formatPrice(currency, option.unitPriceCents)})`)
-  );
+// Only for the options-LIST display (formatTicketOptionsList/formatExtraOptionsList), which appends
+// its own formatted price right after the label - stripping the label's own embedded price here
+// avoids the label's price and the appended price doubling up (e.g. "Adult - $159.00 - AUD 159.00").
+// formatTicketQuantities/formatExtraQuantities (confirming an already-picked option, no price
+// appended alongside) must NOT strip this - that price is the only place it's shown there.
+function stripEmbeddedPriceFromLabel(label: string) {
+  return formatTicketLabelForReply(label)
+    .replace(/\s*(?:for|at)?\s*[-–]?\s*(?:AUD|USD|\$)\s*[\d,]+(?:\.\d{2})?\s*$/i, "")
+    .trim();
 }
 
 function formatTicketOptionsList(options: PmsTicketOption[], currency: string) {
   return formatNumberedList(
-    options.map((option) => `${formatTicketLabelForReply(option.label)} - ${formatPrice(currency, option.unitPriceCents)}`)
+    options.map(
+      (option) =>
+        `${stripEmbeddedPriceFromLabel(option.label)} - ${formatCurrencyAmount(currency, option.unitPriceCents)}`
+    )
   );
 }
 
@@ -324,7 +428,10 @@ function formatTicketQuantities(quantities: PmsTicketQuantity[]) {
 
 function formatExtraOptionsList(options: PmsExtraOption[], currency: string) {
   return formatNumberedList(
-    options.map((option) => `${formatTicketLabelForReply(option.label)} - ${formatPrice(currency, option.unitPriceCents)}`)
+    options.map(
+      (option) =>
+        `${stripEmbeddedPriceFromLabel(option.label)} - ${formatCurrencyAmount(currency, option.unitPriceCents)}`
+    )
   );
 }
 
@@ -657,16 +764,16 @@ function composeMissingDetailsReply(input: {
   guests: number | null;
 }) {
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "guests" && input.productTitle && input.dateText) {
-    return `I have ${input.productTitle} for ${input.dateText}. Please share the number of guests so I can check safely.`;
+    return `I have ${input.productTitle} for ${input.dateText}. How many guests will be joining?`;
   }
 
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "date" && input.productTitle && input.guests) {
     return `I have ${input.productTitle} for ${input.guests} guest${
       input.guests === 1 ? "" : "s"
-    }. Please share the date so I can check safely.`;
+    }. What date works for you?`;
   }
 
-  return `I can help with that. Please share the ${input.missingSlots.join(", ")} so I can check safely.`;
+  return `I can help with that. Please share the ${input.missingSlots.join(", ")} and I'll check availability.`;
 }
 
 export function formatRecommendationReply(products: PmsProduct[], dateText: string | null) {
@@ -1881,7 +1988,14 @@ export async function handleTravellerBookingMessage(
     return {
       action: "PRODUCT_RECOMMENDATION",
       reply: formatRecommendationReply(products, currentMessageAnalysis.slots.dateText),
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: await buildProductCards({
+        products,
+        dateText: currentMessageAnalysis.slots.dateText,
+        guests: effectiveSlots.guests,
+        pmsAdapter: input.pmsAdapter,
+        budgetAud: currentMessageAnalysis.slots.budget
+      })
     };
   }
 
@@ -1958,7 +2072,14 @@ export async function handleTravellerBookingMessage(
     return {
       action: "NEEDS_PRODUCT_SELECTION",
       reply: formatRecommendationReply(productMatch.products, effectiveSlots.dateText),
-      replySource: "DETERMINISTIC"
+      replySource: "DETERMINISTIC",
+      productCards: await buildProductCards({
+        products: productMatch.products,
+        dateText: effectiveSlots.dateText,
+        guests: effectiveSlots.guests,
+        pmsAdapter: input.pmsAdapter,
+        budgetAud: currentMessageAnalysis.slots.budget
+      })
     };
   }
 
@@ -2022,9 +2143,11 @@ export async function handleTravellerBookingMessage(
       action: "BOOKING_TICKET_SELECTION_REQUIRED",
       reply: `${product.title} is available for ${
         effectiveSlots.guests
-      } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There are ${
-        availability.remaining
-      } spots left.\n\nTicket options:\n${formatTicketOptionsList(
+      } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There ${
+        availability.remaining === 1 ? "is" : "are"
+      } ${availability.remaining} seat${
+        availability.remaining === 1 ? "" : "s"
+      } available.\n\nTicket options:\n${formatTicketOptionsList(
         availability.ticketOptions,
         availability.currency
       )}\n\nWhich ticket option should I use? You can say "option 2" or "1 x 2 people". Nothing is booked yet.`,
@@ -2042,9 +2165,11 @@ export async function handleTravellerBookingMessage(
 
   const deterministicReply = `Good news, ${product.title} has availability for ${
     effectiveSlots.guests
-  } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There are ${
-    availability.remaining
-  } spots left at ${formatPrice(
+  } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There ${
+    availability.remaining === 1 ? "is" : "are"
+  } ${availability.remaining} seat${
+    availability.remaining === 1 ? "" : "s"
+  } available at ${formatCurrencyAmount(
     availability.currency,
     availability.unitPriceCents
   )} per guest. I have not confirmed anything yet, but I can help you continue if this looks good.`;
@@ -2080,8 +2205,8 @@ export async function handleTravellerBookingMessage(
       product.title,
       `${effectiveSlots.guests} guests`,
       effectiveSlots.dateText ?? "",
-      `${availability.remaining} spots`,
-      formatPrice(availability.currency, availability.unitPriceCents)
+      `${availability.remaining} seat${availability.remaining === 1 ? "" : "s"} available`,
+      formatCurrencyAmount(availability.currency, availability.unitPriceCents)
     ],
     llmClient: input.llmClient,
     tenantContext: input.tenantContext,

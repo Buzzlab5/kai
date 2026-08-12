@@ -13,7 +13,8 @@ describe("booking brain", () => {
       slots: {
         productHint: "Komodo Day Trip",
         dateText: "tomorrow",
-        guests: 3
+        guests: 3,
+        budget: null
       },
       missingSlots: []
     });
@@ -157,6 +158,25 @@ describe("booking brain", () => {
     expect(numeric.slots.dateText).toBe("2027-03-14");
   });
 
+  // Discovered live: the widget's own placeholder text ("Gold Coast, 2 people, Saturday") used a
+  // weekday name that findDateText couldn't parse at all, so travellers copying that exact pattern
+  // got stuck being re-asked for a date.
+  it("understands weekday names, resolving to the next real occurrence", () => {
+    // REFERENCE_NOW is Thursday 2026-01-01.
+    const thisSaturday = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, this Saturday", REFERENCE_NOW);
+    expect(thisSaturday.slots.dateText).toBe("2026-01-03");
+
+    const bareSaturday = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, Saturday", REFERENCE_NOW);
+    expect(bareSaturday.slots.dateText).toBe("2026-01-03");
+
+    const nextSaturday = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, next Saturday", REFERENCE_NOW);
+    expect(nextSaturday.slots.dateText).toBe("2026-01-10");
+
+    // Said on the same weekday it names, resolves to today rather than skipping a full week ahead.
+    const sameDayAsToday = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, this Thursday", REFERENCE_NOW);
+    expect(sameDayAsToday.slots.dateText).toBe("2026-01-01");
+  });
+
   it("defaults a yearless date to the next real occurrence, not a hardcoded literal", () => {
     // REFERENCE_NOW is 2026-01-01: June is still ahead this year.
     const stillAhead = analyzeTravellerBookingMessage("23rd of June", REFERENCE_NOW);
@@ -172,5 +192,13 @@ describe("booking brain", () => {
   it("accepts 'adults' as a guest-count unit word, not just 'guests'/'people'", () => {
     const result = analyzeTravellerBookingMessage("2 adults, 23rd of June", REFERENCE_NOW);
     expect(result.slots.guests).toBe(2);
+  });
+
+  // kai-conversation-flow-notes.md item 10: "budget about $500" was heard but never applied anywhere
+  // on the AU side - this is the slot that lets buildProductCards filter/sort by it.
+  it("extracts a stated AUD budget", () => {
+    expect(analyzeTravellerBookingMessage("budget about $500 each").slots.budget).toBe(500);
+    expect(analyzeTravellerBookingMessage("my budget is 1,200").slots.budget).toBe(1200);
+    expect(analyzeTravellerBookingMessage("Komodo Day Trip for 2 guests tomorrow").slots.budget).toBeNull();
   });
 });

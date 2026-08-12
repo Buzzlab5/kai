@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { formatRecommendationReply } from "@/core/booking/booking-orchestrator";
+import { analyzeTravellerBookingMessage } from "@/core/booking/booking-brain";
+import { buildProductCards, formatRecommendationReply, type BookingProductCard } from "@/core/booking/booking-orchestrator";
 import { MappedPmsAdapter } from "@/core/pms/mapped-pms-adapter";
 import { parsePublicProductCatalog } from "@/core/pms/public-product-catalog";
 import { AU_RECOMMENDATION_PLACEHOLDER_FEATURE } from "@/core/tenant/feature-flags";
@@ -122,22 +123,36 @@ export function resolveAuOperatorRecommendationSelection(input: {
   return input.candidates.find((candidate) => normalized.includes(candidate.name.toLowerCase())) ?? null;
 }
 
-// Builds the handoff line shown right after a traveller picks a real operator - shows that
-// tenant's actual live product list (the same numbered "- live availability" format used
-// everywhere else a traveller is asked "which product?", via formatRecommendationReply) instead of
-// a vague "what would you like to explore?" that assumes the traveller already knows this
-// operator's catalog. Falls back to the plain handoff line if the PMS call fails or returns nothing,
-// so a live-fetch hiccup never blocks the handoff itself.
-export async function buildTenantProductsHandoffReply(
+// Builds the handoff shown right after a traveller picks (or auto-skips to, per item 13) a real
+// operator - shows that tenant's actual live product list (the same numbered "- live availability"
+// format used everywhere else a traveller is asked "which product?", via formatRecommendationReply)
+// instead of a vague "what would you like to explore?" that assumes the traveller already knows this
+// operator's catalog. Also attaches item 9's productCards, since this handoff (via the single-operator
+// auto-skip) is now the FIRST thing most AU travellers ever see, not just a WhatsApp-only text path -
+// leaving cards out here would mean item 9 never actually reaches the live flow. Falls back to the
+// plain handoff line (no cards) if the PMS call fails or returns nothing, so a live-fetch hiccup never
+// blocks the handoff itself.
+//
+// Caught live: a traveller can name the destination AND state date/guests in this very first message
+// ("Gold Coast, 2 people, this Saturday"), but this is the operator-recommendation flow, not the
+// slot-filling booking-brain flow - it was discarding that date/guest info and always showing "share
+// your date for pricing" even though the traveller already gave one. `travellerMessage` (when passed)
+// is parsed the same way booking-brain parses any other turn, so a date/guest count already stated up
+// front shows up immediately instead of being asked for again.
+export async function buildTenantProductsHandoffCards(
   tenant: {
     id: string;
     slug: string;
     name: string;
     config: { pmsProvider: PmsProvider; publicProductCatalog: unknown };
   },
-  env: Record<string, string | undefined> = process.env
-): Promise<string> {
-  const fallback = `Great choice! Connecting you with ${tenant.name} now - what would you like to explore?`;
+  env: Record<string, string | undefined> = process.env,
+  travellerMessage?: string
+): Promise<{ reply: string; productCards: BookingProductCard[] }> {
+  const fallback = { reply: `Great choice! Connecting you with ${tenant.name} now - what would you like to explore?`, productCards: [] };
+  const knownSlots = travellerMessage ? analyzeTravellerBookingMessage(travellerMessage).slots : null;
+  const dateText = knownSlots?.dateText ?? null;
+  const guests = knownSlots?.guests ?? null;
 
   try {
     const tenantPmsEnv = await resolveTenantPmsEnv(tenant.id, tenant.config.pmsProvider, env);
@@ -149,7 +164,12 @@ export async function buildTenantProductsHandoffReply(
 
     if (products.length === 0) return fallback;
 
-    return `Great choice! Connecting you with ${tenant.name} now.\n\n${formatRecommendationReply(products, null)}`;
+    const productCards = await buildProductCards({ products, dateText, guests, pmsAdapter, budgetAud: knownSlots?.budget });
+
+    return {
+      reply: `Great choice! Connecting you with ${tenant.name} now.\n\n${formatRecommendationReply(products, dateText)}`,
+      productCards
+    };
   } catch (error) {
     console.warn("au_operator_recommendation.products_handoff_failed", {
       tenantSlug: tenant.slug,
@@ -157,6 +177,16 @@ export async function buildTenantProductsHandoffReply(
     });
     return fallback;
   }
+}
+
+// Thin wrapper for the WhatsApp call site (resolveAuOperatorRecommendationHandoff), which is
+// text-only and has no use for productCards.
+export async function buildTenantProductsHandoffReply(
+  tenant: Parameters<typeof buildTenantProductsHandoffCards>[0],
+  env: Record<string, string | undefined> = process.env,
+  travellerMessage?: string
+): Promise<string> {
+  return (await buildTenantProductsHandoffCards(tenant, env, travellerMessage)).reply;
 }
 
 async function resolveBluePassConversationContext(phone: string, env: Record<string, string | undefined>) {
@@ -181,6 +211,70 @@ async function resolveBluePassConversationContext(phone: string, env: Record<str
 // Deliberately checked BEFORE the sticky fallback so a bare "1"/"2" reply is never mistaken for
 // anything else, but AFTER the explicit product/tenant match so a specific request (e.g. naming a
 // real product) is never intercepted by this.
+// Shared by both the explicit-pick flow (resolveAuOperatorRecommendationPick) and the
+// single-operator auto-skip (triggerAuOperatorRecommendation, item 9 of the conversation-flow audit's
+// "commercial" batch) - a lone candidate never needs a numbered-menu turn, it goes straight to the
+// same handoff a traveller would reach by picking option 1 from a real list.
+async function resolveAuOperatorRecommendationHandoff(
+  picked: AuRecommendationCandidate,
+  context: { tenant: { id: string }; conversation: { id: string } },
+  phone: string,
+  fromPhone: string,
+  env: Record<string, string | undefined>,
+  travellerMessage?: string
+): Promise<AuOperatorRecommendationOutcome> {
+  if (picked.isPlaceholder) {
+    const reply = `Sorry, ${picked.name} is not available right now - want to try one of the other options instead?`;
+    await createAssistantMessage({ tenantId: context.tenant.id, conversationId: context.conversation.id, content: reply });
+    await sendWhatsAppText({ to: fromPhone, role: "kai", body: reply });
+    return { kind: "HANDLED" };
+  }
+
+  const realTenant = await prisma.tenant.findUnique({
+    where: { id: picked.tenantId },
+    include: { branding: true, config: true }
+  });
+  if (!realTenant || !realTenant.config) return { kind: "NONE" };
+
+  const handoffReply = await buildTenantProductsHandoffReply(
+    { id: realTenant.id, slug: realTenant.slug, name: realTenant.name, config: realTenant.config },
+    env,
+    travellerMessage
+  );
+  await createAssistantMessage({
+    tenantId: context.tenant.id,
+    conversationId: context.conversation.id,
+    content: handoffReply
+  });
+
+  // Reset (not find-or-create): by the time a pick reaches here, resolveStickyWhatsAppGenericTenant
+  // has already confirmed this phone's most recent WhatsApp activity was NOT an in-progress
+  // conversation with this tenant (otherwise sticky would already have resolved to it earlier in
+  // resolveWhatsAppTenantForMessage's tier order) - so any existing conversation row for this
+  // tenant+phone is a stale, abandoned one from an unrelated earlier session. Confirmed live: resuming
+  // its old bookingMemory (a specific old date/guest count/price the traveller never mentioned this
+  // session) surfaced the instant this pick was made, looking like Kai had fabricated it. A fresh
+  // conversation guarantees the handoff always starts clean. Still seeds a Message row here so the
+  // traveller's very next message stays sticky on this tenant via resolveStickyWhatsAppGenericTenant.
+  const realConversation = await resetWhatsAppConversation({ tenantId: realTenant.id, whatsappPhone: phone });
+  await createAssistantMessage({
+    tenantId: realTenant.id,
+    conversationId: realConversation.id,
+    content: handoffReply
+  });
+
+  await sendWhatsAppText({ to: fromPhone, role: "kai", body: handoffReply });
+
+  // HANDLED, not TENANT: this pick message has already been fully answered above, and it carries no
+  // real booking content of its own - it must never also be replayed into the generic booking engine
+  // as if it were the traveller's first real message to this tenant. Confirmed live this was
+  // happening: the webhook fed this same pick message into handleGenericWhatsAppInboundMessage right
+  // after this function's own handoff reply, producing a second, confusing reply on top of whatever
+  // stale bookingMemory that tenant+phone still had from an earlier session. The traveller's actual
+  // next message reaches the tenant normally via the sticky seed above.
+  return { kind: "HANDLED" };
+}
+
 export async function resolveAuOperatorRecommendationPick(
   input: { messageText: string; fromPhone: string },
   env: Record<string, string | undefined> = process.env,
@@ -206,55 +300,7 @@ export async function resolveAuOperatorRecommendationPick(
     content: input.messageText
   });
 
-  if (picked.isPlaceholder) {
-    const reply = `Sorry, ${picked.name} is not available right now - want to try one of the other options instead?`;
-    await createAssistantMessage({ tenantId: context.tenant.id, conversationId: context.conversation.id, content: reply });
-    await sendWhatsAppText({ to: input.fromPhone, role: "kai", body: reply });
-    return { kind: "HANDLED" };
-  }
-
-  const realTenant = await prisma.tenant.findUnique({
-    where: { id: picked.tenantId },
-    include: { branding: true, config: true }
-  });
-  if (!realTenant || !realTenant.config) return { kind: "NONE" };
-
-  const handoffReply = await buildTenantProductsHandoffReply(
-    { id: realTenant.id, slug: realTenant.slug, name: realTenant.name, config: realTenant.config },
-    env
-  );
-  await createAssistantMessage({
-    tenantId: context.tenant.id,
-    conversationId: context.conversation.id,
-    content: handoffReply
-  });
-
-  // Reset (not find-or-create): by the time a pick reaches here, resolveStickyWhatsAppGenericTenant
-  // has already confirmed this phone's most recent WhatsApp activity was NOT an in-progress
-  // conversation with this tenant (otherwise sticky would already have resolved to it earlier in
-  // resolveWhatsAppTenantForMessage's tier order) - so any existing conversation row for this
-  // tenant+phone is a stale, abandoned one from an unrelated earlier session. Confirmed live: resuming
-  // its old bookingMemory (a specific old date/guest count/price the traveller never mentioned this
-  // session) surfaced the instant this pick was made, looking like Kai had fabricated it. A fresh
-  // conversation guarantees the handoff always starts clean. Still seeds a Message row here so the
-  // traveller's very next message stays sticky on this tenant via resolveStickyWhatsAppGenericTenant.
-  const realConversation = await resetWhatsAppConversation({ tenantId: realTenant.id, whatsappPhone: phone });
-  await createAssistantMessage({
-    tenantId: realTenant.id,
-    conversationId: realConversation.id,
-    content: handoffReply
-  });
-
-  await sendWhatsAppText({ to: input.fromPhone, role: "kai", body: handoffReply });
-
-  // HANDLED, not TENANT: this pick message has already been fully answered above, and it carries no
-  // real booking content of its own - it must never also be replayed into the generic booking engine
-  // as if it were the traveller's first real message to this tenant. Confirmed live this was
-  // happening: the webhook fed this same pick message into handleGenericWhatsAppInboundMessage right
-  // after this function's own handoff reply, producing a second, confusing reply on top of whatever
-  // stale bookingMemory that tenant+phone still had from an earlier session. The traveller's actual
-  // next message reaches the tenant normally via the sticky seed above.
-  return { kind: "HANDLED" };
+  return resolveAuOperatorRecommendationHandoff(picked, context, phone, input.fromPhone, env, input.messageText);
 }
 
 // Last-resort trigger: the caller only invokes this after both the explicit-match and
@@ -280,6 +326,13 @@ export async function triggerAuOperatorRecommendation(
     conversationId: context.conversation.id,
     content: input.messageText
   });
+
+  // kai-conversation-flow-notes.md item 13: a single operator never needs the "which one?" turn -
+  // skip straight to the same handoff a traveller would reach by picking option 1 from a real list.
+  if (candidates.length === 1) {
+    const phone = normalizeLocalPhone(input.fromPhone);
+    return resolveAuOperatorRecommendationHandoff(candidates[0], context, phone, input.fromPhone, env, input.messageText);
+  }
 
   const reply = buildAuOperatorRecommendationReply(candidates);
   await createAssistantMessage({ tenantId: context.tenant.id, conversationId: context.conversation.id, content: reply });

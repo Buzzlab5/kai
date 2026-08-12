@@ -9,6 +9,10 @@ export type BluePassYachtCard = {
   cabins: number;
   priceSignal: string;
   charterPriceSignal: string | null;
+  /** kai-conversation-flow-notes.md item 12: the one price string every reply/card should show for
+   * this yacht - see resolveBluePassDisplayPrice for the selection rule. Computed at card-build time
+   * (searchBluePassYachts), not stored on the raw catalog literal (BluePassYachtCatalogItem). */
+  displayPrice: string;
   operatorId: string;
   operatorName: string;
   operatorPhone: string;
@@ -19,12 +23,24 @@ export type BluePassYachtCard = {
   truth: TruthPolicy;
 };
 
-export type BluePassYachtCatalogItem = Omit<BluePassYachtCard, "reasons" | "score" | "truth"> & {
+export type BluePassYachtCatalogItem = Omit<BluePassYachtCard, "reasons" | "score" | "truth" | "displayPrice"> & {
   interests: string[];
   cabinBookable?: boolean;
   about?: string | null;
   departuresPreview?: string[];
 };
+
+// kai-conversation-flow-notes.md item 12: the single source of truth for which price string to show
+// for a yacht - previously three different reply functions each picked priceSignal vs
+// charterPriceSignal by their own undocumented rule, and the widget's card renderer picked the
+// opposite priority again, so the same boat showed two different prices a few turns apart. Prefers
+// the per-cabin priceSignal unless it's literally "Quote on request", falling back to the charter
+// total.
+export function resolveBluePassDisplayPrice(yacht: Pick<BluePassYachtCard, "priceSignal" | "charterPriceSignal">) {
+  return yacht.priceSignal && yacht.priceSignal !== "Quote on request"
+    ? yacht.priceSignal
+    : yacht.charterPriceSignal ?? "Quote on request";
+}
 
 export type BluePassCatalogSnapshotItem = Partial<BluePassYachtCatalogItem> & {
   slug?: string;
@@ -37,6 +53,8 @@ export type BluePassYachtSearchIntent = {
   guests?: number;
   interests?: string[];
   selectedYachtSlug?: string;
+  /** kai-conversation-flow-notes.md item 10 - see resolveBluePassBudgetFit below for how this scores. */
+  budget?: { currency: string; amount: number };
 };
 
 export type BluePassAlternativeYachtInput = BluePassYachtSearchIntent & {
@@ -294,6 +312,13 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
   }
 ];
 
+// Catalog prices are authored prose ("from USD 3,190 per cabin"), not numbers - this pulls out the
+// first number so it can be compared against a parsed budget.
+function extractLeadingAmount(signal: string | null): number | null {
+  const match = signal?.match(/(\d[\d,]*)/);
+  return match ? Number(match[1].replace(/,/g, "")) : null;
+}
+
 export function searchBluePassYachts(
   intent: BluePassYachtSearchIntent,
   catalogInput?: BluePassCatalogSnapshotItem[],
@@ -326,6 +351,19 @@ export function searchBluePassYachts(
         reasons.push(`matches ${interestMatches.join(", ")}`);
       }
 
+      // kai-conversation-flow-notes.md item 10: additive score, not a hard filter - a stated budget
+      // narrows the ranking without ever producing an empty result set (matches this function's
+      // existing "preview BluePass catalog option" fallback-reason pattern below). Catalog prices are
+      // all USD, and there is no FX conversion anywhere in this codebase, so a non-USD stated budget
+      // is a known limitation - left unscored rather than guessing a rate.
+      if (intent.budget && intent.budget.currency === "USD") {
+        const cabinAmount = extractLeadingAmount(item.priceSignal);
+        if (cabinAmount !== null && cabinAmount <= intent.budget.amount) {
+          score += 15;
+          reasons.push("within budget");
+        }
+      }
+
       if (score === 0) {
         reasons.push("preview BluePass catalog option");
       }
@@ -335,6 +373,7 @@ export function searchBluePassYachts(
         reasons,
         score,
         truth: previewTruth,
+        displayPrice: resolveBluePassDisplayPrice(item),
         catalogIndex
       } satisfies BluePassYachtCard & { catalogIndex: number };
     })
