@@ -232,6 +232,62 @@ export async function releasePmsBookingLedgerEntryPayoutViaStripe(
 }
 
 /**
+ * Lists this tenant's PmsBookingLedgerEntry rows - the AU/Rezdy direct-PMS-booking counterpart to
+ * listBluePassLedgerEntriesForTenantSlug (bluepass-inquiry-repository.ts), which only ever covered the
+ * Indonesia/BluePass marketplace ledger. Nothing browsed this table before: the daily settlement cron
+ * (settle-pms-bookings) and the Stripe transfer release both run unattended, so without this an admin
+ * has no way to see whether an operator was actually paid short of querying the DB directly.
+ *
+ * Mirrors that function's shape (tenantSlug -> tenant lookup -> scoped findMany, status/take params)
+ * so a single admin UI can treat both ledgers the same way.
+ */
+export async function listPmsBookingLedgerEntriesForTenantSlug(input: {
+  tenantSlug: string;
+  status?: "PENDING" | "FINALIZED" | "VOIDED";
+  take?: number;
+}) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { slug: input.tenantSlug },
+    select: { id: true }
+  });
+
+  if (!tenant) {
+    return [];
+  }
+
+  return prisma.pmsBookingLedgerEntry.findMany({
+    where: {
+      tenantId: tenant.id,
+      status: input.status ?? "FINALIZED"
+    },
+    orderBy: { createdAt: "desc" },
+    take: input.take ?? 100,
+    include: {
+      attempt: {
+        select: {
+          productTitle: true,
+          dateText: true,
+          guests: true,
+          travellerName: true,
+          externalBookingId: true,
+          grossAmountCents: true,
+          settledAt: true
+        }
+      },
+      payout: {
+        select: {
+          status: true,
+          stripeTransferId: true,
+          releasedAt: true,
+          releasedBy: true,
+          failureReason: true
+        }
+      }
+    }
+  });
+}
+
+/**
  * Milestone 1 (payment-settlement plan): turns "mark this trip settled" into the whole real thing,
  * not just a status flip. Admin-triggered (a button/endpoint), not yet on a schedule - Milestone 2
  * adds the cron that calls this automatically once a trip's travel date has passed.
