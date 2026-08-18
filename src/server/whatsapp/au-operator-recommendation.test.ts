@@ -210,16 +210,16 @@ describe("buildAuOperatorRecommendationReply / resolveAuOperatorRecommendationSe
   });
 
   // Regression: confirmed live that with a single real candidate, the handoff reply shown right
-  // after picking it ("Great choice! Connecting you with Test Real Operator now...") also mentions
-  // that same candidate's name - so a bare "1" the traveller sent next to pick a PRODUCT from that
-  // handoff's own list got misread as re-picking the operator all over again, on every single
-  // subsequent turn, no matter what they typed. The fix: only the recommendation list's own exact
-  // reply (ending in "reply with the number (or the name) to continue") counts as "was shown", not
-  // any later reply that happens to mention a candidate's name too.
+  // after picking it ("Connecting you with Test Real Operator now...") also mentions that same
+  // candidate's name - so a bare "1" the traveller sent next to pick a PRODUCT from that handoff's
+  // own list got misread as re-picking the operator all over again, on every single subsequent
+  // turn, no matter what they typed. The fix: only the recommendation list's own exact reply
+  // (ending in "reply with the number (or the name) to continue") counts as "was shown", not any
+  // later reply that happens to mention a candidate's name too.
   it("does not resolve a pick against the handoff reply that follows a recommendation - only the recommendation itself", () => {
     const singleCandidate = [candidates[0]];
     const handoffReply =
-      "Great choice! Connecting you with Test Real Operator now.\n\nYou can choose from:\n1. Sunset Cruise - live availability\n2. Reef Snorkel - live availability\n\nWhich one sounds closest to what you want?";
+      "Connecting you with Test Real Operator now - here's their live trip lineup, pulled straight from their booking system.\n\nYou can choose from:\n1. Sunset Cruise - live availability\n2. Reef Snorkel - live availability\n\nWhich one sounds closest to what you want?";
 
     expect(
       resolveAuOperatorRecommendationSelection({
@@ -324,8 +324,9 @@ describe("resolveAuOperatorRecommendationPick", () => {
     expect(seededMessage?.content).toContain(`Connecting you with ${operatorName}`);
     // Proves the handoff shows this tenant's actual live product list (formatRecommendationReply's
     // fixed closing line) instead of the old vague "what would you like to explore?" the traveller
-    // had no way to answer without already knowing the catalog.
-    expect(seededMessage?.content).toContain("Which one sounds closest to what you want?");
+    // had no way to answer without already knowing the catalog. No date was given in this pick, so
+    // the closing line is the undated variant that also asks for one.
+    expect(seededMessage?.content).toContain("Which one sounds closest? Tell me your date too and I'll check pricing.");
   }, 20_000);
 
   // Regression: confirmed live that picking a real operator resumed a stale Conversation left over

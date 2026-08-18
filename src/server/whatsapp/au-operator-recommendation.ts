@@ -149,7 +149,7 @@ export async function buildTenantProductsHandoffCards(
   env: Record<string, string | undefined> = process.env,
   travellerMessage?: string
 ): Promise<{ reply: string; productCards: BookingProductCard[] }> {
-  const fallback = { reply: `Great choice! Connecting you with ${tenant.name} now - what would you like to explore?`, productCards: [] };
+  const fallback = { reply: `Connecting you with ${tenant.name} now - what would you like to explore?`, productCards: [] };
   const knownSlots = travellerMessage ? analyzeTravellerBookingMessage(travellerMessage).slots : null;
   const dateText = knownSlots?.dateText ?? null;
   const guests = knownSlots?.guests ?? null;
@@ -167,7 +167,7 @@ export async function buildTenantProductsHandoffCards(
     const productCards = await buildProductCards({ products, dateText, guests, pmsAdapter, budgetAud: knownSlots?.budget });
 
     return {
-      reply: `Great choice! Connecting you with ${tenant.name} now.\n\n${formatRecommendationReply(products, dateText)}`,
+      reply: `Connecting you with ${tenant.name} now - here's their live trip lineup, pulled straight from their booking system.\n\n${formatRecommendationReply(products, dateText)}`,
       productCards
     };
   } catch (error) {

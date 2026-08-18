@@ -776,13 +776,19 @@ function composeMissingDetailsReply(input: {
   return `I can help with that. Please share the ${input.missingSlots.join(", ")} and I'll check availability.`;
 }
 
+// kai-conversation-flow-notes.md-style finding, caught live: when no date is known yet, the cards
+// under this list say "Share your date for pricing" - but the old closing line ("Which one sounds
+// closest to what you want?") never told the traveller a date was still needed, so the two read as
+// contradictory: "choose one" next to "we don't have enough info to price this yet." Naming the next
+// step explicitly closes that gap instead of leaving it to be inferred from the cards alone.
 export function formatRecommendationReply(products: PmsProduct[], dateText: string | null) {
   const datePrefix = dateText ? `For ${dateText}, ` : "";
   const firstWord = dateText ? "you" : "You";
+  const closing = dateText
+    ? "Which one sounds closest to what you want?"
+    : "Which one sounds closest? Tell me your date too and I'll check pricing.";
 
-  return `${datePrefix}${firstWord} can choose from:\n${formatProductOptionsList(
-    products
-  )}\n\nWhich one sounds closest to what you want?`;
+  return `${datePrefix}${firstWord} can choose from:\n${formatProductOptionsList(products)}\n\n${closing}`;
 }
 
 // kai-conversation-flow-notes.md's proposed copy for the "we don't have that" path - honest,
