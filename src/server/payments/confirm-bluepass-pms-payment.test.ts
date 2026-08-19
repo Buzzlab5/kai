@@ -41,7 +41,12 @@ async function createTestTenant(label: string) {
   });
 }
 
-async function createTestAttempt(input: { tenantId: string; sessionId: string; grossAmountCents?: number }) {
+async function createTestAttempt(input: {
+  tenantId: string;
+  sessionId: string;
+  grossAmountCents?: number;
+  referral?: { referralPartnerId: string; referralLinkId?: string; referralCode?: string; referralRole?: string };
+}) {
   const conversation = await prisma.conversation.create({
     data: { tenantId: input.tenantId, channel: "WEB_WIDGET" }
   });
@@ -62,7 +67,11 @@ async function createTestAttempt(input: { tenantId: string; sessionId: string; g
       currency: "AUD",
       externalBookingId: "RZ-HOLD-1",
       stripeCheckoutSessionId: input.sessionId,
-      status: "AWAITING_PAYMENT"
+      status: "AWAITING_PAYMENT",
+      referralPartnerId: input.referral?.referralPartnerId ?? null,
+      referralLinkId: input.referral?.referralLinkId ?? null,
+      referralCode: input.referral?.referralCode ?? null,
+      referralRole: input.referral?.referralRole ?? null
     }
   });
 }
@@ -113,6 +122,56 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
 
     const messages = await prisma.message.findMany({ where: { conversationId: attempt.conversationId } });
     expect(messages.some((message) => message.content.includes("Payment received"))).toBe(true);
+  }, 30000);
+
+  it("posts a CREATOR_COMMISSION_ESTIMATE line, carrying the attempt's referral attribution, when a referral is attached", async () => {
+    const tenant = await createTestTenant("referral");
+    const sessionId = `cs_${randomUUID()}`;
+    const attempt = await createTestAttempt({
+      tenantId: tenant.id,
+      sessionId,
+      grossAmountCents: 10000,
+      referral: { referralPartnerId: "partner_1", referralLinkId: "link_1", referralCode: "abc123", referralRole: "CREATOR" }
+    });
+
+    vi.spyOn(pmsAdapterRegistry, "getPmsAdapter").mockReturnValue({
+      provider: "REZDY",
+      listProducts: vi.fn(),
+      getAvailability: vi.fn(),
+      createBooking: vi.fn(),
+      cancelBooking: vi.fn(),
+      getBooking: vi.fn(),
+      confirmBooking: vi.fn(async (): Promise<PmsCreateBookingResult> => ({ externalBookingId: "RZ-HOLD-1", provider: "REZDY", status: "CONFIRMED" }))
+    });
+
+    await handlePmsBookingCheckoutSessionCompleted({ id: sessionId, payment_intent: `pi_${randomUUID()}` } as never);
+
+    const ledgerEntries = await prisma.pmsBookingLedgerEntry.findMany({
+      where: { pmsBookingPaymentAttemptId: attempt.id }
+    });
+    expect(ledgerEntries).toHaveLength(5);
+
+    const creatorCommission = ledgerEntries.find((entry) => entry.kind === "CREATOR_COMMISSION_ESTIMATE");
+    expect(creatorCommission?.amountCents).toBe(500);
+    expect(creatorCommission).toMatchObject({
+      referralPartnerId: "partner_1",
+      referralLinkId: "link_1",
+      referralCode: "abc123",
+      referralRole: "CREATOR"
+    });
+
+    // Operator net stays the frozen 82% regardless of the referral - the referral commission comes
+    // out of BluePass's own platform-fee bucket, never the operator's share.
+    const operatorNet = ledgerEntries.find((entry) => entry.kind === "OPERATOR_PAYOUT_PLACEHOLDER");
+    expect(operatorNet?.amountCents).toBe(8200);
+    const platformFee = ledgerEntries.find((entry) => entry.kind === "BLUEPASS_PLATFORM_COMMISSION");
+    expect(platformFee?.amountCents).toBe(500);
+
+    for (const entry of ledgerEntries) {
+      if (entry.kind === "CREATOR_COMMISSION_ESTIMATE") continue;
+      expect(entry.referralPartnerId).toBe("partner_1");
+      expect(entry.referralCode).toBe("abc123");
+    }
   }, 30000);
 
   it("alerts the operator's own admin WhatsApp on a successful booking confirmation", async () => {

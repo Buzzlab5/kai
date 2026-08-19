@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
+  captureConversationReferralAttribution,
   createTravellerMessage,
   findOrCreateWhatsAppConversation,
   setWhatsAppConversationControlMode
@@ -141,5 +142,52 @@ describe("createTravellerMessage", () => {
     });
 
     expect(message.content).toBe("2 guests, Saturday 15 August");
+  });
+});
+
+describe("captureConversationReferralAttribution", () => {
+  it("fills in referral fields on first touch when the conversation has none yet", async () => {
+    const tenant = await createTestTenant("ref-first-touch");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281112220001" });
+
+    await captureConversationReferralAttribution({
+      conversation,
+      referral: { referralPartnerId: "partner_1", referralLinkId: "link_1", referralCode: "abc123", referralRole: "CREATOR" }
+    });
+
+    const updated = await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id } });
+    expect(updated.referralPartnerId).toBe("partner_1");
+    expect(updated.referralLinkId).toBe("link_1");
+    expect(updated.referralCode).toBe("abc123");
+    expect(updated.referralRole).toBe("CREATOR");
+  });
+
+  it("never overwrites attribution already set on the conversation", async () => {
+    const tenant = await createTestTenant("ref-no-overwrite");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281112220002" });
+    await captureConversationReferralAttribution({
+      conversation,
+      referral: { referralPartnerId: "partner_original", referralCode: "original-code" }
+    });
+    const afterFirstTouch = await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id } });
+
+    await captureConversationReferralAttribution({
+      conversation: afterFirstTouch,
+      referral: { referralPartnerId: "partner_different", referralCode: "different-code" }
+    });
+
+    const stillOriginal = await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id } });
+    expect(stillOriginal.referralPartnerId).toBe("partner_original");
+    expect(stillOriginal.referralCode).toBe("original-code");
+  });
+
+  it("is a no-op when no referral is present on the request", async () => {
+    const tenant = await createTestTenant("ref-none");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281112220003" });
+
+    await captureConversationReferralAttribution({ conversation, referral: null });
+
+    const unchanged = await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id } });
+    expect(unchanged.referralPartnerId).toBeNull();
   });
 });

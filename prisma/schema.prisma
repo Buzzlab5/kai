@@ -177,6 +177,16 @@ model Conversation {
   // E.164 digits (no "+") - set for WhatsApp-channel conversations so the webhook can find the
   // thread for an inbound sender, and so a Business-app human-takeover can be toggled per number.
   whatsappPhone String?
+  // First-touch referral attribution, captured off the widget message payload's `referral` field
+  // (see /api/widget/messages/route.ts) the first time it's present and these are still null -
+  // durable per-conversation so it survives to checkout time regardless of how many turns later a
+  // booking actually happens. Region-agnostic on purpose: the marketplace/Indonesia flow already
+  // consumes body.referral per-message and doesn't need these, but the generic booking flow (AU/
+  // Boattime etc.) has nowhere else to read attribution from at checkout-creation time.
+  referralPartnerId String?
+  referralLinkId    String?
+  referralCode      String?
+  referralRole      String?
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
 
@@ -432,6 +442,13 @@ model PmsBookingPaymentAttempt {
   stripeCheckoutSessionId String                         @unique
   stripePaymentIntentId   String?                        @unique
   stripeRefundId          String?
+  // Copied from Conversation.referral* at checkout-creation time (see
+  // createBluePassCheckoutSessionForPmsBooking) - frozen at that point so a later change to the
+  // conversation's attribution never rewrites the economics of an already-created attempt.
+  referralPartnerId       String?
+  referralLinkId          String?
+  referralCode            String?
+  referralRole            String?
   status                  PmsBookingPaymentAttemptStatus @default(AWAITING_PAYMENT)
   failureReason           String?
   adminAlertSentAt        DateTime?

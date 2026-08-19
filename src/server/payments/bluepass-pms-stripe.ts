@@ -78,10 +78,23 @@ export async function createBluePassCheckoutSessionForPmsBooking(
     throw new Error("Stripe did not return a checkout URL for this session.");
   }
 
+  // Frozen from the conversation's first-touch attribution (see
+  // captureConversationReferralAttribution) at the moment checkout is created, not looked up again
+  // at confirm time - so a later, unrelated referral cookie on the same browser can never rewrite
+  // the economics of a booking already in flight.
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: input.conversationId },
+    select: { referralPartnerId: true, referralLinkId: true, referralCode: true, referralRole: true }
+  });
+
   const attempt = await prisma.pmsBookingPaymentAttempt.create({
     data: {
       tenantId: input.tenantId,
       conversationId: input.conversationId,
+      referralPartnerId: conversation?.referralPartnerId ?? null,
+      referralLinkId: conversation?.referralLinkId ?? null,
+      referralCode: conversation?.referralCode ?? null,
+      referralRole: conversation?.referralRole ?? null,
       // Cast bridges the app-level PmsProvider (which includes "REZDY_AGENT") to the narrower Prisma
       // enum, same pattern already used in tenant-pms-credentials.ts. "REZDY_AGENT" isn't in the
       // Prisma enum yet (that's a deliberately-deferred production schema migration - see

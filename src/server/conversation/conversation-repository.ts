@@ -132,6 +132,48 @@ export async function findTenantConversation(input: { tenantId: string; conversa
   });
 }
 
+// First-touch referral attribution: only fills in the conversation's referral fields if they're
+// still null, mirroring booking-inquiry-service.ts's `session.value ?? existing.value` convention
+// for the marketplace flow. Needed so the generic booking flow (AU/Boattime etc.) - which never
+// creates a BluePassInquiry - has a durable place to read attribution back from at checkout-creation
+// time (createBluePassCheckoutSessionForPmsBooking), since the per-message `referral` payload isn't
+// otherwise persisted anywhere for that flow. A no-op once attribution is already set, so a later
+// message with a different/no referral cookie never overwrites the original attribution.
+export async function captureConversationReferralAttribution(input: {
+  conversation: {
+    id: string;
+    referralPartnerId: string | null;
+    referralLinkId: string | null;
+    referralCode: string | null;
+    referralRole: string | null;
+  };
+  referral?: {
+    referralPartnerId?: string | null;
+    referralLinkId?: string | null;
+    referralCode?: string | null;
+    referralRole?: string | null;
+  } | null;
+}) {
+  if (!input.referral || input.conversation.referralPartnerId) {
+    return;
+  }
+
+  const { referralPartnerId, referralLinkId, referralCode, referralRole } = input.referral;
+  if (!referralPartnerId && !referralCode) {
+    return;
+  }
+
+  await prisma.conversation.update({
+    where: { id: input.conversation.id },
+    data: {
+      referralPartnerId: referralPartnerId ?? null,
+      referralLinkId: referralLinkId ?? null,
+      referralCode: referralCode ?? null,
+      referralRole: referralRole ?? null
+    }
+  });
+}
+
 // Generalizes the find-or-create-by-phone pattern BluePass's own WhatsApp path already used
 // privately (bluepass-whatsapp-conversation.ts) so any tenant's WhatsApp traffic - not just
 // BluePass's - can resume the same Conversation across turns instead of starting fresh every time.

@@ -111,6 +111,83 @@ describe("createBluePassCheckoutSessionForPmsBooking", () => {
     });
   });
 
+  it("copies referral attribution from the conversation onto the new attempt", async () => {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `settle-test-${randomUUID()}`,
+        name: "Settle Test Tenant (referral copy)",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://example.test"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: {
+        tenantId: tenant.id,
+        channel: "WEB_WIDGET",
+        referralPartnerId: "partner_1",
+        referralLinkId: "link_1",
+        referralCode: "abc123",
+        referralRole: "CREATOR"
+      }
+    });
+    const sessionId = `cs_test_${randomUUID()}`;
+    const stripeClient = fakeStripeClient(sessionId);
+
+    const result = await createBluePassCheckoutSessionForPmsBooking(
+      {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        pmsProvider: "REZDY",
+        productExternalId: "boattime-whale-escape",
+        productTitle: "Gold Coast Whale Escape",
+        dateText: "2026-06-26 13:30:00",
+        guests: 2,
+        travellerName: "Test",
+        travellerEmail: "test@gmail.com",
+        grossAmountCents: 10000,
+        currency: "AUD",
+        externalBookingId: "RZ-HOLD-REF-1"
+      },
+      { stripeClient: stripeClient as never, env: { BLUEPASS_STRIPE_SECRET_KEY: "sk_test_x" } }
+    );
+
+    const attempt = await prisma.pmsBookingPaymentAttempt.findUnique({ where: { id: result.attemptId } });
+    expect(attempt).toMatchObject({
+      referralPartnerId: "partner_1",
+      referralLinkId: "link_1",
+      referralCode: "abc123",
+      referralRole: "CREATOR"
+    });
+  });
+
+  it("leaves referral fields null when the conversation has no attribution (or doesn't exist)", async () => {
+    const sessionId = `cs_test_${randomUUID()}`;
+    const stripeClient = fakeStripeClient(sessionId);
+
+    const result = await createBluePassCheckoutSessionForPmsBooking(
+      {
+        tenantId: `tenant_${randomUUID()}`,
+        conversationId: `conv_${randomUUID()}`,
+        pmsProvider: "REZDY",
+        productExternalId: "boattime-whale-escape",
+        productTitle: "Gold Coast Whale Escape",
+        dateText: "2026-06-26 13:30:00",
+        guests: 2,
+        travellerName: "Test",
+        travellerEmail: "test@gmail.com",
+        grossAmountCents: 10000,
+        currency: "AUD",
+        externalBookingId: "RZ-HOLD-REF-2"
+      },
+      { stripeClient: stripeClient as never, env: { BLUEPASS_STRIPE_SECRET_KEY: "sk_test_x" } }
+    );
+
+    const attempt = await prisma.pmsBookingPaymentAttempt.findUnique({ where: { id: result.attemptId } });
+    expect(attempt?.referralPartnerId).toBeNull();
+    expect(attempt?.referralCode).toBeNull();
+  });
+
   it("throws and does not create an attempt row when Stripe does not return a checkout URL", async () => {
     const stripeClient = {
       checkout: {

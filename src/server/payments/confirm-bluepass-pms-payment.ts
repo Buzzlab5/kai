@@ -80,7 +80,14 @@ export async function handlePmsBookingCheckoutSessionCompleted(session: Stripe.C
     inquiryId: updated.id,
     grossAmountCents: updated.grossAmountCents,
     currency: updated.currency as BluePassLedgerCurrency,
-    status: "FINALIZED"
+    status: "FINALIZED",
+    referralPartnerId: updated.referralPartnerId,
+    referralLinkId: updated.referralLinkId,
+    referralCode: updated.referralCode,
+    referralRole: updated.referralRole
+    // No `market` here - Boattime stays frozen on the original 18/82 split regardless of referral
+    // (see ledger.ts's own comment); this only adds the CREATOR_COMMISSION_ESTIMATE line when a
+    // referral is actually attached, it doesn't change the platform-fee percentage.
   });
 
   await prisma.pmsBookingLedgerEntry.createMany({

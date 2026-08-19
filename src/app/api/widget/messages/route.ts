@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  captureConversationReferralAttribution,
   createAssistantMessage,
   createManualInquiry,
   createTravellerMessage,
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
       { status: 404 }
     );
   }
+
+  await captureConversationReferralAttribution({ conversation, referral: body.referral });
 
   const businessPack = resolveTenantBusinessPack(resolved.tenant);
 
