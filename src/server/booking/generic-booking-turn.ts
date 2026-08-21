@@ -1,6 +1,7 @@
 import type { BookingMemoryState } from "@/core/booking/booking-memory";
 import { updateBookingMemoryState } from "@/core/booking/booking-memory";
-import { handleTravellerBookingMessage, type BookingOrchestratorResult } from "@/core/booking/booking-orchestrator";
+import { handleTravellerBookingMessage, formatCurrencyAmount, type BookingOrchestratorResult } from "@/core/booking/booking-orchestrator";
+import { calculateConservationContributionCents } from "@/core/bluepass/ledger";
 import { formatCancellationPolicySummary } from "@/core/cancellation/rules";
 import type { AssistantConversationMessage, AssistantLlmClient } from "@/core/llm/assistant-reply-composer";
 import type { GenericBookingRouterLlmClient } from "@/core/llm/generic-booking-router";
@@ -232,6 +233,20 @@ export async function runGenericBookingTurn(
       const payoutAccount = await resolveOperatorPayoutAccount(input.tenant.slug, { fetcher: input.fetcher });
       const cancellationSummary = formatCancellationPolicySummary(payoutAccount?.cancellationPolicyTiers ?? null);
       assistantContent = `${assistantContent}\n\nCancellation policy: ${cancellationSummary}.`;
+    }
+
+    // Same guard as the cancellation disclosure just above - only when a live payment link
+    // actually went out. The dollar figure is real: 5% of the actual gross fare, the same
+    // constant Kai's own ledger uses to book a CONSERVATION_ALLOCATION row once payment clears
+    // (see confirm-bluepass-pms-payment.ts). The partner name is deliberately generic - a real
+    // Rezdy/Boattime booking has no per-trip named conservation partner recorded anywhere
+    // server-side. Only bluepass-redesign's 6 curated demo trips have named partners, and those
+    // aren't real bookable inventory; naming one here would misattribute this booking's
+    // contribution to a project it was never actually routed to.
+    if (bookingResult.action === "BOOKING_PAYMENT_REQUIRED" && paymentRequest?.checkoutUrl && bookingResult.pmsCheckoutHold) {
+      const conservationCents = calculateConservationContributionCents(bookingResult.pmsCheckoutHold.grossAmountCents);
+      const conservationAmount = formatCurrencyAmount(bookingResult.pmsCheckoutHold.currency, conservationCents);
+      assistantContent = `${assistantContent}\n\n${conservationAmount} of this fare funds ocean and reef conservation - built into the price you see, never added to it.`;
     }
 
     const asksForContactDetails =

@@ -125,6 +125,13 @@ describe("runGenericBookingTurn - BluePass Stripe PMS checkout", () => {
     expect(result.assistantContent).toContain(
       "Cancellation policy: Full refund 14+ days before departure, 50% refund 3-13 days before, no refund within 3 days."
     );
+    // grossAmountCents is 10000 (2 x A$50 adult tickets, see previousBookingState above) - 5% of
+    // that is A$5. Generic partner phrasing, deliberately: a real PMS booking has no per-trip
+    // named conservation partner recorded anywhere server-side (see the comment on this block in
+    // generic-booking-turn.ts).
+    expect(result.assistantContent).toContain(
+      "A$5 of this fare funds ocean and reef conservation - built into the price you see, never added to it."
+    );
   });
 
   it("discloses the operator's own saved cancellation tiers, not the platform default", async () => {
@@ -185,5 +192,8 @@ describe("runGenericBookingTurn - BluePass Stripe PMS checkout", () => {
 
     expect(result.paymentRequest?.checkoutUrl).toBeNull();
     expect(result.assistantContent).toContain("could not prepare the secure payment link");
+    // Same guard as the cancellation disclosure - nothing is actually payable here, so neither
+    // disclosure should fire.
+    expect(result.assistantContent).not.toContain("funds ocean and reef conservation");
   }, 30000);
 });
