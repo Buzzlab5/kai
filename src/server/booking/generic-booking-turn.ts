@@ -1,6 +1,7 @@
 import type { BookingMemoryState } from "@/core/booking/booking-memory";
 import { updateBookingMemoryState } from "@/core/booking/booking-memory";
 import { handleTravellerBookingMessage, type BookingOrchestratorResult } from "@/core/booking/booking-orchestrator";
+import { formatCancellationPolicySummary } from "@/core/cancellation/rules";
 import type { AssistantConversationMessage, AssistantLlmClient } from "@/core/llm/assistant-reply-composer";
 import type { GenericBookingRouterLlmClient } from "@/core/llm/generic-booking-router";
 import { parseKnowledgePack, summarizeKnowledgePack } from "@/core/knowledge/knowledge-matcher";
@@ -13,6 +14,7 @@ import { getPmsAdapter } from "@/server/pms/pms-adapter-registry";
 import { resolveTenantPmsEnv } from "@/server/pms/tenant-pms-credentials";
 import { BLUEPASS_STRIPE_PMS_CHECKOUT_FEATURE } from "@/core/tenant/feature-flags";
 import { createBluePassPmsCheckoutClient, type BluePassPmsCheckoutClient } from "@/server/payments/bluepass-pms-checkout-client";
+import { resolveOperatorPayoutAccount } from "@/server/payments/operator-payout-account-client";
 
 export interface GenericBookingTurnTenant {
   id: string;
@@ -41,6 +43,10 @@ export interface RunGenericBookingTurnInput {
   llmClient?: AssistantLlmClient | null;
   routerClient?: GenericBookingRouterLlmClient | null;
   bluePassPmsCheckoutClient?: BluePassPmsCheckoutClient;
+  /** Threaded into resolveOperatorPayoutAccount for the cancellation-policy disclosure lookup -
+   * same injection point bluepass-pms-stripe.ts already uses for that call, so a test can fake the
+   * cross-repo HTTP call instead of hitting it for real. */
+  fetcher?: typeof fetch;
 }
 
 export interface RunGenericBookingTurnResult {
@@ -214,6 +220,20 @@ export async function runGenericBookingTurn(
     }
 
     assistantContent = assistantContentOverride ?? bookingResult.reply;
+
+    // Disclose the real cancellation terms whenever a live payment link is actually going out - not
+    // on every BOOKING_PAYMENT_REQUIRED turn, since that action also covers the Stripe-checkout-
+    // failed and no-handoff-url-yet replies above, where nothing is actually payable yet. Sourced
+    // from the operator's own saved tiers (falls back to the platform default inside
+    // formatCancellationPolicySummary when they haven't set one) rather than the disconnected
+    // free-text knowledge-pack answer, so what Kai says here always matches what a real cancellation
+    // would actually refund.
+    if (bookingResult.action === "BOOKING_PAYMENT_REQUIRED" && paymentRequest?.checkoutUrl) {
+      const payoutAccount = await resolveOperatorPayoutAccount(input.tenant.slug, { fetcher: input.fetcher });
+      const cancellationSummary = formatCancellationPolicySummary(payoutAccount?.cancellationPolicyTiers ?? null);
+      assistantContent = `${assistantContent}\n\nCancellation policy: ${cancellationSummary}.`;
+    }
+
     const asksForContactDetails =
       bookingResult.action === "BOOKING_DETAILS_REQUIRED" &&
       /name,\s*email,\s*and\s*phone/i.test(bookingResult.reply);

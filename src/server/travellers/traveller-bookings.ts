@@ -75,3 +75,51 @@ export async function listBookingsForTravellerAccount(travellerAccountId: string
     }))
   };
 }
+
+/**
+ * How much of this traveller's own money has gone to the reef — the conservation-first pitch made
+ * personal, one account at a time, real cents in real ledger rows rather than an estimate.
+ *
+ * Same `travellerId` + `WEB_WIDGET` linkage as listBookingsForTravellerAccount above, joined onward
+ * to each region's CONSERVATION_ALLOCATION ledger entries. FINALIZED only - a PENDING estimate on an
+ * inquiry that never became a real booking would overstate what this traveller has actually funded.
+ * Grouped by currency rather than summed together, for the same reason the admin overview page
+ * never adds AUD and USD into one number.
+ */
+export async function getTravellerConservationTotal(
+  travellerAccountId: string
+): Promise<{ currency: string; amountCents: number }[]> {
+  const conversations = await prisma.conversation.findMany({
+    where: { travellerId: travellerAccountId, channel: "WEB_WIDGET" },
+    select: { id: true }
+  });
+
+  if (conversations.length === 0) {
+    return [];
+  }
+
+  const conversationIds = conversations.map((conversation) => conversation.id);
+
+  const [auTotals, indonesiaTotals] = await Promise.all([
+    prisma.pmsBookingLedgerEntry.groupBy({
+      by: ["currency"],
+      where: { conversationId: { in: conversationIds }, kind: "CONSERVATION_ALLOCATION", status: "FINALIZED" },
+      _sum: { amountCents: true }
+    }),
+    prisma.bluePassLedgerEntry.groupBy({
+      by: ["currency"],
+      where: { conversationId: { in: conversationIds }, kind: "CONSERVATION_ALLOCATION", status: "FINALIZED" },
+      _sum: { amountCents: true }
+    })
+  ]);
+
+  const byCurrency = new Map<string, number>();
+  for (const row of [...auTotals, ...indonesiaTotals]) {
+    const amount = row._sum.amountCents ?? 0;
+    byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? 0) + amount);
+  }
+
+  return Array.from(byCurrency.entries())
+    .map(([currency, amountCents]) => ({ currency, amountCents }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+}

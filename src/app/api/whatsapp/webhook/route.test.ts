@@ -1228,7 +1228,11 @@ describe("/api/whatsapp/webhook", () => {
     expect(submitRequestBody.type).toBe("text");
     expect(submitRequestBody.text.body).toContain("I prepared BluePass inquiry");
     expect(inquiry).toMatchObject({ status: "OPERATOR_PENDING", selectedYachtSlug: "alila-purnama" });
-  }, 30_000);
+    // Three full webhook round-trips in one test (initial message, confirm details, button tap),
+    // each its own chain of Prisma calls under this repo's connection_limit=1 - consistently ~40s in
+    // isolation, not a hang (confirmed by running with a much higher ceiling first). 30s was too
+    // tight for this specific test even though it's plenty for the repo's other webhook tests.
+  }, 60_000);
 
   it("routes traveller recommendation requests to marketplace instead of latest inquiry status", async () => {
     process.env.META_GRAPH_VERSION = "v20.0";
@@ -2057,7 +2061,10 @@ describe("/api/whatsapp/webhook", () => {
     ]);
     expect(lastRequestBody.text.body).toContain("Calico Jack");
     expect(lastRequestBody.text.body).toContain("operator");
-  }, 30_000);
+    // Same reasoning as the "Send inquiry" test above: several sequential webhook round-trips under
+    // this repo's connection_limit=1, consistently ~34s in isolation - confirmed not a hang by
+    // running with a much higher ceiling first.
+  }, 60_000);
 
   it("uses the LLM rewrite layer for operator WhatsApp context questions without losing required facts", async () => {
     process.env.ENABLE_LLM = "true";

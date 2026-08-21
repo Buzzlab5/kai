@@ -301,6 +301,41 @@ export async function listPmsBookingLedgerEntriesForTenantSlug(input: {
 }
 
 /**
+ * The referral-partner counterpart to listPmsBookingLedgerEntriesForTenantSlug - reads across every
+ * AU tenant a partner's link has ever earned from, rather than one tenant at a time. Needed because
+ * a creator's own dashboard (bluepass-redesign) has no tenant to scope by; it only knows its own
+ * referralPartnerId. Not tenant-scoped at all on purpose - a partner isn't tied to one operator.
+ */
+export async function listPmsBookingLedgerEntriesForReferralPartner(input: {
+  referralPartnerId: string;
+  status?: "PENDING" | "FINALIZED" | "VOIDED";
+  take?: number;
+}) {
+  return prisma.pmsBookingLedgerEntry.findMany({
+    where: {
+      referralPartnerId: input.referralPartnerId,
+      kind: "CREATOR_COMMISSION_ESTIMATE",
+      status: input.status ?? "FINALIZED"
+    },
+    orderBy: { createdAt: "desc" },
+    take: input.take ?? 100,
+    include: {
+      attempt: {
+        select: {
+          productTitle: true,
+          dateText: true,
+          guests: true,
+          travellerName: true,
+          externalBookingId: true,
+          grossAmountCents: true,
+          settledAt: true
+        }
+      }
+    }
+  });
+}
+
+/**
  * Milestone 1 (payment-settlement plan): turns "mark this trip settled" into the whole real thing,
  * not just a status flip. Admin-triggered (a button/endpoint), not yet on a schedule - Milestone 2
  * adds the cron that calls this automatically once a trip's travel date has passed.

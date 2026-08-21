@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CANCELLATION_POLICY_TIERS, resolveRefundTierPercent } from "./rules";
+import { DEFAULT_CANCELLATION_POLICY_TIERS, formatCancellationPolicySummary, resolveRefundTierPercent } from "./rules";
 
 describe("resolveRefundTierPercent", () => {
   const travelDate = new Date("2026-08-24T00:00:00Z"); // 14 days after cancelledAt below
@@ -103,5 +103,34 @@ describe("resolveRefundTierPercent", () => {
       expect(tier.refundPercent).toBeGreaterThanOrEqual(0);
       expect(tier.refundPercent).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+describe("formatCancellationPolicySummary", () => {
+  it("describes the platform default in plain English", () => {
+    expect(formatCancellationPolicySummary(null)).toBe(
+      "Full refund 14+ days before departure, 50% refund 3-13 days before, no refund within 3 days"
+    );
+  });
+
+  it("falls back to the platform default for a floorless operator policy, same as resolveRefundTierPercent", () => {
+    expect(formatCancellationPolicySummary([{ minDaysBeforeDeparture: 30, refundPercent: 100 }])).toBe(
+      formatCancellationPolicySummary(null)
+    );
+  });
+
+  it("describes a real operator's own tiers, not the default", () => {
+    expect(
+      formatCancellationPolicySummary([
+        { minDaysBeforeDeparture: 7, refundPercent: 100 },
+        { minDaysBeforeDeparture: 0, refundPercent: 50 }
+      ])
+    ).toBe("Full refund 7+ days before departure, 50% refund within 7 days");
+  });
+
+  it("handles a single-tier policy without a range to describe", () => {
+    expect(formatCancellationPolicySummary([{ minDaysBeforeDeparture: 0, refundPercent: 0 }])).toBe(
+      "no refund 0+ days before departure"
+    );
   });
 });

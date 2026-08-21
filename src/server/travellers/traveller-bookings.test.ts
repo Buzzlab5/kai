@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { listBookingsForTravellerAccount } from "./traveller-bookings";
+import { getTravellerConservationTotal, listBookingsForTravellerAccount } from "./traveller-bookings";
 
 async function createTestTenant(label: string) {
   return prisma.tenant.create({
@@ -143,5 +143,112 @@ describe("listBookingsForTravellerAccount", () => {
     const resultB = await listBookingsForTravellerAccount(accountB);
 
     expect(resultB).toEqual({ auBookings: [], indonesiaInquiries: [] });
+  });
+});
+
+describe("getTravellerConservationTotal", () => {
+  it("returns nothing for an account with no linked conversations", async () => {
+    expect(await getTravellerConservationTotal(`unlinked-${randomUUID()}`)).toEqual([]);
+  });
+
+  it("sums FINALIZED CONSERVATION_ALLOCATION across both regions, by currency", async () => {
+    const tenant = await createTestTenant("conservation");
+    const travellerAccountId = `account-${randomUUID()}`;
+    const auConversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: travellerAccountId }
+    });
+    const attempt = await prisma.pmsBookingPaymentAttempt.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: auConversation.id,
+        pmsProvider: "REZDY",
+        productExternalId: "prod-conservation",
+        productTitle: "Reef Trip",
+        dateText: "2026-09-01",
+        guests: 2,
+        travellerName: "Test Traveller",
+        travellerEmail: "traveller@example.test",
+        grossAmountCents: 15900,
+        currency: "AUD",
+        externalBookingId: `ext-${randomUUID()}`,
+        stripeCheckoutSessionId: `cs_${randomUUID()}`
+      }
+    });
+    await prisma.pmsBookingLedgerEntry.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: auConversation.id,
+        pmsBookingPaymentAttemptId: attempt.id,
+        kind: "CONSERVATION_ALLOCATION",
+        amountCents: 795,
+        currency: "AUD",
+        status: "FINALIZED",
+        finalizedAt: new Date()
+      }
+    });
+    // A PENDING row must never count - this traveller hasn't actually funded it yet.
+    await prisma.pmsBookingLedgerEntry.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: auConversation.id,
+        pmsBookingPaymentAttemptId: attempt.id,
+        kind: "CONSERVATION_ALLOCATION",
+        amountCents: 999_999,
+        currency: "AUD",
+        status: "PENDING"
+      }
+    });
+
+    const idConversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: travellerAccountId }
+    });
+    const inquiry = await prisma.bluePassInquiry.create({
+      data: { tenantId: tenant.id, conversationId: idConversation.id, travellerMessage: "Komodo trip" }
+    });
+    await prisma.bluePassLedgerEntry.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: idConversation.id,
+        bluePassInquiryId: inquiry.id,
+        kind: "CONSERVATION_ALLOCATION",
+        amountCents: 250,
+        currency: "USD",
+        status: "FINALIZED",
+        finalizedAt: new Date()
+      }
+    });
+
+    const totals = await getTravellerConservationTotal(travellerAccountId);
+
+    expect(totals).toEqual([
+      { currency: "AUD", amountCents: 795 },
+      { currency: "USD", amountCents: 250 }
+    ]);
+  }, 30_000);
+
+  it("never counts another traveller's contribution", async () => {
+    const tenant = await createTestTenant("conservation-isolation");
+    const accountA = `account-${randomUUID()}`;
+    const accountB = `account-${randomUUID()}`;
+    const conversationA = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: accountA }
+    });
+    const inquiryA = await prisma.bluePassInquiry.create({
+      data: { tenantId: tenant.id, conversationId: conversationA.id, travellerMessage: "Only mine" }
+    });
+    await prisma.bluePassLedgerEntry.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversationA.id,
+        bluePassInquiryId: inquiryA.id,
+        kind: "CONSERVATION_ALLOCATION",
+        amountCents: 500,
+        currency: "USD",
+        status: "FINALIZED",
+        finalizedAt: new Date()
+      }
+    });
+
+    expect(await getTravellerConservationTotal(accountB)).toEqual([]);
   });
 });

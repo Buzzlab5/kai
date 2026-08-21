@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
-import { listBookingsForTravellerAccount } from "@/server/travellers/traveller-bookings";
+import { getTravellerConservationTotal, listBookingsForTravellerAccount } from "@/server/travellers/traveller-bookings";
 
 vi.mock("@/server/travellers/traveller-bookings", () => ({
-  listBookingsForTravellerAccount: vi.fn()
+  listBookingsForTravellerAccount: vi.fn(),
+  getTravellerConservationTotal: vi.fn()
 }));
 
 const listBookingsForTravellerAccountMock = vi.mocked(listBookingsForTravellerAccount);
+const getTravellerConservationTotalMock = vi.mocked(getTravellerConservationTotal);
 
 describe("GET /api/admin/traveller-bookings", () => {
   afterEach(() => {
@@ -28,6 +30,7 @@ describe("GET /api/admin/traveller-bookings", () => {
   it("accepts the admin token via cookie instead of a bearer header", async () => {
     process.env.KAI_ADMIN_TOKEN = "admin_secret";
     listBookingsForTravellerAccountMock.mockResolvedValueOnce({ auBookings: [], indonesiaInquiries: [] });
+    getTravellerConservationTotalMock.mockResolvedValueOnce([]);
 
     const response = await GET(
       new Request("http://localhost/api/admin/traveller-bookings?travellerAccountId=acct_1", {
@@ -54,6 +57,7 @@ describe("GET /api/admin/traveller-bookings", () => {
   it("returns the bookings for the requested account", async () => {
     process.env.KAI_ADMIN_TOKEN = "admin_secret";
     listBookingsForTravellerAccountMock.mockResolvedValueOnce({ auBookings: [], indonesiaInquiries: [] });
+    getTravellerConservationTotalMock.mockResolvedValueOnce([]);
 
     const response = await GET(
       new Request("http://localhost/api/admin/traveller-bookings?travellerAccountId=acct_1", {
@@ -63,6 +67,22 @@ describe("GET /api/admin/traveller-bookings", () => {
 
     expect(response.status).toBe(200);
     expect(listBookingsForTravellerAccountMock).toHaveBeenCalledWith("acct_1");
-    expect(await response.json()).toEqual({ auBookings: [], indonesiaInquiries: [] });
+    expect(getTravellerConservationTotalMock).toHaveBeenCalledWith("acct_1");
+    expect(await response.json()).toEqual({ auBookings: [], indonesiaInquiries: [], conservationByCurrency: [] });
+  });
+
+  it("includes the conservation total alongside the bookings", async () => {
+    process.env.KAI_ADMIN_TOKEN = "admin_secret";
+    listBookingsForTravellerAccountMock.mockResolvedValueOnce({ auBookings: [], indonesiaInquiries: [] });
+    getTravellerConservationTotalMock.mockResolvedValueOnce([{ currency: "AUD", amountCents: 795 }]);
+
+    const response = await GET(
+      new Request("http://localhost/api/admin/traveller-bookings?travellerAccountId=acct_1", {
+        headers: { authorization: "Bearer admin_secret" }
+      })
+    );
+
+    const body = await response.json();
+    expect(body.conservationByCurrency).toEqual([{ currency: "AUD", amountCents: 795 }]);
   });
 });

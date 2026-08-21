@@ -19,7 +19,11 @@ describe("searchBluePassYachts", () => {
         bookingConfirmationSource: "operator_admin"
       }
     });
-    expect(results[0].score).toBeGreaterThan(results.at(-1)?.score ?? 0);
+    // Not a strict first > last: several Komodo yachts (alila-purnama, calico-jack, anne-bonny,
+    // celestia, dunia-baru, jakare, katharina, mutiara-laut) all fit >=8 guests and match "dive",
+    // so they legitimately tie on score - catalogIndex is what makes the order deterministic, not
+    // the score itself. What actually matters is that scores never increase down the ranked list.
+    expect(results.every((result, i) => i === 0 || result.score <= results[i - 1].score)).toBe(true);
   });
 
   // kai-conservation-flow-notes.md item 10: budget was parsed but never applied - a traveller who

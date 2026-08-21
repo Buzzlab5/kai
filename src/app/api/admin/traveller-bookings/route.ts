@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listBookingsForTravellerAccount } from "@/server/travellers/traveller-bookings";
+import { getTravellerConservationTotal, listBookingsForTravellerAccount } from "@/server/travellers/traveller-bookings";
 
 export const runtime = "nodejs";
 
@@ -32,8 +32,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const bookings = await listBookingsForTravellerAccount(travellerAccountId);
-  return NextResponse.json(bookings);
+  const [bookings, conservationByCurrency] = await Promise.all([
+    listBookingsForTravellerAccount(travellerAccountId),
+    getTravellerConservationTotal(travellerAccountId)
+  ]);
+
+  return NextResponse.json({ ...bookings, conservationByCurrency });
 }
 
 function readCookie(cookieHeader: string | null, name: string) {

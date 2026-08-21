@@ -3,12 +3,13 @@ import type { CancelledBy, CancellationPolicyTier, RefundTierDecision } from "./
 const MS_PER_DAY = 86_400_000;
 
 /**
- * Platform-default cancellation policy, used only when an operator hasn't set their own
- * (OperatorProfile.cancellationPolicyTiers is null - no onboarding UI collects this yet). This is a
- * clearly-labeled placeholder, not any real operator's actual terms - same honesty bar already used
- * for the Discover impactSplit placeholder. A reasonable, defensible shape in the spirit of
- * PAYMENT_ARCHITECTURE.md's own comparables (Master Liveaboards, PADI, Liveaboard.com), pending
- * Tony/BD confirming a real default.
+ * Platform-default cancellation policy, used only when an operator hasn't set their own via
+ * bluepass-redesign's operator dashboard (components/operator/OperatorCancellationPolicy.tsx -
+ * OperatorProfile.cancellationPolicyTiers stays null until they save one). This is a clearly-labeled
+ * placeholder, not any real operator's actual terms - same honesty bar already used for the Discover
+ * impactSplit placeholder. A reasonable, defensible shape in the spirit of PAYMENT_ARCHITECTURE.md's
+ * own comparables (Master Liveaboards, PADI, Liveaboard.com), pending Tony/BD confirming a real
+ * default.
  */
 export const DEFAULT_CANCELLATION_POLICY_TIERS: CancellationPolicyTier[] = [
   { minDaysBeforeDeparture: 14, refundPercent: 100 },
@@ -70,4 +71,39 @@ export function resolveRefundTierPercent(input: {
   const refundPercent = matchedTier?.refundPercent ?? tiers[tiers.length - 1]?.refundPercent ?? 0;
 
   return { resolved: true, refundPercent, daysBeforeDeparture };
+}
+
+/**
+ * The tiers, in plain English, for disclosure to a traveller before they pay - the same
+ * normalization `resolveRefundTierPercent` applies (so a malformed or floorless operator policy
+ * reads as the platform default here too, never as broken or missing text). Built generally rather
+ * than hardcoded to the 3-tier default shape, since an operator can save any number of tiers.
+ */
+export function formatCancellationPolicySummary(policy: CancellationPolicyTier[] | null): string {
+  const tiers = [...normalizePolicy(policy)].sort(
+    (a, b) => b.minDaysBeforeDeparture - a.minDaysBeforeDeparture
+  );
+
+  return tiers
+    .map((tier, i) => {
+      const refundLabel =
+        tier.refundPercent === 100
+          ? "Full refund"
+          : tier.refundPercent === 0
+            ? "no refund"
+            : `${tier.refundPercent}% refund`;
+
+      if (i === 0) {
+        return `${refundLabel} ${tier.minDaysBeforeDeparture}+ days before departure`;
+      }
+
+      const prevThreshold = tiers[i - 1].minDaysBeforeDeparture;
+      const windowLabel =
+        tier.minDaysBeforeDeparture === 0
+          ? `within ${prevThreshold} day${prevThreshold === 1 ? "" : "s"}`
+          : `${tier.minDaysBeforeDeparture}-${prevThreshold - 1} days before`;
+
+      return `${refundLabel} ${windowLabel}`;
+    })
+    .join(", ");
 }
