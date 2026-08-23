@@ -762,20 +762,35 @@ function ticketParticipantCount(quantities: PmsTicketQuantity[]) {
   }, 0);
 }
 
+// Reported live (2026-08-23): a traveller asked "what date available for riverfire 2026?" and then
+// "what date that you have?" instead of naming one - composeMissingDetailsReply below is built
+// purely from slot state (product/guests), never from the message itself, so both turns got the
+// exact same "What date works for you?" prompt back verbatim. That reads as a stuck loop even
+// though guests had genuinely been captured in between. Kai has no calendar-listing PMS call
+// (getAvailability only ever checks one specific date at a time), so it can't actually answer "what
+// dates are available" - this pattern catches that shape of question so the reply can say so
+// honestly instead of repeating the same prompt as if the question had never been asked.
+const OPEN_DATE_QUESTION_PATTERN = /\b(what date|which date|what day|which day|when are you|when can|when do you|any dates?)\b/i;
+
 function composeMissingDetailsReply(input: {
   missingSlots: ("product" | "date" | "guests")[];
   productTitle: string | null;
   dateText: string | null;
   guests: number | null;
+  message?: string | null;
 }) {
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "guests" && input.productTitle && input.dateText) {
     return `I have ${input.productTitle} for ${input.dateText}. How many guests will be joining?`;
   }
 
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "date" && input.productTitle && input.guests) {
-    return `I have ${input.productTitle} for ${input.guests} guest${
-      input.guests === 1 ? "" : "s"
-    }. What date works for you?`;
+    const guestPhrase = `${input.guests} guest${input.guests === 1 ? "" : "s"}`;
+
+    if (input.message && OPEN_DATE_QUESTION_PATTERN.test(input.message)) {
+      return `I don't have a calendar to browse yet - I can only check one date at a time. I have ${input.productTitle} for ${guestPhrase}. Do you have a date in mind? I'll check it right away.`;
+    }
+
+    return `I have ${input.productTitle} for ${guestPhrase}. What date works for you?`;
   }
 
   return `I can help with that. Please share the ${input.missingSlots.join(", ")} and I'll check availability.`;
@@ -2065,7 +2080,8 @@ export async function handleTravellerBookingMessage(
         missingSlots,
         productTitle: effectiveSlots.productHint,
         dateText: effectiveSlots.dateText,
-        guests: effectiveSlots.guests
+        guests: effectiveSlots.guests,
+        message: input.message
       }),
       replySource: "DETERMINISTIC"
     };

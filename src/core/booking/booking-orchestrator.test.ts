@@ -2048,6 +2048,53 @@ describe("booking orchestrator", () => {
     });
   });
 
+  // Reported live on boattimeyachtcharters.com (2026-08-23): a traveller asked "what date that you
+  // have?" instead of naming one, twice in a row, and got the identical generic prompt back
+  // verbatim both times - reading as a stuck loop even though guests (2) had genuinely been
+  // captured in between.
+  it("answers an open date question honestly instead of repeating the same prompt verbatim", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "what date that you have?",
+      priorTravellerMessages: ["i think i want that komodo day trip", "what date available for it? for 2 people"],
+      bookingMemory: {
+        productExternalId: "mock-komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: null,
+        guests: 2
+      },
+      bookingWriteEnabled: true,
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result).toEqual({
+      action: "NEEDS_MORE_DETAILS",
+      reply:
+        "I don't have a calendar to browse yet - I can only check one date at a time. I have Komodo Day Trip for 2 guests. Do you have a date in mind? I'll check it right away.",
+      replySource: "DETERMINISTIC"
+    });
+  });
+
+  it("still asks for a date plainly when the traveller simply hasn't given one yet", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "can you check availability?",
+      priorTravellerMessages: ["i think i want that komodo day trip", "2 guests please"],
+      bookingMemory: {
+        productExternalId: "mock-komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: null,
+        guests: 2
+      },
+      bookingWriteEnabled: true,
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result).toEqual({
+      action: "NEEDS_MORE_DETAILS",
+      reply: "I have Komodo Day Trip for 2 guests. What date works for you?",
+      replySource: "DETERMINISTIC"
+    });
+  });
+
   it("checks availability when guests arrive after an availability request during an incomplete capture", async () => {
     const result = await handleTravellerBookingMessage({
       message: "for 2 guests",
