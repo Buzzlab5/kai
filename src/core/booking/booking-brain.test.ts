@@ -61,6 +61,22 @@ describe("booking brain", () => {
     expect(result.missingSlots).toEqual([]);
   });
 
+  // Reproduced live on boattimeyachtcharters.com (2026-08-23): these three natural first-message
+  // phrasings all got stuck re-asking "please share the product, date, guests" forever, because
+  // "available" tripped the CHECK_AVAILABILITY catch before the broader "what do you have" check
+  // ever ran, and "what do you offer" / "show me everything" weren't in that check's phrase list at
+  // all. A traveller who doesn't already know a product name had no way to ever see the catalog.
+  it.each([
+    "What experiences do you have available?",
+    "I don't know the product name, what do you offer?",
+    "Show me everything you offer, list all of them please"
+  ])("treats %s as a product recommendation request, not a stuck availability check", (message) => {
+    const result = analyzeTravellerBookingMessage(message);
+
+    expect(result.intent).toBe("PRODUCT_RECOMMENDATION");
+    expect(result.missingSlots).toEqual([]);
+  });
+
   it("detects product detail requests as product recommendations with a product hint", () => {
     const result = analyzeTravellerBookingMessage("I would like to know about Gold Coast Whale Escape");
 

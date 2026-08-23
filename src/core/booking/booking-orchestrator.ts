@@ -422,8 +422,13 @@ function formatTicketOptionsList(options: PmsTicketOption[], currency: string) {
   );
 }
 
+// "x" between quantity and label, not just a space: a ticket type named "2 people" (a package
+// size, not a per-unit count) plus a quantity of 2 read as "2 2 people" - reported live on
+// boattimeyachtcharters.com (2026-08-23). Matches the "1 x 2 people" phrasing the ticket-option
+// prompt itself already suggests (see the "Which ticket option" reply above), so the confirmation
+// echo now reads the same way the traveller was told to answer.
 function formatTicketQuantities(quantities: PmsTicketQuantity[]) {
-  return formatList(quantities.map((ticket) => `${ticket.quantity} ${formatTicketLabelForReply(ticket.optionLabel)}`));
+  return formatList(quantities.map((ticket) => `${ticket.quantity} x ${formatTicketLabelForReply(ticket.optionLabel)}`));
 }
 
 function formatExtraOptionsList(options: PmsExtraOption[], currency: string) {
@@ -438,7 +443,7 @@ function formatExtraOptionsList(options: PmsExtraOption[], currency: string) {
 function formatExtraQuantities(quantities: PmsExtraQuantity[]) {
   if (quantities.length === 0) return "no extras";
 
-  return formatList(quantities.map((extra) => `${extra.quantity} ${formatTicketLabelForReply(extra.optionLabel)}`));
+  return formatList(quantities.map((extra) => `${extra.quantity} x ${formatTicketLabelForReply(extra.optionLabel)}`));
 }
 
 function formatTimeOptionsList(options: PmsTimeOption[]) {

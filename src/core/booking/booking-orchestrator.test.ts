@@ -1074,7 +1074,7 @@ describe("booking orchestrator", () => {
         ticketQuantities: [{ optionLabel: '"2 people for $149.00', quantity: 1 }]
       }
     });
-    expect(result.reply).toContain("with 1 2 people for $149.00");
+    expect(result.reply).toContain("with 1 x 2 people for $149.00");
   });
 
   // Regression: confirmed live that a bare "2" (no "option"/"choice" prefix) matched nothing here,
@@ -1168,7 +1168,7 @@ describe("booking orchestrator", () => {
         ]
       }
     });
-    expect(result.reply).toContain("with 1 2 people for $149.00 and 1 Adult (Winter Special)");
+    expect(result.reply).toContain("with 1 x 2 people for $149.00 and 1 x Adult (Winter Special)");
   });
 
   it("lets the traveller correct the selected time while choosing a ticket option", async () => {
@@ -1263,7 +1263,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
       reply:
-        "Got it. I have Gold Coast Whale Escape tomorrow for 3 guests with 2 Adult (Winter Special) and 1 Child (3-13). Please share your name, email, and phone number so I can prepare the secure payment step.",
+        "Got it. I have Gold Coast Whale Escape tomorrow for 3 guests with 2 x Adult (Winter Special) and 1 x Child (3-13). Please share your name, email, and phone number so I can prepare the secure payment step.",
       replySource: "DETERMINISTIC",
       inquiryDraft: null,
       bookingStatePatch: {
@@ -1340,7 +1340,7 @@ describe("booking orchestrator", () => {
         ticketQuantities: [{ optionLabel: "2 people for $149.00", quantity: 1 }]
       }
     });
-    expect(result.reply).toContain("1 2 people for $149.00");
+    expect(result.reply).toContain("1 x 2 people for $149.00");
   });
 
   it("understands a bundled ticket option selected by label and price", async () => {
@@ -1384,7 +1384,7 @@ describe("booking orchestrator", () => {
         ticketQuantities: [{ optionLabel: '"2 people for $149.00', quantity: 1 }]
       }
     });
-    expect(result.reply).toContain("with 1 2 people for $149.00");
+    expect(result.reply).toContain("with 1 x 2 people for $149.00");
   });
 
   it("moves to secure payment when contact details arrive after a ticket option was selected", async () => {
@@ -1436,7 +1436,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 for 2 guests with 1 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.\n\n" +
+        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 for 2 guests with 1 x 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.\n\n" +
         "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
@@ -1458,7 +1458,7 @@ describe("booking orchestrator", () => {
         travellerPhone: "086554789650",
         bookingStatus: "PAYMENT_PENDING",
         confirmationSummary:
-          "Gold Coast Whale Escape on 2026-06-27 for 2 guests with 1 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.",
+          "Gold Coast Whale Escape on 2026-06-27 for 2 guests with 1 x 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.",
         externalBookingId: null,
         externalProvider: null,
         bookingError: "Awaiting secure payment before creating the external booking.",
@@ -2409,7 +2409,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 at 12:00 PM for 2 guests with 1 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.\n\n" +
+        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 at 12:00 PM for 2 guests with 1 x 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.\n\n" +
         "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
@@ -2431,7 +2431,7 @@ describe("booking orchestrator", () => {
         travellerPhone: "086554329189",
         bookingStatus: "PAYMENT_PENDING",
         confirmationSummary:
-          "Gold Coast Whale Escape on 2026-06-27 12:00:00 for 2 guests with 1 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.",
+          "Gold Coast Whale Escape on 2026-06-27 12:00:00 for 2 guests with 1 x 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.",
         externalBookingId: null,
         externalProvider: null,
         bookingError: "Awaiting secure payment before creating the external booking.",
@@ -2673,7 +2673,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_EXTRAS_SELECTION_REQUIRED",
       reply:
-        "Got it: Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 2 people for $149.00.\n\n" +
+        "Got it: Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 x 2 people for $149.00.\n\n" +
         "Optional extras:\n" +
         "1. Corona Bucket - A$30\n" +
         "2. Sparkling for 2 - A$40\n" +
@@ -2848,7 +2848,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 2 people for $149.00 under Test, test@gmail.com, 086775428176.\n\n" +
+        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 x 2 people for $149.00 under Test, test@gmail.com, 086775428176.\n\n" +
         "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
@@ -2870,7 +2870,7 @@ describe("booking orchestrator", () => {
         travellerPhone: "086775428176",
         bookingStatus: "PAYMENT_PENDING",
         confirmationSummary:
-          "Gold Coast Whale Escape on 2026-06-26 13:30:00 for 2 guests with 1 2 people for $149.00 under Test, test@gmail.com, 086775428176.",
+          "Gold Coast Whale Escape on 2026-06-26 13:30:00 for 2 guests with 1 x 2 people for $149.00 under Test, test@gmail.com, 086775428176.",
         externalBookingId: null,
         externalProvider: null,
         bookingError: "Awaiting secure payment before creating the external booking.",

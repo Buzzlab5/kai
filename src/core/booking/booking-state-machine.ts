@@ -39,7 +39,7 @@ function buildConfirmationSummary(details: BookingCaptureDetails) {
     Array.isArray((details as BookingFlowState).ticketQuantities) &&
     (details as BookingFlowState).ticketQuantities!.length > 0
       ? ` with ${(details as BookingFlowState).ticketQuantities!
-          .map((ticket) => `${ticket.quantity} ${formatTicketLabelForSummary(ticket.optionLabel)}`)
+          .map((ticket) => `${ticket.quantity} x ${formatTicketLabelForSummary(ticket.optionLabel)}`)
           .join(", ")}`
       : "";
 

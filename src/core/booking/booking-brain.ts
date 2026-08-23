@@ -24,6 +24,15 @@ export interface BookingBrainResult {
   missingSlots: BookingBrainMissingSlot[];
 }
 
+// Hand-authored and tenant-agnostic, not read from any tenant's real publicProductCatalog - a
+// deliberate gap for the fast, LLM-free regex path only. When a title here is stale (renamed) or
+// missing, the message still resolves correctly via the LLM router (shouldEscalateGenericBookingRouterToLlm
+// always escalates when findProductHint comes back empty) - confirmed live for Riverfire 2026 on
+// boattimeyachtcharters.com (2026-08-23) - but that costs an LLM call the regex path exists to
+// avoid, and depends on a router client being configured at all. Kept in sync by hand with
+// Boattime's catalog (2026-08-23): the two renamed entries ("Broadwater Twilight Dining", "Coastal
+// Lunch Escape" -> "Gold Coast: Chef's Table Dinner" / "Gold Coast: Chef's Table") are kept
+// alongside their new names so a returning traveller typing the old name is still recognized.
 const PRODUCT_HINTS = [
   "Komodo Day Trip",
   "Private Charter",
@@ -32,7 +41,14 @@ const PRODUCT_HINTS = [
   "Twilight Drift",
   "Broadwater Twilight Dining",
   "Coastal Lunch Escape",
-  "Private Yacht Charter"
+  "Private Yacht Charter",
+  "Gold Coast: Chef's Table Dinner – Flavours of Australia",
+  "Gold Coast: Chef's Table – Flavours of Australia",
+  "Riverfire 2026",
+  "New Year's Eve 2026",
+  "Valentine's evening",
+  "Corporate Charter",
+  "Wedding Yacht Charter"
 ];
 const MONTHS: Record<string, string> = {
   jan: "01",
@@ -200,6 +216,27 @@ function classifyIntent(message: string, now: Date = new Date()): BookingBrainIn
     return "HUMAN_HANDOFF";
   }
 
+  // Checked before the generic availability-keyword catch below, on purpose. "What experiences do
+  // you have available?" contains "available", but a traveller who doesn't know a product name yet
+  // is asking to browse, not asking Kai to check a specific date - and CHECK_AVAILABILITY only ever
+  // resolves by demanding a product/date/guests it can't supply. Reproduced live (2026-08-23): every
+  // natural "what do you have" / "what do you offer" / "show me everything" phrasing landed here as
+  // CHECK_AVAILABILITY (or, for phrasing outside the old trigger list, fell through to
+  // GENERAL_QUESTION) and got stuck re-asking for a product name in a loop with no way out.
+  if (
+    /\b(recommend|recommendation|suggest|suggestion|options?|what should i do)\b/.test(lowerMessage) ||
+    /\bwhat\b[\w\s]{0,20}\b(do you have|do you offer|have you got)\b/.test(lowerMessage) ||
+    /\b(what'?s on offer|show me options|show me experiences|show me everything|everything you have|everything you offer|what can i do|what are my options)\b/.test(
+      lowerMessage
+    ) ||
+    /\b(know about|learn about|tell me about|more about|info (about|on)|details? (about|on)|curious about|interested in|looking at)\b/.test(
+      lowerMessage
+    ) ||
+    (Boolean(productHint) && /\b(see|view|look at|show me|let me see|open|page)\b/.test(lowerMessage))
+  ) {
+    return "PRODUCT_RECOMMENDATION";
+  }
+
   if (/\b(available|availability|check|slot|spots?)\b/.test(lowerMessage)) {
     return "CHECK_AVAILABILITY";
   }
@@ -225,19 +262,6 @@ function classifyIntent(message: string, now: Date = new Date()): BookingBrainIn
     )
   ) {
     return "BOOKING_INQUIRY";
-  }
-
-  if (
-    /\b(recommend|recommendation|suggest|suggestion|options?|what should i do)\b/.test(lowerMessage) ||
-    /\b(what do you have|what have you got|show me options|show me experiences|what can i do|what are my options)\b/.test(
-      lowerMessage
-    ) ||
-    /\b(know about|learn about|tell me about|more about|info (about|on)|details? (about|on)|curious about|interested in|looking at)\b/.test(
-      lowerMessage
-    ) ||
-    (Boolean(productHint) && /\b(see|view|look at|show me|let me see|open|page)\b/.test(lowerMessage))
-  ) {
-    return "PRODUCT_RECOMMENDATION";
   }
 
   if (/\b(book|booking|reserve|reservation|trips?|tours?|charters?|boats?)\b/.test(lowerMessage)) {
@@ -306,7 +330,7 @@ export function composeBookingBrainReply(analysis: BookingBrainResult) {
   }
 
   if (analysis.intent === "GENERAL_QUESTION") {
-    return "I can help with this tenant's experiences, availability checks, booking inquiries, or handoff to the team.";
+    return "I can help with availability, booking, or handing you off to the team.";
   }
 
   if (analysis.missingSlots.length > 0) {
@@ -321,5 +345,5 @@ export function composeBookingBrainReply(analysis: BookingBrainResult) {
 
   return `I can check ${analysis.slots.productHint} for ${analysis.slots.guests} guest${
     analysis.slots.guests === 1 ? "" : "s"
-  } on ${analysis.slots.dateText}. Next I will use the tenant PMS adapter before confirming anything.`;
+  } on ${analysis.slots.dateText}. Let me check availability before confirming anything.`;
 }
