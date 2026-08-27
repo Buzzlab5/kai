@@ -85,7 +85,7 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
     vi.restoreAllMocks();
   });
 
-  it("confirms the PMS hold and posts the real 18% (5/5/3/5) ledger split on success", async () => {
+  it("confirms the PMS hold and posts the real 20% (5/0/3/12) ledger split on success", async () => {
     const tenant = await createTestTenant("success");
     const sessionId = `cs_${randomUUID()}`;
     const paymentIntentId = `pi_${randomUUID()}`;
@@ -118,7 +118,7 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
     expect(conservation?.amountCents).toBe(500);
     expect(conservation?.status).toBe("FINALIZED");
     const operatorNet = ledgerEntries.find((entry) => entry.kind === "OPERATOR_PAYOUT_PLACEHOLDER");
-    expect(operatorNet?.amountCents).toBe(8200);
+    expect(operatorNet?.amountCents).toBe(8000);
 
     const messages = await prisma.message.findMany({ where: { conversationId: attempt.conversationId } });
     expect(messages.some((message) => message.content.includes("Payment received"))).toBe(true);
@@ -160,12 +160,12 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
       referralRole: "CREATOR"
     });
 
-    // Operator net stays the frozen 82% regardless of the referral - the referral commission comes
-    // out of BluePass's own platform-fee bucket, never the operator's share.
+    // Operator net stays 80% regardless of the referral - the referral commission comes out of
+    // BluePass's own platform-fee bucket, never the operator's share.
     const operatorNet = ledgerEntries.find((entry) => entry.kind === "OPERATOR_PAYOUT_PLACEHOLDER");
-    expect(operatorNet?.amountCents).toBe(8200);
+    expect(operatorNet?.amountCents).toBe(8000);
     const platformFee = ledgerEntries.find((entry) => entry.kind === "BLUEPASS_PLATFORM_COMMISSION");
-    expect(platformFee?.amountCents).toBe(500);
+    expect(platformFee?.amountCents).toBe(700);
 
     for (const entry of ledgerEntries) {
       if (entry.kind === "CREATOR_COMMISSION_ESTIMATE") continue;

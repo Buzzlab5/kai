@@ -508,6 +508,46 @@ export async function listManualInquiriesForTenantSlug(input: {
 }
 
 
+/**
+ * An operator's own manual-inquiry history, keyed by the Rezdy product ids their bluepass-redesign
+ * listings carry (`OperatorListing.externalProductId`) - not by tenantId directly, since every
+ * Rezdy-Agent-synced operator's inquiries land under the one shared canonical "bluepass" tenant (see
+ * bluepass-redesign's `INDONESIA_TENANT_SLUG`/`operatorBookingSource` for the other half of this).
+ * Filtering by product id is what turns that one shared bucket back into "this operator's rows".
+ *
+ * Empty `productExternalIds` returns no rows rather than every inquiry on the tenant - an operator
+ * with no linked product id yet must never see every other operator's traveller contact details.
+ */
+export async function listManualInquiriesForTenantSlugAndProductExternalIds(input: {
+  tenantSlug: string;
+  productExternalIds: string[];
+}) {
+  if (input.productExternalIds.length === 0) {
+    return [];
+  }
+
+  return prisma.manualInquiry.findMany({
+    where: {
+      tenant: { slug: input.tenantSlug },
+      productExternalId: { in: input.productExternalIds }
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      productExternalId: true,
+      productTitle: true,
+      dateText: true,
+      guests: true,
+      travellerName: true,
+      travellerEmail: true,
+      travellerPhone: true,
+      travellerMessage: true,
+      createdAt: true
+    }
+  });
+}
+
 export async function updateManualInquiryStatusForTenantSlug(input: {
   tenantSlug: string;
   inquiryId: string;

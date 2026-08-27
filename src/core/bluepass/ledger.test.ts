@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { calculateBluePassLedgerEstimate, calculateConservationContributionCents } from "./ledger";
 
+// One flat 20%/80% split for every market as of 2026-08-24 (see BluePassLedgerSplitInput.market's
+// comment for the full history: AU moved first on 2026-08-05, Indonesia was corrected on 2026-08-24,
+// and an earlier belief that Boattime had to stay frozen on an old 18%/82% figure turned out to have
+// no real source and was folded into the same rate the same day). `market` is still accepted on the
+// input but no longer changes the numbers - these tests assert that explicitly.
 describe("calculateBluePassLedgerEstimate", () => {
-  it("splits a referred booking into the real 18% (5/5/3/5) breakdown, operator keeps 82%", () => {
+  it("splits a referred booking into the real 20% (5/5/3/7) breakdown, operator keeps 80%", () => {
     const entries = calculateBluePassLedgerEstimate({
       inquiryId: "inquiry_1",
       budget: "USD 10000",
@@ -14,8 +19,8 @@ describe("calculateBluePassLedgerEstimate", () => {
     expect(entries).toEqual([
       expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
       expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
-      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 50000 }),
-      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 }),
+      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 70000 }),
+      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 }),
       expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
     ]);
     // All rows sum to exactly the budget - no rounding leakage between buckets.
@@ -29,12 +34,12 @@ describe("calculateBluePassLedgerEstimate", () => {
     });
 
     // No CREATOR_COMMISSION_ESTIMATE row at all when unreferred - the platform-fee bucket absorbs
-    // the unused partner slice (10% instead of 5%) so operator net still lands on 82%.
+    // the unused partner slice (12% instead of 7%) so operator net still lands on 80%.
     expect(entries).toEqual([
       expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
       expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
-      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 100000 }),
-      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 })
+      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 120000 }),
+      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 })
     ]);
     expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(1_000_000);
   });
@@ -52,8 +57,8 @@ describe("calculateBluePassLedgerEstimate", () => {
     expect(entries).toEqual([
       expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", currency: "AUD", amountCents: 500000 }),
       expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", currency: "AUD", amountCents: 300000 }),
-      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", currency: "AUD", amountCents: 500000 }),
-      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", currency: "AUD", amountCents: 8200000 }),
+      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", currency: "AUD", amountCents: 700000 }),
+      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", currency: "AUD", amountCents: 8000000 }),
       expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", currency: "AUD", amountCents: 500000 })
     ]);
     expect(entries[0].metadata).toEqual({ budgetAmount: 100000 });
@@ -71,69 +76,19 @@ describe("calculateBluePassLedgerEstimate", () => {
       expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
     );
   });
-});
 
-describe("calculateBluePassLedgerEstimate - AU market (20%/80%)", () => {
-  it("splits a referred AU booking into 20% (5/5/3/7), operator keeps 80%", () => {
-    const entries = calculateBluePassLedgerEstimate({
-      inquiryId: "inquiry_au_1",
-      budget: "AUD 10000",
-      referralPartnerId: "partner_creator_1",
-      referralCode: "CREATOR42",
-      referralRole: "CREATOR",
-      market: "AUSTRALIA"
-    });
+  it("gives the identical split whether market is omitted, AUSTRALIA, or INDONESIA - all 20%/80% now", () => {
+    const base = { inquiryId: "inquiry_market", budget: "USD 10000" } as const;
+    const noMarket = calculateBluePassLedgerEstimate(base);
+    const australia = calculateBluePassLedgerEstimate({ ...base, market: "AUSTRALIA" });
+    const indonesia = calculateBluePassLedgerEstimate({ ...base, market: "INDONESIA" });
 
-    expect(entries).toEqual([
-      expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
-      expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
-      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 70000 }),
-      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 }),
-      expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
-    ]);
-    expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(1_000_000);
-  });
-
-  it("unreferred AU booking: 12% platform fee, operator still keeps 80%", () => {
-    const entries = calculateBluePassLedgerEstimate({
-      inquiryId: "inquiry_au_2",
-      budget: "AUD 10000",
-      market: "AUSTRALIA"
-    });
-
-    expect(entries).toEqual([
-      expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
-      expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
-      expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 120000 }),
-      expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 })
-    ]);
-    expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(1_000_000);
-  });
-
-  it("does not change the default (no market) split - still exactly 18%/82%, e.g. Boattime's own call site", () => {
-    const withoutMarket = calculateBluePassLedgerEstimate({
-      inquiryId: "inquiry_default",
-      budget: "USD 10000",
-      referralPartnerId: "partner_creator_1",
-      referralCode: "CREATOR42",
-      referralRole: "CREATOR"
-    });
-    const explicitIndonesia = calculateBluePassLedgerEstimate({
-      inquiryId: "inquiry_id",
-      budget: "USD 10000",
-      referralPartnerId: "partner_creator_1",
-      referralCode: "CREATOR42",
-      referralRole: "CREATOR",
-      market: "INDONESIA"
-    });
-
-    for (const entries of [withoutMarket, explicitIndonesia]) {
+    for (const entries of [noMarket, australia, indonesia]) {
       expect(entries).toEqual([
         expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
         expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
-        expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 50000 }),
-        expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 }),
-        expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
+        expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 120000 }),
+        expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 })
       ]);
     }
   });

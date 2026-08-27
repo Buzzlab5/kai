@@ -57,8 +57,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.persona).toBe("OPERATOR");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("82%");
-    expect(result.assistantContent).toContain("5% platform");
+    expect(result.assistantContent).toContain("80%");
+    expect(result.assistantContent).toContain("7% platform");
     expect(result.assistantContent).toContain("Claim link");
     expect(result.assistantContent).not.toContain("Please share your name");
     expect(result.assistantContent).not.toContain("guest count");
@@ -67,7 +67,7 @@ describe("handleBluePassMarketplaceMessage", () => {
   it("answers a commission question accurately even when persona locked to traveller from an earlier message", async () => {
     // Regression: "charter" (a travellerSignals word) in the opener locks persona to TRAVELLER for
     // the rest of the conversation (classifyBluePassPersona is sticky/first-signal-wins), so this
-    // never reaches triage.ts's operator/partner commission copy - the real 82/18 breakdown must
+    // never reaches triage.ts's operator/partner commission copy - the real 80/20 breakdown must
     // still be reachable and accurate regardless of which persona got locked in.
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
@@ -78,8 +78,8 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.persona).toBe("TRAVELLER");
     // "Australia" in the opener resolves market to AUSTRALIA, so this should reflect the 20%/80%
-    // split confirmed 2026-08-05 (see ledger.ts's BluePassLedgerMarket), not the Indonesia/default
-    // 18%/82% figures.
+    // split confirmed 2026-08-05 (see ledger.ts's BluePassLedgerMarket) - Indonesia was corrected to
+    // the same 20%/80% split on 2026-08-24, so this no longer distinguishes the two markets either.
     expect(result.assistantContent).toContain("20%");
     expect(result.assistantContent).toContain("80%");
     expect(result.assistantContent).not.toContain("not publicly disclosed");
@@ -97,7 +97,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
 
     expect(routerClient.route).not.toHaveBeenCalled();
-    expect(result.assistantContent).toContain("18%");
+    expect(result.assistantContent).toContain("20%");
   });
 
   it("treats travel inspiration as concierge chat instead of forcing inquiry fields", async () => {
@@ -133,9 +133,9 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.persona).toBe("OPERATOR");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("82%");
+    expect(result.assistantContent).toContain("80%");
     expect(result.assistantContent).toContain("5% conservation");
-    expect(result.assistantContent).toContain("5% platform");
+    expect(result.assistantContent).toContain("7% platform");
     expect(result.assistantContent).not.toContain("partner commission");
     expect(result.assistantContent).not.toContain("Please share your name");
   });
@@ -157,7 +157,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("name");
     expect(result.assistantContent).toContain("email");
     expect(result.assistantContent).not.toContain("operator onboarding");
-    expect(result.assistantContent).not.toContain("82%");
+    expect(result.assistantContent).not.toContain("80%");
   });
 
   it("answers partner commission questions without entering traveller inquiry collection", async () => {
@@ -376,7 +376,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Fresh chat started");
     expect(result.assistantContent).toContain("compare BluePass liveaboards");
     expect(result.assistantContent).not.toContain("operator onboarding");
-    expect(result.assistantContent).not.toContain("82%");
+    expect(result.assistantContent).not.toContain("80%");
   });
 
   it("answers gratitude without repeating the latest inquiry confirmation", async () => {

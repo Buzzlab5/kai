@@ -171,17 +171,17 @@ describe("buildBluePassOperatorReply", () => {
   it("opens with the honest economics pitch", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "I run a dive resort in Raja Ampat", pitched: false });
 
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("80%");
     expect(result.reply).toContain("never marked up");
     expect(result.reply).toContain("5% conservation");
   });
 
-  it("itemises the 18% when asked", () => {
-    const result = buildBluePassOperatorReply({ latestMessage: "How does the 18% break down?", pitched: true });
+  it("itemises the 20% when asked", () => {
+    const result = buildBluePassOperatorReply({ latestMessage: "How does the 20% break down?", pitched: true });
 
     expect(result.reply).toContain("5%");
     expect(result.reply).toContain("3%");
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("80%");
     expect(result.reply).toContain("no listing fees");
   });
 
@@ -209,7 +209,7 @@ describe("buildBluePassOperatorReply", () => {
   it("greets an Indonesian operator in Bahasa with the honest numbers", () => {
     expect(classifyBluePassPersona(["saya punya kapal, ingin daftar"])).toBe("OPERATOR");
     const result = buildBluePassOperatorReply({ latestMessage: "saya punya kapal di Komodo", pitched: false });
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("80%");
     expect(result.reply).toMatch(/menyimpan|perairan|dibatasi/);
   });
 
@@ -240,9 +240,9 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/partner|network|whatsapp/);
   });
 
-  it("tells operators they set their own rate and keep 82%", () => {
+  it("tells operators they set their own rate and keep 80%", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I set my own prices?", pitched: true });
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("80%");
     expect(result.reply.toLowerCase()).toMatch(/your (own )?rate|your price/);
   });
 
@@ -267,7 +267,7 @@ describe("buildBluePassOperatorReply", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "How do payouts work?", pitched: true });
 
     expect(result.reply).toContain("team");
-    expect(result.reply).not.toContain("82%");
+    expect(result.reply).not.toContain("80%");
   });
 
   it("hands safety/medical/legal topics to a human in both playbooks", () => {
@@ -279,7 +279,7 @@ describe("buildBluePassOperatorReply", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "ok", pitched: true });
 
     expect(result.reply).toContain("company name");
-    expect(result.reply).not.toContain("82%");
+    expect(result.reply).not.toContain("80%");
   });
 });
 
@@ -448,7 +448,7 @@ describe("buildBluePassPartnerReply", () => {
 
   it("pins the default openers (unmatched, pitched:false) to the core honest pitch", () => {
     const op = buildBluePassOperatorReply({ latestMessage: "ok sounds good", pitched: false }).reply;
-    expect(op).toContain("82%");
+    expect(op).toContain("80%");
     expect(op.toLowerCase()).toContain("never marked up");
     const pa = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false }).reply;
     expect(pa.toLowerCase()).toContain("operator's own rate");
@@ -593,8 +593,11 @@ describe("buildBluePassPartnerReply", () => {
     expect(bad("a 60-day window, 3 payments")).toEqual([]); // non-% numbers ignored
   });
 
-  it("only ever states the honest percentages {3,5,18,82} - never invents a commission %", () => {
-    const ALLOWED = new Set(["3", "5", "18", "82"]);
+  it("only ever states the honest percentages {3,5,7,20,80} - never invents a commission %", () => {
+    // Corrected 2026-08-24: Indonesia's chat copy moved from 18%/82% (5% platform fee) to the same
+    // 20%/80% (7% platform fee) AU already had, via market.ts's bluePassCommissionSummary - see that
+    // file's comment. 18/82 no longer appear anywhere in this chat-copy layer for either market.
+    const ALLOWED = new Set(["3", "5", "7", "20", "80"]);
     const inputs = [
       "break down the 18%", "what do i get", "how do guests pay", "whats the catch", "do you charge per lead",
       "will i get bookings", "how do commissions work", "just give me a ballpark", "how do i get paid",
@@ -653,7 +656,7 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
-  it("never uses operator-only '82%' framing in a partner reply (partners earn commission, not 82%)", () => {
+  it("never uses operator-only '80%' framing in a partner reply (partners earn commission, not 80%)", () => {
     const partnerInputs = [
       "how does commission work", "just give me a ballpark", "any cost to join", "how do i get paid",
       "which currency", "how do i refer a client", "which regions", "can i co-brand", "how is attribution tracked",
@@ -665,7 +668,7 @@ describe("buildBluePassPartnerReply", () => {
     for (const pitched of [false, true]) {
       for (const m of partnerInputs) {
         const reply = buildBluePassPartnerReply({ latestMessage: m, pitched }).reply;
-        expect(reply.includes("82%"), `partner reply leaked operator 82% framing for "${m}": ${reply}`).toBe(false);
+        expect(reply.includes("80%"), `partner reply leaked operator 80% framing for "${m}": ${reply}`).toBe(false);
       }
     }
   });
@@ -697,17 +700,17 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
-  it("answers an operator 'is it free to list?' branch (free, keep 82%, capped 18% on bookings)", () => {
+  it("answers an operator 'is it free to list?' branch (free, keep 80%, capped 20% on bookings)", () => {
     for (const m of ["is it free to list?", "how much does it cost to list?", "any upfront cost to join?"]) {
       const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
       expect(r.reply.toLowerCase(), `weak answer for "${m}"`).toMatch(/free to list|no sign-up fee/);
-      expect(r.reply).toContain("82%");
+      expect(r.reply).toContain("80%");
     }
   });
 
-  it("answers 'what's the catch / how do you make money' honestly (only capped 18% on bookings)", () => {
+  it("answers 'what's the catch / how do you make money' honestly (only capped 20% on bookings)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what's the catch? how do you make money?", pitched: true });
-    expect(result.reply.toLowerCase()).toMatch(/no catch|18%|earn when you earn/);
+    expect(result.reply.toLowerCase()).toMatch(/no catch|20%|earn when you earn/);
   });
 
   it("routes 'lead fee' phrasing to the no-per-lead answer, not the 18% breakdown", () => {
@@ -725,9 +728,9 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/never charge|no listing fee|when a booking/);
   });
 
-  it("differentiates vs an OTA honestly (not exclusive, operator-direct, keep 82%)", () => {
+  it("differentiates vs an OTA honestly (not exclusive, operator-direct, keep 80%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "I already list on Booking.com, why BluePass?", pitched: true });
-    expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|82%/);
+    expect(result.reply.toLowerCase()).toMatch(/not exclusive|direct|80%/);
   });
 
   it("tells an operator they control availability (calendar, no double-bookings)", () => {
@@ -942,9 +945,9 @@ describe("buildBluePassPartnerReply", () => {
     expect(def.reply).toContain("vetted Australian reef and charter operators");
   });
 
-  it("reassures an operator BluePass is legit (real marketplace, keep 82%)", () => {
+  it("reassures an operator BluePass is legit (real marketplace, keep 80%)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "is this legit or a scam?", pitched: true });
-    expect(result.reply.toLowerCase()).toMatch(/real|vetted|82%/);
+    expect(result.reply.toLowerCase()).toMatch(/real|vetted|80%/);
   });
 
   it("gives an operator the concrete sign-up steps and captures company/port/email", () => {

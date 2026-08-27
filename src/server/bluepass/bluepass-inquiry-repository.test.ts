@@ -1739,8 +1739,10 @@ describe("bluepass inquiry repository", () => {
     expect(finalized.find((entry) => entry.kind === "CONSERVATION_ALLOCATION")?.amountCents).toBe(25000);
     expect(finalized.find((entry) => entry.kind === "CREATOR_COMMISSION_ESTIMATE")?.amountCents).toBe(25000);
     expect(finalized.find((entry) => entry.kind === "PAYMENT_PROCESSING_ALLOCATION")?.amountCents).toBe(15000);
-    expect(finalized.find((entry) => entry.kind === "BLUEPASS_PLATFORM_COMMISSION")?.amountCents).toBe(25000);
-    expect(finalized.find((entry) => entry.kind === "OPERATOR_PAYOUT_PLACEHOLDER")?.amountCents).toBe(410000);
+    // Platform fee is 7% (not 5%) and operator net 80% (not 82%) - this repository's finalize call
+    // now passes market: "INDONESIA" explicitly, which resolves to the 2026-08-24 corrected rate.
+    expect(finalized.find((entry) => entry.kind === "BLUEPASS_PLATFORM_COMMISSION")?.amountCents).toBe(35000);
+    expect(finalized.find((entry) => entry.kind === "OPERATOR_PAYOUT_PLACEHOLDER")?.amountCents).toBe(400000);
   }, 45_000);
 
   it("voids stale PENDING ledger rows when the operator declines the inquiry", async () => {

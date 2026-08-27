@@ -3,8 +3,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   captureConversationReferralAttribution,
+  createManualInquiry,
   createTravellerMessage,
   findOrCreateWhatsAppConversation,
+  listManualInquiriesForTenantSlugAndProductExternalIds,
   setWhatsAppConversationControlMode
 } from "./conversation-repository";
 
@@ -189,5 +191,82 @@ describe("captureConversationReferralAttribution", () => {
 
     const unchanged = await prisma.conversation.findUniqueOrThrow({ where: { id: conversation.id } });
     expect(unchanged.referralPartnerId).toBeNull();
+  });
+});
+
+describe("listManualInquiriesForTenantSlugAndProductExternalIds", () => {
+  it("returns only the inquiries matching the given product ids on the given tenant", async () => {
+    const tenant = await createTestTenant("mi-filter");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281113330001" });
+
+    await createManualInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      state: { productExternalId: "AGT-1", productTitle: "Reef Trip", dateText: "Saturday", guests: 2 },
+      travellerMessage: "I'd like to book the reef trip.",
+      travellerName: "Alex",
+      travellerEmail: "alex@example.test"
+    });
+    await createManualInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      state: { productExternalId: "AGT-2", productTitle: "Sunset Sail", dateText: "Sunday", guests: 4 },
+      travellerMessage: "Any spots for the sunset sail?"
+    });
+
+    const matched = await listManualInquiriesForTenantSlugAndProductExternalIds({
+      tenantSlug: tenant.slug,
+      productExternalIds: ["AGT-1"]
+    });
+
+    expect(matched).toHaveLength(1);
+    expect(matched[0].productExternalId).toBe("AGT-1");
+    expect(matched[0].travellerName).toBe("Alex");
+  });
+
+  it("never leaks another tenant's inquiries for the same product id", async () => {
+    const tenantA = await createTestTenant("mi-tenant-a");
+    const tenantB = await createTestTenant("mi-tenant-b");
+    const conversationA = await findOrCreateWhatsAppConversation({ tenantId: tenantA.id, whatsappPhone: "6281113330002" });
+    const conversationB = await findOrCreateWhatsAppConversation({ tenantId: tenantB.id, whatsappPhone: "6281113330003" });
+
+    await createManualInquiry({
+      tenantId: tenantA.id,
+      conversationId: conversationA.id,
+      state: { productExternalId: "SHARED-CODE", productTitle: "Tenant A Trip", dateText: null, guests: null },
+      travellerMessage: "Tenant A inquiry"
+    });
+    await createManualInquiry({
+      tenantId: tenantB.id,
+      conversationId: conversationB.id,
+      state: { productExternalId: "SHARED-CODE", productTitle: "Tenant B Trip", dateText: null, guests: null },
+      travellerMessage: "Tenant B inquiry"
+    });
+
+    const matched = await listManualInquiriesForTenantSlugAndProductExternalIds({
+      tenantSlug: tenantA.slug,
+      productExternalIds: ["SHARED-CODE"]
+    });
+
+    expect(matched).toHaveLength(1);
+    expect(matched[0].productTitle).toBe("Tenant A Trip");
+  });
+
+  it("returns no rows at all for an empty product id list, rather than every inquiry on the tenant", async () => {
+    const tenant = await createTestTenant("mi-empty-ids");
+    const conversation = await findOrCreateWhatsAppConversation({ tenantId: tenant.id, whatsappPhone: "6281113330004" });
+    await createManualInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      state: { productExternalId: "AGT-3", productTitle: "Whale Watch", dateText: null, guests: null },
+      travellerMessage: "Whale watch inquiry"
+    });
+
+    const matched = await listManualInquiriesForTenantSlugAndProductExternalIds({
+      tenantSlug: tenant.slug,
+      productExternalIds: []
+    });
+
+    expect(matched).toEqual([]);
   });
 });

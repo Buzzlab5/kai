@@ -245,7 +245,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
     expect(sentBody).toContain("operator");
-    expect(sentBody).toContain("82%");
+    expect(sentBody).toContain("80%");
     expect(sentBody).not.toContain("latest BluePass inquiry");
     expect(sentBody).not.toContain("Please share your name");
   }, 20_000);
@@ -290,9 +290,9 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("82%");
+    expect(sentBody).toContain("80%");
     expect(sentBody).toContain("5% conservation");
-    expect(sentBody).toContain("5% platform");
+    expect(sentBody).toContain("7% platform");
     expect(sentBody).not.toContain("partner commission");
     expect(sentBody).not.toContain("Please share your name");
   }, 20_000);
@@ -341,7 +341,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(result.sent).toBe(true);
     expect(sentBody).toContain("capped commission");
     expect(sentBody).toContain("client");
-    expect(sentBody).not.toContain("82%");
+    expect(sentBody).not.toContain("80%");
     expect(sentBody).not.toContain("Please share your name");
   }, 20_000);
 
@@ -368,7 +368,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("82%");
+    expect(sentBody).toContain("80%");
     expect(sentBody).not.toContain("Current status");
     expect(sentBody).not.toContain("You can reply with availability");
     expect(contextEvent).toBeNull();

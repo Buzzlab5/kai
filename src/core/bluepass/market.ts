@@ -227,21 +227,26 @@ export function bluePassFlagshipVessel(market?: BluePassMarket): string {
 
 /**
  * Commission numbers for operator-facing chat copy. AU moved to 20%/80% (7% platform fee) on
- * 2026-08-05, confirmed by Tony; Indonesia is unchanged at 18%/82% (5% platform fee) and is the
- * default here - unlike the other helpers in this file, deliberately NOT "undefined = Australia",
- * because the pre-2026-08-05 baseline these strings quote was 18/82 everywhere and Indonesia was
- * never asked to move. The platformFee figure quoted is the referred-booking one (conservation 5% +
- * partner 5% + processing 3% + this), matching what the existing copy already showed - it never
- * mentions the higher unreferred platform-fee bucket (10%/12%) that ledger.ts absorbs the unused
- * partner slice into. See ledger.ts's BluePassLedgerMarket for the actual split calculation.
+ * 2026-08-05; Indonesia was corrected to the same split on 2026-08-24 ("Indonesia ternyata 20% juga,
+ * bukan 18%"); Boattime (previously believed frozen on an old 18%/82% figure that turned out to have
+ * no real, checkable source) was folded into the same 20%/80% rate the same day - see ledger.ts's
+ * BluePassLedgerSplitInput.market comment for the full history. Every market now returns identical
+ * numbers here. Kept as a market-aware function signature rather than collapsed to a bare constant
+ * only so a real future region-specific split doesn't require touching call sites again. The
+ * platformFee figure quoted is the referred-booking one (conservation 5% + partner 5% + processing
+ * 3% + this), matching what the existing copy already showed - it never mentions the higher
+ * unreferred platform-fee bucket (12%) that ledger.ts absorbs the unused partner slice into.
  */
-export function bluePassCommissionSummary(market?: BluePassMarket): {
+export function bluePassCommissionSummary(
+  // Unused now that both markets return the same numbers - kept in the signature so call sites
+  // (and ledger.ts's own market-aware shape) don't need to change if a region's rate diverges again.
+  _market?: BluePassMarket,
+): {
   total: number;
   operatorNet: number;
   platformFee: number;
 } {
-  if (market === "AUSTRALIA") return { total: 20, operatorNet: 80, platformFee: 7 };
-  return { total: 18, operatorNet: 82, platformFee: 5 };
+  return { total: 20, operatorNet: 80, platformFee: 7 };
 }
 
 export type BluePassGateStep = "MARKET" | "REGION" | "READY";

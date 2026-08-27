@@ -42,7 +42,7 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
     const capturedInputs: Parameters<AssistantLlmClient["composeReply"]>[0][] = [];
     const result = await composeBluePassMarketplaceAssistantReply({
       deterministicReply:
-        "BluePass takes a capped 18% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 5% is the platform fee. Operators keep 82% of their own rate, and guests never pay more than booking direct.",
+        "BluePass takes a capped 20% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 7% is the platform fee. Operators keep 80% of their own rate, and guests never pay more than booking direct.",
       latestMessage: "what commission does BluePass take",
       conversationHistory: [],
       llmClient: {
@@ -59,22 +59,22 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
       }
     });
 
-    expect(capturedInputs[0].requiredFacts).toEqual(expect.arrayContaining(["18%", "82%", "5%", "3%"]));
+    expect(capturedInputs[0].requiredFacts).toEqual(expect.arrayContaining(["20%", "80%", "7%", "5%", "3%"]));
     expect(result.source).toBe("DETERMINISTIC");
-    expect(result.reply).toContain("18%");
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("20%");
+    expect(result.reply).toContain("80%");
     expect(result.reply).not.toContain("isn't publicly disclosed");
   });
 
   it("still allows a concierge-mode LLM rewrite that correctly preserves the real percentages", async () => {
     const result = await composeBluePassMarketplaceAssistantReply({
       deterministicReply:
-        "BluePass takes a capped 18% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 5% is the platform fee. Operators keep 82% of their own rate, and guests never pay more than booking direct.",
+        "BluePass takes a capped 20% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 7% is the platform fee. Operators keep 80% of their own rate, and guests never pay more than booking direct.",
       latestMessage: "what commission does BluePass take",
       conversationHistory: [],
       llmClient: {
         async composeReply() {
-          return "Great question - BluePass takes a capped 18% total (5% conservation, 5% partners, 3% payments, 5% platform), so operators keep 82% of their own rate. Guests never pay more than booking direct.";
+          return "Great question - BluePass takes a capped 20% total (5% conservation, 5% partners, 3% payments, 7% platform), so operators keep 80% of their own rate. Guests never pay more than booking direct.";
         }
       },
       marketplaceResult: {
@@ -86,8 +86,8 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
     });
 
     expect(result.source).toBe("LLM");
-    expect(result.reply).toContain("18%");
-    expect(result.reply).toContain("82%");
+    expect(result.reply).toContain("20%");
+    expect(result.reply).toContain("80%");
   });
 
   it("keeps transactional replies fact-preserving", async () => {
