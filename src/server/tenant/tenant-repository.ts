@@ -13,6 +13,19 @@ export async function findTenantForWidgetKey(widgetKey: string) {
   });
 }
 
+// Same shape as findTenantForWidgetKey, addressed by id instead of widget key - used when a widget
+// conversation has already been handed off to a different AU tenant than the one the caller's
+// static widget key resolves to (see the cross-tenant handoff in api/widget/messages/route.ts).
+export async function findTenantById(tenantId: string) {
+  return prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: {
+      branding: true,
+      config: true
+    }
+  });
+}
+
 
 export async function findTenantSettingsBySlug(slug: string) {
   return prisma.tenant.findUnique({

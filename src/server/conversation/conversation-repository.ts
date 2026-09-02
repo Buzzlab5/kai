@@ -132,6 +132,22 @@ export async function findTenantConversation(input: { tenantId: string; conversa
   });
 }
 
+// Widget counterpart to findTenantConversation, for the moment a conversation has already been
+// handed off to a different tenant than the one the caller's widget key resolves to (see the AU
+// cross-tenant handoff in api/widget/messages/route.ts) - the caller only knows a bounded,
+// already-trusted set of candidate tenant ids (the AU-eligible recommendation list), never an
+// arbitrary tenant, so this stays a safe widened lookup rather than a fully unscoped one.
+export async function findConversationAmongTenants(input: { conversationId: string; tenantIds: string[] }) {
+  if (input.tenantIds.length === 0) return null;
+
+  return prisma.conversation.findFirst({
+    where: {
+      id: input.conversationId,
+      tenantId: { in: input.tenantIds }
+    }
+  });
+}
+
 // First-touch referral attribution: only fills in the conversation's referral fields if they're
 // still null, mirroring booking-inquiry-service.ts's `session.value ?? existing.value` convention
 // for the marketplace flow. Needed so the generic booking flow (AU/Boattime etc.) - which never

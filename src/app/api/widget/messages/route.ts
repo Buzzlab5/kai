@@ -4,11 +4,14 @@ import {
   createAssistantMessage,
   createManualInquiry,
   createTravellerMessage,
+  createWidgetConversation,
+  findConversationAmongTenants,
   findConversationBookingState,
   findTenantConversation,
   listRecentConversationMessages,
   listRecentTravellerMessageContents
 } from "@/server/conversation/conversation-repository";
+import { findTenantById } from "@/server/tenant/tenant-repository";
 import { runGenericBookingTurn } from "@/server/booking/generic-booking-turn";
 import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
 import { createGenericBookingRouterClient } from "@/server/llm/generic-booking-router-client";
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const resolved = await resolveWidgetRequest({
+  let resolved = await resolveWidgetRequest({
     widgetKey: body.key,
     origin: getWidgetRequestOrigin(request)
   });
@@ -93,10 +96,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
-  const conversation = await findTenantConversation({
+  let conversation = await findTenantConversation({
     tenantId: resolved.tenant.id,
     conversationId: body.conversationId
   });
+
+  // Not found under the tenant the static widget key resolves to - if that tenant is itself
+  // AU-recommendation-eligible, this may be a conversation an earlier turn already handed off to a
+  // different real AU tenant (see the cross-tenant handoff below). The client keeps sending the same
+  // static key on every turn (it has no way to know a handoff happened), so this fallback is what
+  // lets turn 2+ of a handed-off conversation keep working instead of 404ing the moment it moves.
+  if (!conversation && resolved.tenant.config?.enabledFeatures?.includes(WHATSAPP_GENERIC_ELIGIBLE_FEATURE)) {
+    const candidates = await listAuRecommendationCandidates();
+    const realCandidateTenantIds = candidates.filter((candidate) => !candidate.isPlaceholder).map((candidate) => candidate.tenantId);
+    const handedOffConversation = await findConversationAmongTenants({
+      conversationId: body.conversationId,
+      tenantIds: realCandidateTenantIds
+    });
+
+    if (handedOffConversation) {
+      const handedOffTenant = await findTenantById(handedOffConversation.tenantId);
+      if (handedOffTenant) {
+        resolved = { ok: true as const, tenant: handedOffTenant };
+        conversation = handedOffConversation;
+      }
+    }
+  }
 
   if (!conversation) {
     return NextResponse.json(
@@ -258,9 +283,18 @@ export async function POST(request: NextRequest) {
 
     // Shared by the explicit-pick branch below and the single-operator auto-skip (item 13): a lone
     // candidate goes straight to the same handoff a traveller would reach by picking option 1.
+    //
+    // `handoff` is set only when the pick moved this conversation to a different tenant than the one
+    // this request started on - the caller must write the assistant reply under that new
+    // tenant/conversation (not the original one) so its conversationId reaches the client and future
+    // turns can find it again via the CONVERSATION_NOT_FOUND fallback above.
     const buildPickedReply = async (
       picked: AuRecommendationCandidate
-    ): Promise<{ reply: string; productCards: BookingProductCard[] }> => {
+    ): Promise<{
+      reply: string;
+      productCards: BookingProductCard[];
+      handoff?: { tenantId: string; tenantSlug: string; conversationId: string };
+    }> => {
       if (picked.isPlaceholder) {
         return {
           reply: `Sorry, ${picked.name} is not available right now - want to try one of the other options instead?`,
@@ -282,12 +316,34 @@ export async function POST(request: NextRequest) {
           content
         );
       }
-      // Picking a different real operator than the one this widget is already bound to isn't
-      // wired up yet (no cross-tenant hand-off on the website today) - say so honestly rather
-      // than silently mishandling it.
+
+      // A genuinely different operator than the one this widget conversation started on - mirrors
+      // WhatsApp's own cross-tenant handoff (resolveAuOperatorRecommendationHandoff): start a fresh
+      // conversation scoped to the picked tenant and reply from there, rather than the apology this
+      // used to give ("no cross-tenant hand-off on the website today"). Keeps the same travellerId
+      // (if logged in) so a returning traveller's handed-off conversation is still resumable.
+      const pickedTenant = await findTenantById(picked.tenantId);
+      if (!pickedTenant || !pickedTenant.config) {
+        return {
+          reply: `I can only help with ${resolved.tenant.name} directly from this site right now - want to continue with them?`,
+          productCards: []
+        };
+      }
+
+      const handoffConversation = await createWidgetConversation({
+        tenantId: pickedTenant.id,
+        travellerId: conversation.travellerId ?? undefined
+      });
+      const { reply, productCards } = await buildTenantProductsHandoffCards(
+        { id: pickedTenant.id, slug: pickedTenant.slug, name: pickedTenant.name, config: pickedTenant.config },
+        process.env,
+        content
+      );
+
       return {
-        reply: `I can only help with ${resolved.tenant.name} directly from this site right now - want to continue with them?`,
-        productCards: []
+        reply,
+        productCards,
+        handoff: { tenantId: pickedTenant.id, tenantSlug: pickedTenant.slug, conversationId: handoffConversation.id }
       };
     };
 
@@ -306,12 +362,18 @@ export async function POST(request: NextRequest) {
           conversationId: conversation.id,
           content
         });
-        const { reply, productCards } = await buildPickedReply(picked);
-        const assistantMessage = await createAssistantMessage({
-          tenantId: resolved.tenant.id,
-          conversationId: conversation.id,
-          content: reply
-        });
+        const { reply, productCards, handoff } = await buildPickedReply(picked);
+        const assistantMessage = handoff
+          ? await createAssistantMessage({
+              tenantId: handoff.tenantId,
+              conversationId: handoff.conversationId,
+              content: reply
+            })
+          : await createAssistantMessage({
+              tenantId: resolved.tenant.id,
+              conversationId: conversation.id,
+              content: reply
+            });
 
         return NextResponse.json({
           message: {
@@ -323,7 +385,7 @@ export async function POST(request: NextRequest) {
           },
           assistantMessage: {
             id: assistantMessage.id,
-            tenantSlug: resolved.tenant.slug,
+            tenantSlug: handoff?.tenantSlug ?? resolved.tenant.slug,
             conversationId: assistantMessage.conversationId,
             role: assistantMessage.role,
             content: assistantMessage.content
