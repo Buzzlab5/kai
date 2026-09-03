@@ -2,6 +2,8 @@ import { RealPmsHttpAdapter, type RealPmsHttpAdapterConfig } from "./real-pms-ht
 import type {
   PmsAvailabilityRequest,
   PmsAvailabilityResult,
+  PmsAvailableDatesRequest,
+  PmsAvailableDatesResult,
   PmsCreateBookingRequest,
   PmsCreateBookingResult
 } from "./types";
@@ -25,19 +27,62 @@ function formatDate(date: Date) {
  * Only `export` was added here; the function body is untouched, so Boattime's Supplier API behavior
  * is unaffected.
  */
-export function resolveRezdyDateRange(dateText: string) {
+/**
+ * Shared by resolveRezdyDateRange and resolveRezdySearchRange - both need "what calendar day does
+ * effectiveSlots.dateText actually mean" (an explicit ISO date, or the today/tomorrow fallback),
+ * they just turn that start day into a different-width window afterward.
+ */
+function resolveRezdyStartDate(dateText: string): Date {
   const lowerDateText = dateText.toLowerCase();
   const explicitDate = dateText.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-  const startDate = explicitDate
+  return explicitDate
     ? new Date(`${explicitDate}T00:00:00.000Z`)
     : addDays(new Date(), lowerDateText.includes("tomorrow") ? 1 : 0);
-  const normalizedStartDate = `${formatDate(startDate)} 00:00:00`;
-  const normalizedEndDate = `${formatDate(addDays(startDate, 1))} 00:00:00`;
+}
+
+export function resolveRezdyDateRange(dateText: string) {
+  const startDate = resolveRezdyStartDate(dateText);
 
   return {
-    startTimeLocal: normalizedStartDate,
-    endTimeLocal: normalizedEndDate
+    startTimeLocal: `${formatDate(startDate)} 00:00:00`,
+    endTimeLocal: `${formatDate(addDays(startDate, 1))} 00:00:00`
   };
+}
+
+/**
+ * Same idea as resolveRezdyDateRange, but for a multi-day search window instead of one calendar
+ * day - accepts the same loose dateText (explicit ISO, "today", "tomorrow") since callers pass
+ * effectiveSlots.dateText straight through without normalizing it first. Exported for the Agent
+ * adapter to reuse, same reasoning as resolveRezdyDateRange above.
+ */
+export function resolveRezdySearchRange(dateText: string, daysToSearch: number) {
+  const startDate = resolveRezdyStartDate(dateText);
+
+  return {
+    startTimeLocal: `${formatDate(startDate)} 00:00:00`,
+    endTimeLocal: `${formatDate(addDays(startDate, daysToSearch))} 00:00:00`
+  };
+}
+
+/**
+ * Groups a raw sessions array (as returned by Rezdy's availability endpoint for a date-range query)
+ * into the distinct calendar dates that have a session seating `guests` or more - one date can have
+ * several sessions (different times), so this dedupes to whichever date each qualifying session
+ * falls on. Exported for the Agent adapter to reuse.
+ */
+export function summarizeAvailableDates(sessions: UnknownRecord[], guests: number): string[] {
+  const dates = new Set<string>();
+
+  for (const session of sessions) {
+    const remaining = readNumber(session, ["seatsAvailable", "availability", "remaining"]);
+    if (remaining < guests) continue;
+
+    const startTimeLocal = readString(session, ["startTimeLocal", "startTime"]);
+    const date = startTimeLocal.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (date) dates.add(date);
+  }
+
+  return [...dates].sort();
 }
 
 export function asRecord(value: unknown): UnknownRecord {
@@ -401,5 +446,25 @@ export class RezdyPmsAdapter extends RealPmsHttpAdapter {
       sessions[0];
 
     return { dateRange, session, sessions };
+  }
+
+  /**
+   * One request across the whole window rather than one getAvailability call per candidate day -
+   * Rezdy's availability endpoint already accepts an arbitrary startTimeLocal/endTimeLocal range,
+   * so this just widens the same call findAvailabilitySession makes for a single day.
+   */
+  async findAvailableDates(request: PmsAvailableDatesRequest): Promise<PmsAvailableDatesResult> {
+    this.assertConfigured(["baseUrl", "apiKey", "availabilityPath"]);
+    const range = resolveRezdySearchRange(request.fromDate, request.daysToSearch);
+    const payload = await this.requestJson("GET", this.config.availabilityPath as string, undefined, {
+      productCode: request.productId,
+      startTimeLocal: range.startTimeLocal,
+      endTimeLocal: range.endTimeLocal,
+      minAvailability: String(request.guests)
+    });
+    const record = asRecord(payload);
+    const sessions = readArrayRecords(record, "sessions");
+
+    return { dates: summarizeAvailableDates(sessions, request.guests) };
   }
 }

@@ -390,6 +390,167 @@ describe("booking orchestrator", () => {
     });
   });
 
+  it("returns no dateOptions on an unavailable check when the PMS adapter can't search a date range", async () => {
+    // MockPmsAdapter doesn't implement findAvailableDates - this is the "everyone except Rezdy"
+    // path, and it must degrade to no date suggestions rather than throw.
+    const result = await handleTravellerBookingMessage({
+      message: "Can you check Komodo Day Trip for 99 guests tomorrow?",
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result).toMatchObject({
+      action: "AVAILABILITY_CHECKED",
+      reply: "Komodo Day Trip is not available for 99 guests on tomorrow according to PMS. I have not confirmed a booking.",
+      dateOptions: null
+    });
+  });
+
+  it("attaches real alternative dates to an unavailable check when the PMS adapter supports it", async () => {
+    // kai-conversation-flow-notes.md-style regression: a follow-up like "what date do you have?"
+    // carries no new date, so effectiveSlots.dateText falls back to the memorized (already-failed)
+    // date and getAvailability would just repeat the identical unavailable reply. Real dates
+    // attached to the FIRST unavailable reply sidestep that follow-up loop entirely.
+    let findAvailableDatesCall: unknown = null;
+    const result = await handleTravellerBookingMessage({
+      message: "Can you check Komodo Day Trip for 3 guests tomorrow?",
+      pmsAdapter: {
+        provider: "MOCK",
+        listProducts: async () => [
+          {
+            externalProductId: "komodo-day-trip",
+            title: "Komodo Day Trip",
+            description: "A shared day trip with auto-booking.",
+            bookingMode: "AUTO_BOOKING",
+            productUrl: null
+          }
+        ],
+        getAvailability: async (input) => ({
+          productId: input.productId,
+          date: input.date,
+          available: false,
+          remaining: 0,
+          currency: "USD",
+          unitPriceCents: 18500
+        }),
+        findAvailableDates: async (input) => {
+          findAvailableDatesCall = input;
+          return { dates: ["2026-06-24", "2026-06-27"] };
+        },
+        createBooking: async () => {
+          throw new Error("Booking should not be created for availability checks.");
+        },
+        cancelBooking: async () => ({ cancelled: false }),
+        getBooking: async () => null
+      }
+    });
+
+    expect(result).toMatchObject({
+      action: "AVAILABILITY_CHECKED",
+      dateOptions: ["2026-06-24", "2026-06-27"]
+    });
+    expect(findAvailableDatesCall).toEqual({
+      productId: "komodo-day-trip",
+      guests: 3,
+      fromDate: "tomorrow",
+      daysToSearch: 60
+    });
+  });
+
+  it("shows a real calendar for 'what dates are available?' instead of asking for a date to check", async () => {
+    // Reported live: "what dates are available?" - OPEN_DATE_QUESTION_PATTERN only matched the
+    // singular "what date"/"which date" before this, so the plural fell through to the generic
+    // "please share a date" prompt, which is circular (the traveller is asking which date to
+    // share). No guest count was given either, so this also proves the 1-guest default kicks in.
+    let findAvailableDatesCall: unknown = null;
+    const result = await handleTravellerBookingMessage({
+      message: "what dates are available?",
+      bookingMemory: {
+        productExternalId: "komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: null,
+        guests: null
+      },
+      pmsAdapter: {
+        provider: "MOCK",
+        listProducts: async () => [
+          {
+            externalProductId: "komodo-day-trip",
+            title: "Komodo Day Trip",
+            description: "A shared day trip with auto-booking.",
+            bookingMode: "AUTO_BOOKING",
+            productUrl: null
+          }
+        ],
+        getAvailability: async () => {
+          throw new Error("A specific date was never given - getAvailability should not run.");
+        },
+        findAvailableDates: async (input) => {
+          findAvailableDatesCall = input;
+          return { dates: ["2026-06-24", "2026-06-27"] };
+        },
+        createBooking: async () => {
+          throw new Error("Booking should not be created for availability checks.");
+        },
+        cancelBooking: async () => ({ cancelled: false }),
+        getBooking: async () => null
+      }
+    });
+
+    expect(result).toEqual({
+      action: "AVAILABILITY_CHECKED",
+      reply: "Here are the open dates I found for Komodo Day Trip. Pick one and I'll check pricing.",
+      replySource: "DETERMINISTIC",
+      dateOptions: ["2026-06-24", "2026-06-27"]
+    });
+    expect(findAvailableDatesCall).toEqual({
+      productId: "komodo-day-trip",
+      guests: 1,
+      fromDate: "today",
+      daysToSearch: 60
+    });
+  });
+
+  it("answers 'what dates are available?' honestly when none are open in the search window", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "any dates available for this?",
+      bookingMemory: {
+        productExternalId: "komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: null,
+        guests: 4
+      },
+      pmsAdapter: {
+        provider: "MOCK",
+        listProducts: async () => [
+          {
+            externalProductId: "komodo-day-trip",
+            title: "Komodo Day Trip",
+            description: "A shared day trip with auto-booking.",
+            bookingMode: "AUTO_BOOKING",
+            productUrl: null
+          }
+        ],
+        getAvailability: async () => {
+          throw new Error("A specific date was never given - getAvailability should not run.");
+        },
+        findAvailableDates: async () => ({ dates: [] }),
+        createBooking: async () => {
+          throw new Error("Booking should not be created for availability checks.");
+        },
+        cancelBooking: async () => ({ cancelled: false }),
+        getBooking: async () => null
+      }
+    });
+
+    expect(result).toEqual({
+      action: "AVAILABILITY_CHECKED",
+      reply:
+        "I couldn't find any open dates for Komodo Day Trip for 4 guests in the next 60 days. Would you like me to pass this to the team, or check a different experience?",
+      replySource: "DETERMINISTIC",
+      dateOptions: null
+    });
+  });
+
   it("checks availability when traveller types a compact date after product browsing", async () => {
     const result = await handleTravellerBookingMessage({
       message: "28june, 3 people",
@@ -707,7 +868,17 @@ describe("booking orchestrator", () => {
           { label: "Adult (Winter Special)", unitPriceCents: 7900 }
         ],
         ticketQuantities: null
-      }
+      },
+      // Mirrors bookingStatePatch.ticketOptions above - see the handleTravellerBookingMessage
+      // wrapper's comment for why this is attached once there instead of at every one of the many
+      // BOOKING_TICKET_SELECTION_REQUIRED return points in the function it wraps.
+      ticketOptions: [
+        { label: '"2 people for $149.00', unitPriceCents: 14900 },
+        { label: "Family (2A +2C) 3-13", unitPriceCents: 24900 },
+        { label: "Child (3-13)", unitPriceCents: 5900 },
+        { label: "Infant (under 3)", unitPriceCents: 0 },
+        { label: "Adult (Winter Special)", unitPriceCents: 7900 }
+      ]
     });
   });
 
@@ -780,7 +951,12 @@ describe("booking orchestrator", () => {
           { label: "Adult (Winter Special)", unitPriceCents: 7900 }
         ],
         ticketQuantities: null
-      }
+      },
+      // See the ticket-selection test above for why this mirrors bookingStatePatch.timeOptions.
+      timeOptions: [
+        { label: "9:00 AM", startTimeLocal: "2026-06-27 09:00:00", remaining: 77 },
+        { label: "12:00 PM", startTimeLocal: "2026-06-27 12:00:00", remaining: 79 }
+      ]
     });
   });
 
@@ -848,7 +1024,11 @@ describe("booking orchestrator", () => {
           { label: "Adult (Winter Special)", unitPriceCents: 7900 }
         ],
         ticketQuantities: null
-      }
+      },
+      ticketOptions: [
+        { label: '"2 people for $149.00', unitPriceCents: 14900 },
+        { label: "Adult (Winter Special)", unitPriceCents: 7900 }
+      ]
     });
   });
 
@@ -2751,7 +2931,12 @@ describe("booking orchestrator", () => {
           { label: "Cheese Platter for 2", unitPriceCents: 1000 }
         ],
         extraQuantities: null
-      }
+      },
+      extraOptions: [
+        { label: "Corona Bucket", unitPriceCents: 3000 },
+        { label: "Sparkling for 2", unitPriceCents: 4000 },
+        { label: "Cheese Platter for 2", unitPriceCents: 1000 }
+      ]
     });
   });
 

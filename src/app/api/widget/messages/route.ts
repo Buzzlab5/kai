@@ -497,6 +497,10 @@ export async function POST(request: NextRequest) {
       : null,
     paymentRequest,
     contactRequest,
-    productCards: bookingResult?.productCards ?? null
+    productCards: bookingResult?.productCards ?? null,
+    dateOptions: bookingResult?.dateOptions ?? null,
+    timeOptions: bookingResult?.timeOptions ?? null,
+    ticketOptions: bookingResult?.ticketOptions ?? null,
+    extraOptions: bookingResult?.extraOptions ?? null
   });
 }

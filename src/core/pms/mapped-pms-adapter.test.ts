@@ -117,4 +117,52 @@ describe("MappedPmsAdapter", () => {
       "MOCK PMS adapter does not support confirmBooking."
     );
   });
+
+  it("delegates findAvailableDates to the source adapter with the raw PMS product id unchanged", async () => {
+    const sourceAdapter: PmsAdapter = {
+      provider: "REZDY",
+      listProducts: vi.fn(async () => []),
+      getAvailability: vi.fn(),
+      createBooking: vi.fn(),
+      cancelBooking: vi.fn(),
+      getBooking: vi.fn(),
+      findAvailableDates: vi.fn(async () => ({ dates: ["2026-06-24", "2026-06-27"] }))
+    };
+
+    const adapter = new MappedPmsAdapter(sourceAdapter, [
+      { publicTitle: "Gold Coast Whale Escape", pmsProductId: "rezdy-whale-direct" }
+    ]);
+
+    await expect(
+      adapter.findAvailableDates?.({ productId: "rezdy-whale-direct", guests: 2, fromDate: "tomorrow", daysToSearch: 60 })
+    ).resolves.toEqual({ dates: ["2026-06-24", "2026-06-27"] });
+    expect(sourceAdapter.findAvailableDates).toHaveBeenCalledWith({
+      productId: "rezdy-whale-direct",
+      guests: 2,
+      fromDate: "tomorrow",
+      daysToSearch: 60
+    });
+  });
+
+  // This is the bug that shipped: MappedPmsAdapter forwarded confirmBooking but not
+  // findAvailableDates, so booking-orchestrator's `if (adapter.findAvailableDates)`
+  // feature-detection silently saw "unsupported" for every mapped Rezdy tenant (Boattime
+  // included) even though the underlying RezdyPmsAdapter implements it - Kai's "not available"
+  // replies never carried real alternative dates in production until this was caught live.
+  it("degrades to no dates, rather than throwing, when the source adapter does not support findAvailableDates", async () => {
+    const sourceAdapter: PmsAdapter = {
+      provider: "MOCK",
+      listProducts: vi.fn(async () => []),
+      getAvailability: vi.fn(),
+      createBooking: vi.fn(),
+      cancelBooking: vi.fn(),
+      getBooking: vi.fn()
+    };
+
+    const adapter = new MappedPmsAdapter(sourceAdapter, []);
+
+    await expect(
+      adapter.findAvailableDates?.({ productId: "mock-product", guests: 2, fromDate: "tomorrow", daysToSearch: 60 })
+    ).resolves.toEqual({ dates: [] });
+  });
 });

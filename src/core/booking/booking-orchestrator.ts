@@ -121,6 +121,18 @@ export interface BookingOrchestratorResult {
   paymentHandoffUrl?: string | null;
   pmsCheckoutHold?: PmsCheckoutHold | null;
   productCards?: BookingProductCard[] | null;
+  /** ISO yyyy-mm-dd dates, present only alongside an AVAILABILITY_CHECKED "not available" reply,
+   * when the PMS adapter can search a date range (see PmsAdapter.findAvailableDates). Lets the
+   * traveller pick a real open date instead of asking "what date do you have?" into the same
+   * memorized-date re-check that just failed. */
+  dateOptions?: string[] | null;
+  /** Present only alongside a BOOKING_TIME_SELECTION_REQUIRED reply - see the wrapper around
+   * handleTravellerBookingMessageInner for how these three are attached. */
+  timeOptions?: PmsTimeOption[] | null;
+  /** Present only alongside a BOOKING_TICKET_SELECTION_REQUIRED reply. */
+  ticketOptions?: PmsTicketOption[] | null;
+  /** Present only alongside a BOOKING_EXTRAS_SELECTION_REQUIRED reply. */
+  extraOptions?: PmsExtraOption[] | null;
 }
 
 export interface HandleTravellerBookingMessageInput {
@@ -766,11 +778,18 @@ function ticketParticipantCount(quantities: PmsTicketQuantity[]) {
 // "what date that you have?" instead of naming one - composeMissingDetailsReply below is built
 // purely from slot state (product/guests), never from the message itself, so both turns got the
 // exact same "What date works for you?" prompt back verbatim. That reads as a stuck loop even
-// though guests had genuinely been captured in between. Kai has no calendar-listing PMS call
-// (getAvailability only ever checks one specific date at a time), so it can't actually answer "what
-// dates are available" - this pattern catches that shape of question so the reply can say so
-// honestly instead of repeating the same prompt as if the question had never been asked.
-const OPEN_DATE_QUESTION_PATTERN = /\b(what date|which date|what day|which day|when are you|when can|when do you|any dates?)\b/i;
+// though guests had genuinely been captured in between.
+//
+// Originally this only bought an honest "I can't browse dates" admission, since getAvailability
+// only ever checks one specific date at a time - PmsAdapter.findAvailableDates (Rezdy-backed
+// tenants only) changed that, and the "date"/"guests" missing-slots branch above now uses this same
+// pattern to show a real calendar instead. The plain-text fallback below still matters for every
+// other PMS, where there is still no calendar to build.
+//
+// Exported so that calendar branch can reuse the exact question shape this fallback text answers -
+// two different regexes for "is the traveller asking to browse dates" would drift out of sync.
+export const OPEN_DATE_QUESTION_PATTERN =
+  /\b(what dates?|which dates?|what days?|which days?|when are you|when can|when do you|any dates?)\b/i;
 
 function composeMissingDetailsReply(input: {
   missingSlots: ("product" | "date" | "guests")[];
@@ -1131,6 +1150,33 @@ function composeContactCollectionReply(capture: ReturnType<typeof evaluateBookin
 }
 
 export async function handleTravellerBookingMessage(
+  input: HandleTravellerBookingMessageInput
+): Promise<BookingOrchestratorResult> {
+  const result = await handleTravellerBookingMessageInner(input);
+
+  // Surfaced as real tappable buttons in the widget (KaiChoiceOptions) instead of a plain numbered
+  // list the traveller has to retype ("option 2" / "1 x 2 people") - one mistyped reply used to
+  // send the whole exchange back through this same prompt. The reply text still lists them too, so
+  // nothing that only reads `.reply` (WhatsApp, an LLM rewrite) breaks.
+  //
+  // Sourced from bookingStatePatch rather than threaded through every one of the SELECTION_REQUIRED
+  // branches above individually - every one of them already populates bookingStatePatch faithfully
+  // (it's how the next turn recovers the same options from bookingMemory), so this is one
+  // derivation instead of repeating the same three lines at every return point above.
+  if (result.action === "BOOKING_TIME_SELECTION_REQUIRED") {
+    return { ...result, timeOptions: result.bookingStatePatch?.timeOptions ?? null };
+  }
+  if (result.action === "BOOKING_TICKET_SELECTION_REQUIRED") {
+    return { ...result, ticketOptions: result.bookingStatePatch?.ticketOptions ?? null };
+  }
+  if (result.action === "BOOKING_EXTRAS_SELECTION_REQUIRED") {
+    return { ...result, extraOptions: result.bookingStatePatch?.extraOptions ?? null };
+  }
+
+  return result;
+}
+
+async function handleTravellerBookingMessageInner(
   input: HandleTravellerBookingMessageInput
 ): Promise<BookingOrchestratorResult> {
   // kai-conversation-flow-notes.md finding #16 (compliance): checked before anything else -
@@ -2074,6 +2120,42 @@ export async function handleTravellerBookingMessage(
   }
 
   if (missingSlots.includes("date") || missingSlots.includes("guests")) {
+    // "What dates are available?" with a product already known - answering with "please share a
+    // date" is circular (see isAskingWhichDatesAvailable's own comment). Show the real calendar
+    // instead, same mechanism as the post-unavailability branch below, defaulting to 1 guest until
+    // the traveller says otherwise. Skipped for MANUAL_INQUIRY products (no PMS availability to
+    // search) and every PMS but Rezdy (feature-detected, same as everywhere else this is used).
+    if (!missingSlots.includes("product") && OPEN_DATE_QUESTION_PATTERN.test(input.message)) {
+      const browseProducts = await listProducts();
+      const browseMatch = matchPmsProduct(effectiveSlots.productHint ?? contextMessage, browseProducts);
+
+      if (
+        browseMatch.status === "MATCHED" &&
+        browseMatch.product.bookingMode === "AUTO_BOOKING" &&
+        input.pmsAdapter.findAvailableDates
+      ) {
+        const { dates } = await input.pmsAdapter.findAvailableDates({
+          productId: browseMatch.product.externalProductId,
+          guests: effectiveSlots.guests ?? 1,
+          fromDate: "today",
+          daysToSearch: 60
+        });
+        const guestsPhrase = effectiveSlots.guests
+          ? ` for ${effectiveSlots.guests} guest${effectiveSlots.guests === 1 ? "" : "s"}`
+          : "";
+
+        return {
+          action: "AVAILABILITY_CHECKED",
+          reply:
+            dates.length > 0
+              ? `Here are the open dates I found for ${browseMatch.product.title}${guestsPhrase}. Pick one and I'll check pricing.`
+              : `I couldn't find any open dates for ${browseMatch.product.title}${guestsPhrase} in the next 60 days. Would you like me to pass this to the team, or check a different experience?`,
+          replySource: "DETERMINISTIC",
+          dateOptions: dates.length > 0 ? dates : null
+        };
+      }
+    }
+
     return {
       action: "NEEDS_MORE_DETAILS",
       reply: composeMissingDetailsReply({
@@ -2127,7 +2209,23 @@ export async function handleTravellerBookingMessage(
   });
 
   if (!availability.available) {
-    return composeReplyResult({
+    // Offered alongside the "not available" reply itself, rather than waiting for a follow-up like
+    // "what date do you have?" - that follow-up carries no new date, so effectiveSlots.dateText
+    // falls back to bookingMemory's already-failed date and re-runs the identical check, which
+    // read as Kai repeating itself verbatim. Feature-detected: only the Rezdy adapters implement
+    // this (see PmsAdapter.findAvailableDates), so every other PMS just gets no dates back.
+    const dateOptions = input.pmsAdapter.findAvailableDates
+      ? (
+          await input.pmsAdapter.findAvailableDates({
+            productId: product.externalProductId,
+            guests: effectiveSlots.guests ?? 0,
+            fromDate: effectiveSlots.dateText ?? "today",
+            daysToSearch: 60
+          })
+        ).dates
+      : [];
+
+    const composed = await composeReplyResult({
       action: "AVAILABILITY_CHECKED",
       deterministicReply: `${product.title} is not available for ${effectiveSlots.guests} guests on ${effectiveSlots.dateText} according to PMS. I have not confirmed a booking.`,
       requiredFacts: [product.title, `${effectiveSlots.guests} guests`, effectiveSlots.dateText ?? "", "not available"],
@@ -2136,6 +2234,8 @@ export async function handleTravellerBookingMessage(
       latestUserMessage: input.message,
       conversationHistory: input.conversationHistory
     });
+
+    return { ...composed, dateOptions: dateOptions.length > 0 ? dateOptions : null };
   }
 
   const onlyAvailableTime =

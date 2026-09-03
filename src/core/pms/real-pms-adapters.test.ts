@@ -129,6 +129,42 @@ describe("real PMS adapter shells", () => {
     expect(requestInit).toEqual(expect.objectContaining({ method: "GET", body: undefined }));
   });
 
+  it("findAvailableDates searches a wide window in one request and returns only the dates with room", async () => {
+    const fetcher = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          sessions: [
+            { productCode: "PGG8QT", startTimeLocal: "2026-06-22 09:00:00", seatsAvailable: 1 },
+            { productCode: "PGG8QT", startTimeLocal: "2026-06-24 09:00:00", seatsAvailable: 4 },
+            { productCode: "PGG8QT", startTimeLocal: "2026-06-24 14:00:00", seatsAvailable: 4 },
+            { productCode: "PGG8QT", startTimeLocal: "2026-06-27 09:00:00", seatsAvailable: 2 }
+          ]
+        }),
+        { status: 200 }
+      );
+    });
+    const adapter = new RezdyPmsAdapter({
+      baseUrl: "https://rezdy.example.test/v1",
+      apiKey: "rezdy-secret",
+      productListPath: "/products",
+      availabilityPath: "/availability",
+      fetcher
+    });
+
+    await expect(
+      adapter.findAvailableDates({ productId: "PGG8QT", guests: 2, fromDate: "2026-06-22", daysToSearch: 14 })
+    ).resolves.toEqual({
+      // 06-22 dropped (only 1 seat for a 2-guest request); 06-24 deduped from its two sessions.
+      dates: ["2026-06-24", "2026-06-27"]
+    });
+
+    const [url] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("productCode=PGG8QT");
+    expect(url).toContain("startTimeLocal=2026-06-22+00%3A00%3A00");
+    expect(url).toContain("endTimeLocal=2026-07-06+00%3A00%3A00");
+    expect(url).toContain("minAvailability=2");
+  });
+
   it("maps Rezdy optional extras from availability sessions", async () => {
     const fetcher = vi.fn(async () => {
       return new Response(

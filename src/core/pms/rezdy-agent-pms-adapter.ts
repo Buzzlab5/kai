@@ -11,13 +11,17 @@ import {
   readPriceOptionLabel,
   readString,
   resolveRezdyDateRange,
+  resolveRezdySearchRange,
   selectPriceOption,
   splitTravellerName,
+  summarizeAvailableDates,
   type UnknownRecord
 } from "./rezdy-pms-adapter";
 import type {
   PmsAvailabilityRequest,
   PmsAvailabilityResult,
+  PmsAvailableDatesRequest,
+  PmsAvailableDatesResult,
   PmsCreateBookingRequest,
   PmsCreateBookingResult
 } from "./types";
@@ -390,5 +394,26 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
       sessions[0];
 
     return { dateRange, session, sessions };
+  }
+
+  /**
+   * Same as RezdyPmsAdapter.findAvailableDates (rezdy-pms-adapter.ts) - one request across the
+   * whole window rather than one per candidate day. Unverified against a real Agent API response
+   * like the rest of this file (see the class-level comment); Boattime runs on the Supplier adapter
+   * above, not this one.
+   */
+  async findAvailableDates(request: PmsAvailableDatesRequest): Promise<PmsAvailableDatesResult> {
+    this.assertConfigured(["baseUrl", "apiKey", "availabilityPath"]);
+    const range = resolveRezdySearchRange(request.fromDate, request.daysToSearch);
+    const payload = await this.requestJson("GET", this.config.availabilityPath as string, undefined, {
+      productCode: request.productId,
+      startTimeLocal: range.startTimeLocal,
+      endTimeLocal: range.endTimeLocal,
+      minAvailability: String(request.guests)
+    });
+    const record = asRecord(payload);
+    const sessions = readArrayRecords(record, "sessions");
+
+    return { dates: summarizeAvailableDates(sessions, request.guests) };
   }
 }
