@@ -188,7 +188,7 @@ describe("BluePass Stripe payment collection", () => {
       where: { bluePassInquiryId: quoteId, status: "FINALIZED" }
     });
     expect(finalized.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(500000);
-    expect(finalized.find((entry) => entry.kind === "CREATOR_COMMISSION_ESTIMATE")?.amountCents).toBe(25000);
+    expect(finalized.find((entry) => entry.kind === "PARTNER_COMMISSION_ESTIMATE")?.amountCents).toBe(25000);
 
     const quote = await getBluePassQuote({ quoteId });
     expect(quote?.operationalStatus).toBe("PAID");

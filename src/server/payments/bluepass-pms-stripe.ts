@@ -303,7 +303,7 @@ export async function listPmsBookingLedgerEntriesForTenantSlug(input: {
 /**
  * The referral-partner counterpart to listPmsBookingLedgerEntriesForTenantSlug - reads across every
  * AU tenant a partner's link has ever earned from, rather than one tenant at a time. Needed because
- * a creator's own dashboard (bluepass-redesign) has no tenant to scope by; it only knows its own
+ * a partner's own dashboard (bluepass-redesign) has no tenant to scope by; it only knows its own
  * referralPartnerId. Not tenant-scoped at all on purpose - a partner isn't tied to one operator.
  */
 export async function listPmsBookingLedgerEntriesForReferralPartner(input: {
@@ -314,7 +314,7 @@ export async function listPmsBookingLedgerEntriesForReferralPartner(input: {
   return prisma.pmsBookingLedgerEntry.findMany({
     where: {
       referralPartnerId: input.referralPartnerId,
-      kind: "CREATOR_COMMISSION_ESTIMATE",
+      kind: "PARTNER_COMMISSION_ESTIMATE",
       status: input.status ?? "FINALIZED"
     },
     orderBy: { createdAt: "desc" },

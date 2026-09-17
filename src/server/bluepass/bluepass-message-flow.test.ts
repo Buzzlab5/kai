@@ -857,7 +857,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       "PAYMENT_PROCESSING_ALLOCATION",
       "BLUEPASS_PLATFORM_COMMISSION",
       "OPERATOR_PAYOUT_PLACEHOLDER",
-      "CREATOR_COMMISSION_ESTIMATE"
+      "PARTNER_COMMISSION_ESTIMATE"
     ]);
     expect(result.bluepassDispatch).toMatchObject({
       status: "QUEUED",

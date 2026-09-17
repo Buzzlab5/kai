@@ -12,7 +12,7 @@ const knownStatuses = ["PENDING", "FINALIZED", "VOIDED"] as const;
 /**
  * The referral-partner counterpart to /api/admin/[tenantSlug]/pms-booking-ledger - same auth, same
  * query shape, scoped by referralPartnerId instead of tenantSlug. See
- * listPmsBookingLedgerEntriesForReferralPartner (bluepass-pms-stripe.ts) for why a creator's own
+ * listPmsBookingLedgerEntriesForReferralPartner (bluepass-pms-stripe.ts) for why a partner's own
  * dashboard needs this rather than the tenant-scoped route.
  */
 export async function GET(request: Request, { params }: ReferralPartnerLedgerRouteProps) {

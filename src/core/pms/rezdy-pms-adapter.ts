@@ -413,14 +413,13 @@ export class RezdyPmsAdapter extends RealPmsHttpAdapter {
     const paymentUrl =
       readString(bookingRecord, ["paymentUrl", "paymentLink", "paymentPageUrl", "orderPaymentUrl", "paymentRequestUrl"]) ||
       readString(record, ["paymentUrl", "paymentLink", "paymentPageUrl", "orderPaymentUrl", "paymentRequestUrl"]);
-    const status =
-      !externalBookingId
-        ? "FAILED"
-        : rawStatus.includes("FAIL") || rawStatus.includes("CANCEL")
-        ? "FAILED"
-        : rawStatus.includes("PROCESS") || rawStatus.includes("PEND") || rawStatus.includes("UNPAID")
-          ? "PENDING"
-          : "CONFIRMED";
+    // Rezdy's confirmed `status` enum is PROCESSING | NEW | ON_HOLD | PENDING_SUPPLIER |
+    // PENDING_CUSTOMER | CONFIRMED | CANCELLED | ABANDONED_CART (verified against Rezdy's published
+    // Agent API schema, which shares the same underlying Booking resource as this Supplier API) -
+    // anything other than an exact "CONFIRMED" or "CANCELLED" match must stay PENDING rather than
+    // defaulting to CONFIRMED, so a NEW/ON_HOLD/ABANDONED_CART order is never reported to a traveller
+    // as booked before it actually is.
+    const status = !externalBookingId ? "FAILED" : rawStatus === "CANCELLED" ? "FAILED" : rawStatus === "CONFIRMED" ? "CONFIRMED" : "PENDING";
 
     return {
       externalBookingId,

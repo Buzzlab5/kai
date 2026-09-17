@@ -1737,7 +1737,7 @@ describe("bluepass inquiry repository", () => {
     expect(nowVoided.length).toBe(pendingBefore.length);
     expect(finalized.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(500000);
     expect(finalized.find((entry) => entry.kind === "CONSERVATION_ALLOCATION")?.amountCents).toBe(25000);
-    expect(finalized.find((entry) => entry.kind === "CREATOR_COMMISSION_ESTIMATE")?.amountCents).toBe(25000);
+    expect(finalized.find((entry) => entry.kind === "PARTNER_COMMISSION_ESTIMATE")?.amountCents).toBe(25000);
     expect(finalized.find((entry) => entry.kind === "PAYMENT_PROCESSING_ALLOCATION")?.amountCents).toBe(15000);
     // Platform fee is 7% (not 5%) and operator net 80% (not 82%) - this repository's finalize call
     // now passes market: "INDONESIA" explicitly, which resolves to the 2026-08-24 corrected rate.

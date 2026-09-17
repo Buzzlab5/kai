@@ -75,8 +75,31 @@ describe("RezdyAgentPmsAdapter", () => {
       }
     ]);
 
+    expect(fetcher).toHaveBeenCalledTimes(1);
     const [url] = fetcher.mock.calls[0] as unknown as [string];
-    expect(url).toBe("https://api.rezdy.com/v1/products/marketplace?apiKey=agent-secret");
+    expect(url).toBe("https://api.rezdy.com/v1/products/marketplace?limit=100&offset=0&apiKey=agent-secret");
+  });
+
+  it("pages through more than one page of marketplace products", async () => {
+    const makeProduct = (index: number) => ({ productCode: `AGT-${index}`, name: `Product ${index}` });
+    const fetcher = vi.fn(async (url: string | URL | Request) => {
+      const offset = Number(new URL(url as string).searchParams.get("offset"));
+      const products = offset === 0 ? Array.from({ length: 100 }, (_, i) => makeProduct(i)) : [makeProduct(100)];
+      return new Response(JSON.stringify({ products }), { status: 200 });
+    });
+    const adapter = new RezdyAgentPmsAdapter({
+      baseUrl: "https://api.rezdy.com/v1",
+      apiKey: "agent-secret",
+      productListPath: "/products/marketplace",
+      fetcher
+    });
+
+    const products = await adapter.listMarketplaceProducts();
+
+    expect(products).toHaveLength(101);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(new URL((fetcher.mock.calls[0] as unknown as [string])[0]).searchParams.get("offset")).toBe("0");
+    expect(new URL((fetcher.mock.calls[1] as unknown as [string])[0]).searchParams.get("offset")).toBe("100");
   });
 
   it("checks availability with product code and local date query parameters, same shape as Supplier API", async () => {

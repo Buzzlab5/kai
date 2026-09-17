@@ -14,7 +14,7 @@ export type BluePassLedgerCurrency = "USD" | "IDR" | "EUR" | "AUD";
 export type BluePassLedgerEstimate = {
   inquiryId: string;
   kind:
-    | "CREATOR_COMMISSION_ESTIMATE"
+    | "PARTNER_COMMISSION_ESTIMATE"
     | "BLUEPASS_PLATFORM_COMMISSION"
     | "CONSERVATION_ALLOCATION"
     | "PAYMENT_PROCESSING_ALLOCATION"
@@ -117,7 +117,7 @@ export function calculateBluePassLedgerSplit(input: BluePassLedgerSplitInput): B
   ];
 
   if (hasReferral) {
-    entries.push({ ...base, kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: toCents(partnerCommission) });
+    entries.push({ ...base, kind: "PARTNER_COMMISSION_ESTIMATE", amountCents: toCents(partnerCommission) });
   }
 
   return entries;

@@ -21,7 +21,7 @@ describe("calculateBluePassLedgerEstimate", () => {
       expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
       expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 70000 }),
       expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 }),
-      expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
+      expect.objectContaining({ kind: "PARTNER_COMMISSION_ESTIMATE", amountCents: 50000 })
     ]);
     // All rows sum to exactly the budget - no rounding leakage between buckets.
     expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(1_000_000);
@@ -33,7 +33,7 @@ describe("calculateBluePassLedgerEstimate", () => {
       budget: "USD 10000"
     });
 
-    // No CREATOR_COMMISSION_ESTIMATE row at all when unreferred - the platform-fee bucket absorbs
+    // No PARTNER_COMMISSION_ESTIMATE row at all when unreferred - the platform-fee bucket absorbs
     // the unused partner slice (12% instead of 7%) so operator net still lands on 80%.
     expect(entries).toEqual([
       expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
@@ -59,7 +59,7 @@ describe("calculateBluePassLedgerEstimate", () => {
       expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", currency: "AUD", amountCents: 300000 }),
       expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", currency: "AUD", amountCents: 700000 }),
       expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", currency: "AUD", amountCents: 8000000 }),
-      expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", currency: "AUD", amountCents: 500000 })
+      expect.objectContaining({ kind: "PARTNER_COMMISSION_ESTIMATE", currency: "AUD", amountCents: 500000 })
     ]);
     expect(entries[0].metadata).toEqual({ budgetAmount: 100000 });
   });
@@ -73,7 +73,7 @@ describe("calculateBluePassLedgerEstimate", () => {
     });
 
     expect(entries).toContainEqual(
-      expect.objectContaining({ kind: "CREATOR_COMMISSION_ESTIMATE", amountCents: 50000 })
+      expect.objectContaining({ kind: "PARTNER_COMMISSION_ESTIMATE", amountCents: 50000 })
     );
   });
 

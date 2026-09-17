@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getTravellerConservationTotal, listBookingsForTravellerAccount } from "./traveller-bookings";
+import {
+  findAwaitingPaymentAttemptForTraveller,
+  getTravellerConservationTotal,
+  listBookingsForTravellerAccount
+} from "./traveller-bookings";
 
 async function createTestTenant(label: string) {
   return prisma.tenant.create({
@@ -250,5 +254,89 @@ describe("getTravellerConservationTotal", () => {
     });
 
     expect(await getTravellerConservationTotal(accountB)).toEqual([]);
+  });
+});
+
+describe("findAwaitingPaymentAttemptForTraveller", () => {
+  it("returns null for an account with no linked conversations", async () => {
+    expect(await findAwaitingPaymentAttemptForTraveller(`unlinked-${randomUUID()}`)).toBeNull();
+  });
+
+  async function createAttempt(input: {
+    tenantId: string;
+    conversationId: string;
+    status: "AWAITING_PAYMENT" | "CONFIRMED" | "PAYMENT_FAILED";
+    productTitle: string;
+  }) {
+    return prisma.pmsBookingPaymentAttempt.create({
+      data: {
+        tenantId: input.tenantId,
+        conversationId: input.conversationId,
+        pmsProvider: "REZDY",
+        productExternalId: "prod-unfinished",
+        productTitle: input.productTitle,
+        dateText: "2026-09-06 17:00:00",
+        guests: 2,
+        travellerName: "Test Traveller",
+        travellerEmail: "traveller@example.test",
+        grossAmountCents: 15900,
+        currency: "AUD",
+        externalBookingId: `ext-${randomUUID()}`,
+        stripeCheckoutSessionId: `cs_${randomUUID()}`,
+        status: input.status
+      }
+    });
+  }
+
+  it("finds a real AWAITING_PAYMENT attempt", async () => {
+    const tenant = await createTestTenant("unfinished");
+    const travellerAccountId = `account-${randomUUID()}`;
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: travellerAccountId }
+    });
+    await createAttempt({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      status: "AWAITING_PAYMENT",
+      productTitle: "New Year's Eve 2026"
+    });
+
+    const result = await findAwaitingPaymentAttemptForTraveller(travellerAccountId);
+
+    expect(result?.productTitle).toBe("New Year's Eve 2026");
+    expect(result?.conversationId).toBe(conversation.id);
+  });
+
+  it("ignores an attempt that already resolved (CONFIRMED or PAYMENT_FAILED) - nothing left unfinished", async () => {
+    const tenant = await createTestTenant("resolved");
+    const travellerAccountId = `account-${randomUUID()}`;
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: travellerAccountId }
+    });
+    await createAttempt({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      status: "CONFIRMED",
+      productTitle: "Already Booked Trip"
+    });
+
+    expect(await findAwaitingPaymentAttemptForTraveller(travellerAccountId)).toBeNull();
+  });
+
+  it("never matches another traveller's attempt", async () => {
+    const tenant = await createTestTenant("unfinished-isolation");
+    const accountA = `account-${randomUUID()}`;
+    const accountB = `account-${randomUUID()}`;
+    const conversationA = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET", controlMode: "AI", travellerId: accountA }
+    });
+    await createAttempt({
+      tenantId: tenant.id,
+      conversationId: conversationA.id,
+      status: "AWAITING_PAYMENT",
+      productTitle: "Only Account A's Trip"
+    });
+
+    expect(await findAwaitingPaymentAttemptForTraveller(accountB)).toBeNull();
   });
 });

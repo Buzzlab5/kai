@@ -63,14 +63,13 @@ interface RezdyAgentAvailabilitySession {
  * mistake (see that registry file's own comment for why this separation is load-bearing, not
  * cosmetic).
  *
- * Endpoint shapes below are BluePass's best-effort mapping from Rezdy's published Agent API spec
- * (https://developers.rezdy.com/rezdyapi/index-agent.html) plus the parsing helpers already proven
- * against real Supplier API payloads (same underlying Rezdy data model: sessions/priceOptions). None
- * of this has been verified against a real Agent API response yet - Rezdy's staging demo key
- * supports GET calls (marketplace/availability) with no approval wait, which is how getAvailability
- * and listProducts (inherited from the base class) should be validated before writing booking code
- * against a real operator. Write calls (createBooking/confirmBooking/cancelBooking) need the real,
- * approved Agent API key - not available at the time this was written.
+ * Endpoint shapes below are checked field-for-field against Rezdy's official Agent API OpenAPI spec
+ * (paths + components.schemas: Booking, Customer, Quantity, Extra, BookingPayment), so field names are
+ * structurally confirmed - but nothing here has been exercised against a real Agent API response yet,
+ * since the real, approved Agent API key is not available at the time this was written. Rezdy's
+ * staging demo key supports GET calls (marketplace/availability) with no approval wait, which is how
+ * getAvailability and listProducts (inherited from the base class) should be live-validated first;
+ * write calls (createBooking/confirmBooking/cancelBooking) need the real key.
  */
 export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
   provider = "REZDY_AGENT" as const;
@@ -87,19 +86,38 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
    * consumer (see the internal marketplace-products API route that calls this) rather than added to
    * the shared PmsAdapter interface, since no other adapter or call site needs it.
    *
-   * Field names (supplierName/supplierId/region/images/priceOptions) are this codebase's best guess
-   * at Rezdy's actual GET /v1/products/marketplace response shape, following Rezdy's documented
-   * product-image convention elsewhere in their API (images[].itemUrl / .largeSizeUrl) - unconfirmed
-   * against a real response. `raw` carries the full untouched record specifically so a consumer isn't
-   * blocked if this guess turns out wrong for a field it needs.
+   * Field names are checked against Rezdy's official Agent API schema/example for GET
+   * /v1/products/marketplace: supplierName/supplierId/images[].itemUrl/.largeSizeUrl/priceOptions
+   * match directly; there is no top-level region/city string, only a nested `locationAddress` object
+   * (addressLine/city/state/countryCode), so region is built from that below. `raw` carries the full
+   * untouched record specifically so a consumer isn't blocked if a field it needs is missing here.
+   */
+  /**
+   * Confirmed against the spec: GET /v1/products/marketplace defaults to `limit: 100` per page (its
+   * documented max) with no cursor, so a single unpaginated call silently truncates any connected
+   * catalog past 100 products. Pages with limit/offset until a short page signals the end; MAX_PAGES
+   * is a sanity cap (10000 products), not an expected real-world ceiling, guarding only against an
+   * API bug that always returns a full page.
    */
   async listMarketplaceProducts(): Promise<RezdyMarketplaceProduct[]> {
     this.assertConfigured(["baseUrl", "apiKey", "productListPath"]);
-    const payload = await this.requestJson("GET", this.config.productListPath as string);
-    const record = asRecord(payload);
-    const products = readArrayRecords(record, "products");
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 100;
+    const products: RezdyMarketplaceProduct[] = [];
 
-    return products.map((product) => this.mapMarketplaceProduct(product));
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const payload = await this.requestJson("GET", this.config.productListPath as string, undefined, {
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE)
+      });
+      const record = asRecord(payload);
+      const pageProducts = readArrayRecords(record, "products");
+      products.push(...pageProducts.map((product) => this.mapMarketplaceProduct(product)));
+
+      if (pageProducts.length < PAGE_SIZE) break;
+    }
+
+    return products;
   }
 
   private mapMarketplaceProduct(product: UnknownRecord): RezdyMarketplaceProduct {
@@ -108,6 +126,11 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
     const priceOptions = readArrayRecords(product, "priceOptions");
     const selectedPrice = selectPriceOption(priceOptions);
     const priceFrom = selectedPrice ? readNumber(selectedPrice, ["price", "adultPrice", "advertisedPrice"]) : null;
+    const locationAddress = readNestedRecord(product, ["locationAddress"]);
+    const region =
+      [readString(locationAddress, ["city"]), readString(locationAddress, ["state"])].filter(Boolean).join(", ") ||
+      readString(locationAddress, ["addressLine", "countryCode"]) ||
+      readString(product, ["region", "location"]);
 
     return {
       productCode: readString(product, ["productCode", "id", "productId"]),
@@ -115,7 +138,7 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
       description: readString(product, ["description", "shortDescription", "summary"]),
       supplierName: readString(product, ["supplierName", "supplier", "companyName"]),
       supplierId: readString(product, ["supplierId", "supplierCode", "companyId"]),
-      region: readString(product, ["region", "locationAddress", "city", "location"]),
+      region,
       priceFrom: priceFrom && priceFrom > 0 ? priceFrom : null,
       currency: readString(product, ["currency", "currencyCode"]) || "AUD",
       imageUrl: primaryImage ? readString(primaryImage, ["largeSizeUrl", "itemUrl", "mediumSizeUrl"]) || null : null,
@@ -231,9 +254,8 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
    * this at all, which is exactly why Boattime's bookings sit at totalPaid: 0 in Rezdy's own
    * dashboard forever. `request` has no price field, so the amount is re-derived the same way
    * createBooking does (re-look-up the session's selected price option) rather than trusting a
-   * caller-supplied figure - unconfirmed against a real Agent API response what field names Rezdy
-   * actually expects on the payments array; `type`/`amount`/`currency`/`date`/`label` are Rezdy's
-   * documented field names for it.
+   * caller-supplied figure. `type`/`amount`/`currency`/`date`/`label` are confirmed against Rezdy's
+   * BookingPayment schema, and "CASH" is a valid `type` enum value for PAYMENT_TYPE_PLACEHOLDER.
    */
   async confirmBooking(externalBookingId: string, request: PmsCreateBookingRequest): Promise<PmsCreateBookingResult> {
     this.assertConfigured(["baseUrl", "apiKey", "bookingPath"]);
@@ -357,24 +379,21 @@ export class RezdyAgentPmsAdapter extends RealPmsHttpAdapter {
       "id",
       "orderId"
     ]);
+    // Rezdy's confirmed `status` enum is PROCESSING | NEW | ON_HOLD | PENDING_SUPPLIER |
+    // PENDING_CUSTOMER | CONFIRMED | CANCELLED | ABANDONED_CART (verified against Rezdy's published
+    // Agent API schema) - anything other than an exact "CONFIRMED" or "CANCELLED" match must stay
+    // PENDING rather than defaulting to CONFIRMED, so Kai never over-reports a booking that a
+    // supplier or customer step hasn't actually confirmed yet.
     const rawStatus = readString(bookingRecord, ["status", "bookingStatus", "orderStatus"]).toUpperCase();
-    const paymentUrl =
-      readString(bookingRecord, ["paymentUrl", "paymentLink", "paymentPageUrl", "orderPaymentUrl", "paymentRequestUrl"]) ||
-      readString(record, ["paymentUrl", "paymentLink", "paymentPageUrl", "orderPaymentUrl", "paymentRequestUrl"]);
-    const status =
-      !externalBookingId
-        ? "FAILED"
-        : rawStatus.includes("FAIL") || rawStatus.includes("CANCEL")
-        ? "FAILED"
-        : rawStatus.includes("PROCESS") || rawStatus.includes("PEND") || rawStatus.includes("UNPAID")
-          ? "PENDING"
-          : "CONFIRMED";
+    const status = !externalBookingId ? "FAILED" : rawStatus === "CANCELLED" ? "FAILED" : rawStatus === "CONFIRMED" ? "CONFIRMED" : "PENDING";
 
+    // No field in Rezdy's confirmed Agent API Booking schema carries a payment URL - the caller
+    // (booking-orchestrator.ts) already degrades gracefully to a "operator will send the payment
+    // link manually" message when paymentUrl is absent, which is the correct behavior here.
     return {
       externalBookingId,
       provider: this.provider,
-      status,
-      ...(paymentUrl ? { paymentUrl } : {})
+      status
     };
   }
 

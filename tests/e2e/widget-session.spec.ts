@@ -158,7 +158,7 @@ test("widget message creates a BluePass marketplace inquiry through deterministi
     }
   });
   expect(payload.bluepassLedger.map((entry: { kind: string }) => entry.kind)).toEqual([
-    "CREATOR_COMMISSION_ESTIMATE",
+    "PARTNER_COMMISSION_ESTIMATE",
     "BLUEPASS_PLATFORM_COMMISSION",
     "CONSERVATION_ALLOCATION",
     "OPERATOR_PAYOUT_PLACEHOLDER"

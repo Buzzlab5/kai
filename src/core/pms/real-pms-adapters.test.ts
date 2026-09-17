@@ -43,6 +43,30 @@ describe("real PMS adapter shells", () => {
     );
   });
 
+  it("surfaces Rezdy's own error when it reports a business-logic failure with a 200 status", async () => {
+    const fetcher = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          requestStatus: {
+            success: false,
+            error: { errorCode: "3", errorMessage: "Invalid price option Adult" }
+          }
+        }),
+        { status: 200 }
+      );
+    });
+    const adapter = new RezdyPmsAdapter({
+      baseUrl: "https://rezdy.example.test/v1",
+      apiKey: "rezdy-secret",
+      productListPath: "/products",
+      fetcher
+    });
+
+    await expect(adapter.listProducts()).rejects.toThrow(
+      "REZDY PMS API reported an error (3): Invalid price option Adult"
+    );
+  });
+
   it("maps Rezdy product responses into Kai products when credentials and mapping are configured", async () => {
     const fetcher = vi.fn(async () => {
       return new Response(
@@ -818,6 +842,37 @@ describe("real PMS adapter shells", () => {
       ]
     });
   });
+
+  it.each([
+    ["NEW", "PENDING"],
+    ["ON_HOLD", "PENDING"],
+    ["PENDING_SUPPLIER", "PENDING"],
+    ["PENDING_CUSTOMER", "PENDING"],
+    ["ABANDONED_CART", "PENDING"],
+    ["CANCELLED", "FAILED"]
+  ] as const)(
+    "maps a Rezdy order status of %s to %s instead of defaulting to CONFIRMED",
+    async (rezdyStatus, expectedStatus) => {
+      const fetcher = vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ order: { orderNumber: "RZ-PENDING", status: rezdyStatus } }),
+          { status: 200 }
+        );
+      });
+      const adapter = new RezdyPmsAdapter({
+        baseUrl: "https://rezdy.example.test/v1",
+        apiKey: "rezdy-secret",
+        bookingPath: "/bookings",
+        fetcher
+      });
+
+      await expect(adapter.confirmBooking("RZ-PENDING", confirmRequest)).resolves.toEqual({
+        externalBookingId: "RZ-PENDING",
+        provider: "REZDY",
+        status: expectedStatus
+      });
+    }
+  );
 
   it("includes PMS error response details when a Rezdy confirm request is rejected", async () => {
     const fetcher = vi.fn(async () => {

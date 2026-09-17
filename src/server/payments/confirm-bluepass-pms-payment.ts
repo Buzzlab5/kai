@@ -88,7 +88,7 @@ export async function handlePmsBookingCheckoutSessionCompleted(session: Stripe.C
     // No `market` here - harmless now that every market (including no market at all) resolves to
     // the same 20%/80% split (see ledger.ts's BluePassLedgerSplitInput.market comment for why the
     // 18%/82% figure this comment used to cite turned out to have no real source). Referral role
-    // only adds the CREATOR_COMMISSION_ESTIMATE line when one is actually attached; it doesn't
+    // only adds the PARTNER_COMMISSION_ESTIMATE line when one is actually attached; it doesn't
     // change the platform-fee percentage.
   });
 

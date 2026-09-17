@@ -77,6 +77,43 @@ export async function listBookingsForTravellerAccount(travellerAccountId: string
 }
 
 /**
+ * The traveller's single most recent AU/PMS booking attempt still sitting at AWAITING_PAYMENT - a
+ * real checkout was created and not yet paid, as opposed to a conversation that merely mentioned a
+ * product/date (ConversationBookingState reaching DRAFT is not "an order," this is). Used by
+ * `/api/widget/session` to warn a signed-in traveller who asks for a forced-fresh conversation
+ * ("Start a new conversation" in the widget) that doing so would leave this behind, rather than
+ * silently losing track of it the way forceNew otherwise would (see that route's own comment on
+ * forceNew for the bug this exists to soften, not just fix).
+ *
+ * Same `travellerId` + `WEB_WIDGET` linkage as listBookingsForTravellerAccount above. Deliberately
+ * not scoped to one tenant - a traveller only ever has one AU/PMS pathway today, but this stays
+ * correct if that changes.
+ */
+export async function findAwaitingPaymentAttemptForTraveller(travellerAccountId: string) {
+  const conversations = await prisma.conversation.findMany({
+    where: { travellerId: travellerAccountId, channel: "WEB_WIDGET" },
+    select: { id: true }
+  });
+
+  if (conversations.length === 0) {
+    return null;
+  }
+
+  return prisma.pmsBookingPaymentAttempt.findFirst({
+    where: { conversationId: { in: conversations.map((c) => c.id) }, status: "AWAITING_PAYMENT" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      conversationId: true,
+      productTitle: true,
+      dateText: true,
+      guests: true,
+      grossAmountCents: true,
+      currency: true
+    }
+  });
+}
+
+/**
  * How much of this traveller's own money has gone to the reef — the conservation-first pitch made
  * personal, one account at a time, real cents in real ledger rows rather than an estimate.
  *

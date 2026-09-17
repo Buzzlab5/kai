@@ -124,7 +124,7 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
     expect(messages.some((message) => message.content.includes("Payment received"))).toBe(true);
   }, 30000);
 
-  it("posts a CREATOR_COMMISSION_ESTIMATE line, carrying the attempt's referral attribution, when a referral is attached", async () => {
+  it("posts a PARTNER_COMMISSION_ESTIMATE line, carrying the attempt's referral attribution, when a referral is attached", async () => {
     const tenant = await createTestTenant("referral");
     const sessionId = `cs_${randomUUID()}`;
     const attempt = await createTestAttempt({
@@ -151,7 +151,7 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
     });
     expect(ledgerEntries).toHaveLength(5);
 
-    const creatorCommission = ledgerEntries.find((entry) => entry.kind === "CREATOR_COMMISSION_ESTIMATE");
+    const creatorCommission = ledgerEntries.find((entry) => entry.kind === "PARTNER_COMMISSION_ESTIMATE");
     expect(creatorCommission?.amountCents).toBe(500);
     expect(creatorCommission).toMatchObject({
       referralPartnerId: "partner_1",
@@ -168,7 +168,7 @@ describe("handlePmsBookingCheckoutSessionCompleted", () => {
     expect(platformFee?.amountCents).toBe(700);
 
     for (const entry of ledgerEntries) {
-      if (entry.kind === "CREATOR_COMMISSION_ESTIMATE") continue;
+      if (entry.kind === "PARTNER_COMMISSION_ESTIMATE") continue;
       expect(entry.referralPartnerId).toBe("partner_1");
       expect(entry.referralCode).toBe("abc123");
     }

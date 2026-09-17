@@ -99,10 +99,36 @@ export abstract class RealPmsHttpAdapter implements PmsAdapter {
         );
       }
 
-      return response.json();
+      const payload = await response.json();
+      this.assertRequestSucceeded(payload);
+      return payload;
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  /**
+   * Rezdy wraps every response (Supplier and Agent API alike, confirmed against Rezdy's published
+   * Agent API OpenAPI spec) in `requestStatus: {success, error: {errorCode, errorMessage}}` and can
+   * report a business-logic failure (bad product code, quantity out of range, etc.) with HTTP 200 -
+   * `response.ok` alone misses this. Surfaces Rezdy's own error message instead of letting the caller
+   * fail later with a confusing "missing required field" error.
+   */
+  private assertRequestSucceeded(payload: unknown) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+
+    const requestStatus = (payload as UnknownRecord).requestStatus;
+    if (!requestStatus || typeof requestStatus !== "object") return;
+    if ((requestStatus as UnknownRecord).success !== false) return;
+
+    const error = (requestStatus as UnknownRecord).error;
+    const errorCode = error && typeof error === "object" ? (error as UnknownRecord).errorCode : undefined;
+    const errorMessage = error && typeof error === "object" ? (error as UnknownRecord).errorMessage : undefined;
+    throw new Error(
+      `${this.provider} PMS API reported an error${typeof errorCode === "string" ? ` (${errorCode})` : ""}${
+        typeof errorMessage === "string" ? `: ${errorMessage}` : "."
+      }`
+    );
   }
 
   private buildUrl(path: string, query?: Record<string, string>) {

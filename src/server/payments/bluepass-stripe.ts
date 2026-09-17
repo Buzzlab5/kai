@@ -196,7 +196,7 @@ export async function createOrRefreshBluePassOperatorStripeConnectAccount(
  * account id is admin-supplied (same manual-trust model as the existing paidOutReference field) -
  * kai has no first-party link to bluepass-app's OperatorProfile rows to look this up automatically.
  * Gated to OPERATOR_PAYOUT_PLACEHOLDER entries only: every other ledger kind (conservation, platform
- * commission, creator commission, payment processing) is BluePass's/the partner's own revenue, not
+ * commission, partner commission, payment processing) is BluePass's/the partner's own revenue, not
  * money that belongs to the operator - transferring those to an operator's account would be a real
  * money-safety bug, not just a data-modeling nicety.
  */
