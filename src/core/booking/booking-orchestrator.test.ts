@@ -267,6 +267,91 @@ describe("booking orchestrator", () => {
     });
   });
 
+  // Reported live on WhatsApp, 2026-09-21: Kai showed a fresh 10-item numbered list, the traveller
+  // replied "1"/"option 1", and got a generic "I can help with availability, booking, or handing you
+  // off to the team" instead of the selection - stale, unrelated memory from an earlier session
+  // (productTitle already set to something else) blocked the numbered-selection branch outright, the
+  // same class of "stuck loop" bug as the weekday/weekend date gaps above. Fixed by trusting a
+  // numbered reply to the *just-shown* list over old memory, the same way naming a product switches
+  // context in the test above.
+  it("selects a product by number from the list Kai just showed, even with an unrelated productTitle already in memory", async () => {
+    const pmsAdapter = {
+      provider: "MOCK" as const,
+      listProducts: async () => [
+        {
+          externalProductId: "boattime-whale-escape",
+          title: "Gold Coast Whale Escape",
+          description: "Luxury whale watching cruise",
+          bookingMode: "AUTO_BOOKING" as const,
+          productUrl: "http://localhost:3107/demo/boattime#gold-coast-whale-escape"
+        },
+        {
+          externalProductId: "boattime-twilight-drift",
+          title: "Twilight Drift",
+          description: "Sunset cruise experience",
+          bookingMode: "AUTO_BOOKING" as const,
+          productUrl: "http://localhost:3107/demo/boattime#twilight-drift"
+        }
+      ],
+      getAvailability: async () => {
+        throw new Error("Availability should not be checked for a numbered product pick.");
+      },
+      createBooking: async () => {
+        throw new Error("Booking should not be created for a numbered product pick.");
+      },
+      cancelBooking: async () => ({ cancelled: false }),
+      getBooking: async () => null
+    };
+    const conversationHistory = [
+      {
+        role: "assistant" as const,
+        content:
+          "You can choose from:\n1. Gold Coast Whale Escape - live availability\n2. Twilight Drift - live availability\n\nWhich one sounds closest? Tell me your date too and I'll check pricing."
+      }
+    ];
+    const staleMemory = {
+      productExternalId: "some-old-product-id",
+      productTitle: "Some Old Product From An Earlier Session",
+      dateText: null,
+      guests: null
+    };
+
+    const bareNumber = await handleTravellerBookingMessage({
+      message: "1",
+      bookingMemory: staleMemory,
+      conversationHistory,
+      pmsAdapter
+    });
+    expect(bareNumber).toEqual({
+      action: "PRODUCT_LINK",
+      reply:
+        "Gold Coast Whale Escape is a luxury whale watching cruise. You can see the product page here: http://localhost:3107/demo/boattime#gold-coast-whale-escape. If you like it, tell me your date and group size and I can check availability.",
+      replySource: "DETERMINISTIC",
+      bookingStatePatch: {
+        productExternalId: "boattime-whale-escape",
+        productTitle: "Gold Coast Whale Escape",
+        dateText: null,
+        guests: null,
+        travellerName: null,
+        travellerEmail: null,
+        travellerPhone: null,
+        bookingStatus: "DRAFT",
+        confirmationSummary: null,
+        externalBookingId: null,
+        externalProvider: null,
+        bookingError: null
+      }
+    });
+
+    const wordedOption = await handleTravellerBookingMessage({
+      message: "option 1",
+      bookingMemory: staleMemory,
+      conversationHistory,
+      pmsAdapter
+    });
+    expect(wordedOption.action).toBe("PRODUCT_LINK");
+  });
+
   it("uses the latest availability request instead of looping on an earlier product browsing intent", async () => {
     const result = await handleTravellerBookingMessage({
       message: "ok is it available tomorrow for 2 guests?",

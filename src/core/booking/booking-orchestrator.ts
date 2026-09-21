@@ -1434,7 +1434,17 @@ async function handleTravellerBookingMessageInner(
     history: input.conversationHistory
   });
 
-  if (productSelection && !input.bookingMemory?.productTitle) {
+  // Reported live on WhatsApp, 2026-09-21: a traveller who had an older, unrelated productTitle
+  // still sitting in bookingMemory (from a much earlier turn/session) replied "1"/"option 1" to a
+  // numbered list Kai had *just* shown, and got a generic "I can help with availability, booking, or
+  // handing you off to the team" instead of the selection - the stale memory blocked this whole
+  // branch outright. selectedProductFromRecentList already gates strictly on
+  // recentAssistantOfferedProductList (the *very last* assistant turn actually being this list), so
+  // that recency check alone is enough to trust a numbered reply over whatever old memory happens to
+  // hold - the same way naming a different product by name elsewhere in this file (see "switches
+  // product context when the traveller asks about another product") is already allowed to override
+  // stale memory.
+  if (productSelection) {
     if (productSelection.bookingMode === "MANUAL_INQUIRY") {
       return {
         action: "MANUAL_INQUIRY_REQUIRED",

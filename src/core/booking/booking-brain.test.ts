@@ -193,6 +193,29 @@ describe("booking brain", () => {
     expect(sameDayAsToday.slots.dateText).toBe("2026-01-01");
   });
 
+  // Reported live on WhatsApp, 2026-09-21: a traveller answered "this weekend, for 2 people" then
+  // bare "this weekend" to Kai's own "What date works for you?" prompt, and got that exact same
+  // prompt back both times - findDateText had no case for "weekend" at all, only specific weekday
+  // names. Resolves to the weekend's own first day, same target "this/next Saturday" already does.
+  it("understands weekend, resolving to the upcoming Saturday", () => {
+    // REFERENCE_NOW is Thursday 2026-01-01.
+    const thisWeekend = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, this weekend", REFERENCE_NOW);
+    expect(thisWeekend.slots.dateText).toBe("2026-01-03");
+
+    const bareWeekend = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, weekend", REFERENCE_NOW);
+    expect(bareWeekend.slots.dateText).toBe("2026-01-03");
+
+    const nextWeekend = analyzeTravellerBookingMessage("Gold Coast Whale Escape, 2 people, next weekend", REFERENCE_NOW);
+    expect(nextWeekend.slots.dateText).toBe("2026-01-10");
+
+    // Said during the weekend itself, resolves to today's Saturday rather than skipping ahead.
+    const duringTheWeekend = analyzeTravellerBookingMessage(
+      "Gold Coast Whale Escape, 2 people, this weekend",
+      new Date("2026-01-03T00:00:00Z"),
+    );
+    expect(duringTheWeekend.slots.dateText).toBe("2026-01-03");
+  });
+
   it("defaults a yearless date to the next real occurrence, not a hardcoded literal", () => {
     // REFERENCE_NOW is 2026-01-01: June is still ahead this year.
     const stillAhead = analyzeTravellerBookingMessage("23rd of June", REFERENCE_NOW);

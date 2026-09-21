@@ -161,6 +161,26 @@ function findDateText(message: string, now: Date = new Date()) {
     return `${year}-${MONTHS[monthFirstDate[1]]}-${String(day).padStart(2, "0")}`;
   }
 
+  // "this weekend"/"weekend"/"next weekend" - a perfectly normal answer to "what date works for
+  // you?" that fell through every pattern above and re-triggered the exact same question verbatim,
+  // reading as a stuck loop (reported live, WhatsApp, 2026-09-21: "this weekend, for 2 people" then
+  // bare "this weekend" both got the identical "What date works for you?" back). Resolves to the
+  // weekend's own first day (the upcoming Saturday), same target "this/next Saturday" already
+  // resolves to - checked before the weekday pattern below since "weekend" isn't a weekday name and
+  // would otherwise never match anything.
+  const weekendDate = lowerMessage.match(/\b(next\s+)?(?:this\s+)?weekend\b/);
+  if (weekendDate) {
+    const wantsFollowingWeek = Boolean(weekendDate[1]);
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const currentDay = today.getUTCDay();
+    let daysUntil = (6 - currentDay + 7) % 7;
+    if (wantsFollowingWeek) {
+      daysUntil += 7;
+    }
+    const target = new Date(today.getTime() + daysUntil * 24 * 60 * 60 * 1000);
+    return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}`;
+  }
+
   // Weekday names ("Saturday", "this Saturday", "next Saturday") - not covered by any pattern above.
   // Resolves to the next real calendar occurrence of that weekday; "next" skips past the closest one
   // to the following week (so "next Saturday" said on a Monday means 12 days out, not 5).
