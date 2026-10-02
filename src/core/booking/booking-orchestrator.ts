@@ -28,6 +28,9 @@ import {
   type BookingFlowState
 } from "./booking-state-machine";
 import { findBookingSmallTalkReply, isOfferQuestion, isQuestionShaped } from "./booking-small-talk";
+import { extractGuestCount } from "@/core/conversation/guest-count";
+
+const wantsTripPattern = /\b(?:i want|i'?d like|i would like|i'?m after|i'?m keen on|keen on|interested in|looking at|let'?s do|go with|i'?ll take)\b/i;
 import { findOperatorKnowHowReply } from "./operator-know-how";
 import { buildEmergencyReply, isEmergencyMessage } from "@/core/conversation/emergency";
 import {
@@ -1307,6 +1310,14 @@ async function handleTravellerBookingMessageInner(
     };
   }
 
+  // "Are you a bot?" is never a booking step, so it gets its straight answer even mid-booking. Found by
+  // running Kai's personality doc against production (2026-10-03): with a date already on the table it
+  // came back as the product list, because the small-talk check sits far below the date handling.
+  const botQuestion = findBookingSmallTalkReply(input.message, { tenantName: input.tenantContext?.tenantName });
+  if (botQuestion?.kind === "AI_OR_HUMAN") {
+    return { action: "GENERAL_REPLY", reply: botQuestion.reply, replySource: "DETERMINISTIC" };
+  }
+
   if (
     input.bookingWriteEnabled === true &&
     input.bookingMemory?.bookingStatus === "READY_TO_CONFIRM" &&
@@ -2391,10 +2402,38 @@ async function handleTravellerBookingMessageInner(
     }
 
     // A bare trip name ("the whale escape") is someone picking a trip, so tell them about it rather
-    // than reading them the menu.
-    if (!isQuestionShaped(input.message) && input.message.trim().split(/\s+/).length <= 5) {
+    // than reading them the menu. So is a trip named with a wish or a group size ("I want the whale
+    // escape for 3 of us"), which used to fall to the menu only because it ran past five words (found
+    // by running the personality doc against production, 2026-10-03).
+    const guestsNamed = extractGuestCount(input.message);
+    const namesTrip =
+      !isQuestionShaped(input.message) &&
+      (input.message.trim().split(/\s+/).length <= 5 || wantsTripPattern.test(input.message) || guestsNamed !== undefined);
+    if (namesTrip) {
       const named = matchPmsProduct(input.message, await listProducts());
       if (named.status === "MATCHED") {
+        // Said how many already? Then ask only for the date, never the group size again.
+        if (guestsNamed !== undefined && named.product.bookingMode !== "MANUAL_INQUIRY") {
+          return {
+            action: "PRODUCT_LINK",
+            reply: `${named.product.title} for ${guestsNamed}, sounds good. What date works for you?`,
+            replySource: "DETERMINISTIC",
+            bookingStatePatch: {
+              productExternalId: named.product.externalProductId,
+              productTitle: named.product.title,
+              dateText: input.bookingMemory?.dateText ?? null,
+              guests: guestsNamed,
+              travellerName: input.bookingMemory?.travellerName ?? null,
+              travellerEmail: input.bookingMemory?.travellerEmail ?? null,
+              travellerPhone: input.bookingMemory?.travellerPhone ?? null,
+              bookingStatus: input.bookingMemory?.bookingStatus ?? "DRAFT",
+              confirmationSummary: input.bookingMemory?.confirmationSummary ?? null,
+              externalBookingId: input.bookingMemory?.externalBookingId ?? null,
+              externalProvider: (input.bookingMemory?.externalProvider as BookingFlowState["externalProvider"]) ?? null,
+              bookingError: input.bookingMemory?.bookingError ?? null
+            }
+          };
+        }
         return { action: "PRODUCT_LINK", reply: formatProductInfoReply(named.product), replySource: "DETERMINISTIC" };
       }
     }

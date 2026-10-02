@@ -33,7 +33,9 @@ import { findDestinationNote, findMentionedDestinations } from "@/core/bluepass/
 import { extractBluePassPersonaLead } from "@/core/bluepass/persona-lead";
 import type { BluePassRouterAction, BluePassRouterLlmClient } from "@/core/llm/bluepass-router";
 import {
+  buildBluePassBookingSystemsReply,
   buildBluePassCommissionReply,
+  isBluePassBookingSystemQuestion,
   buildBluePassConservationReply,
   buildBluePassInquiryConfirmationReply,
   buildBluePassInquiryReadyReply,
@@ -157,6 +159,21 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         team: "the BluePass team"
       }),
       humanHandoff: "REQUESTED" as const,
+      bluepassMatches: [],
+      bluepassInquiry: null,
+      bluepassLedger: [],
+      bluepassDispatch: null,
+      paymentRequest: null,
+      contactRequest: null,
+      suggestedReplies: null
+    };
+  }
+
+  if (isBluePassBookingSystemQuestion(input.content)) {
+    return {
+      replyMode: "ACTION" as const,
+      persona: classifyBluePassPersona([...input.priorTravellerMessages, input.content]),
+      assistantContent: buildBluePassBookingSystemsReply(),
       bluepassMatches: [],
       bluepassInquiry: null,
       bluepassLedger: [],
@@ -795,7 +812,8 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
           missingFields: promptMissingFields,
           yachtAlreadyIntroduced: Boolean(
             selectedYacht && historyMentionedYachts.some((yacht) => yacht.slug === selectedYacht.slug)
-          )
+          ),
+          previousReply: input.lastAssistantMessage
         }),
         bluepassMatches: [],
         bluepassInquiry: null,

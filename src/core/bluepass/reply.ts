@@ -23,6 +23,25 @@ export function buildBluePassMissingFieldsReply(input: {
   missingFields: BluePassRequiredInquiryField[];
   /** The traveller picked this boat on an earlier turn, so Kai has already described it. */
   yachtAlreadyIntroduced?: boolean;
+  /** Kai's previous message. If the ask would repeat it word for word ("ok", then "ok" again), it is softened instead. */
+  previousReply?: string | null;
+}) {
+  const reply = buildMissingFieldsAsk(input);
+
+  // Never repeat a line from Kai's own last message word for word (docs/kai-personality.md). Found by
+  // running that doc against production, 2026-10-03: two "ok"s in a row got the same ask twice.
+  if (input.previousReply && input.previousReply.trim() === reply.trim()) {
+    return `No rush. Whenever you have your ${formatFieldList(input.missingFields)}, send them through and I'll take it from there.`;
+  }
+
+  return reply;
+}
+
+function buildMissingFieldsAsk(input: {
+  destination?: string;
+  selectedYacht?: BluePassYachtCatalogItem | null;
+  missingFields: BluePassRequiredInquiryField[];
+  yachtAlreadyIntroduced?: boolean;
 }) {
   if (input.selectedYacht) {
     return buildSelectedYachtMissingFieldsReply({
@@ -438,4 +457,20 @@ function articleFor(value?: string | null) {
   if (!value) return "a";
 
   return /^[aeiou]/i.test(value) ? "an" : "a";
+}
+
+
+// "Which booking systems do you connect to?" is a real question from operators and curious travellers,
+// and used to get the enquiry script ("I just need your destination, dates...") because nothing
+// answered it (found by running docs/kai-personality.md against production, 2026-10-03). Only names
+// systems BluePass has a connector for (Rezdy, FareHarbor, Inseanq), per house rule 8.
+const bookingSystemQuestionPattern =
+  /\b(?:booking|reservation) (?:systems?|software|platforms?)\b|\b(?:connect|integrate|integrates|integration|sync|work) (?:with|to)\b.{0,50}\b(?:rezdy|fareharbor|b[oó]kun|peek ?pro|checkfront|bookeo|rezgo|pms)\b/i;
+
+export function isBluePassBookingSystemQuestion(content: string) {
+  return bookingSystemQuestionPattern.test(content) && /\?|^(?:which|what|do|does|can|is|are)\b/i.test(content.trim());
+}
+
+export function buildBluePassBookingSystemsReply() {
+  return "We work with operators on Rezdy, FareHarbor and Inseanq, and with operators who have no booking system at all, where the team confirms by hand. Is there a trip you're keen on?";
 }

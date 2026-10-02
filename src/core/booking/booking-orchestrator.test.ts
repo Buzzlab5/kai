@@ -352,6 +352,64 @@ describe("booking orchestrator", () => {
     expect(wordedOption.action).toBe("PRODUCT_LINK");
   });
 
+  // Found by running docs/kai-personality.md against production, 2026-10-03.
+  describe("personality doc checks against the live flow", () => {
+    const adapter = {
+      provider: "MOCK" as const,
+      listProducts: async () => [
+        { externalProductId: "whale", title: "Gold Coast Whale Escape", description: "Whale watching cruise", bookingMode: "AUTO_BOOKING" as const, productUrl: null },
+        { externalProductId: "drift", title: "Twilight Drift", description: "Sunset cruise", bookingMode: "AUTO_BOOKING" as const, productUrl: null }
+      ],
+      getAvailability: async () => {
+        throw new Error("Availability should not be checked here.");
+      },
+      createBooking: async () => {
+        throw new Error("Booking should not be created here.");
+      },
+      cancelBooking: async () => ({ cancelled: false }),
+      getBooking: async () => null
+    };
+
+    it("takes a trip named with a group size as a choice and asks only for the date", async () => {
+      for (const [message, guests] of [
+        ["I want the Gold Coast Whale Escape for 3 of us", 3],
+        ["Gold Coast Whale Escape, 2 adults and 1 child", 3],
+        ["the whale escape for just me", 1]
+      ] as const) {
+        const result = await handleTravellerBookingMessage({ message, pmsAdapter: adapter });
+
+        expect(result.action, message).toBe("PRODUCT_LINK");
+        expect(result.reply, message).toBe(`Gold Coast Whale Escape for ${guests}, sounds good. What date works for you?`);
+        expect(result.bookingStatePatch?.productTitle, message).toBe("Gold Coast Whale Escape");
+        expect(result.bookingStatePatch?.guests, message).toBe(guests);
+      }
+    });
+
+    it("takes 'I want <trip>' as a choice instead of reading the menu", async () => {
+      const result = await handleTravellerBookingMessage({ message: "I want the Gold Coast Whale Escape", pmsAdapter: adapter });
+
+      expect(result.action).toBe("PRODUCT_LINK");
+      expect(result.reply).toContain("Gold Coast Whale Escape");
+    });
+
+    it("answers 'are you a bot?' straight even with a trip and date already on the table", async () => {
+      const result = await handleTravellerBookingMessage({
+        message: "are you a bot?",
+        pmsAdapter: adapter,
+        bookingMemory: {
+          productExternalId: "whale",
+          productTitle: "Gold Coast Whale Escape",
+          dateText: "2026-10-03",
+          guests: 3
+        }
+      });
+
+      expect(result.action).toBe("GENERAL_REPLY");
+      expect(result.reply).toContain("not a person");
+      expect(result.reply).not.toContain("you can choose from");
+    });
+  });
+
   it("uses the latest availability request instead of looping on an earlier product browsing intent", async () => {
     const result = await handleTravellerBookingMessage({
       message: "ok is it available tomorrow for 2 guests?",
