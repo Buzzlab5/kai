@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBluePassBookingSystemsReply,
+  buildBluePassPricePromiseReply,
   buildBluePassCommissionReply,
   buildBluePassConservationReply,
   buildBluePassDestinationComparisonReply,
@@ -119,6 +120,7 @@ describe("Kai's scripted voice", () => {
     conservation: buildBluePassConservationReply(),
     commission: buildBluePassCommissionReply(),
     bookingSystems: buildBluePassBookingSystemsReply(),
+    pricePromise: buildBluePassPricePromiseReply(),
     destinationComparisonFallback: buildBluePassDestinationComparisonReply(["Ningaloo", "the Whitsundays"]),
     travellerReset: buildBluePassResetConversationReply(),
     cardDecline: buildCardDeclineReply(),

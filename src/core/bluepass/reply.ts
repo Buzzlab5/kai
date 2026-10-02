@@ -474,3 +474,18 @@ export function isBluePassBookingSystemQuestion(content: string) {
 export function buildBluePassBookingSystemsReply() {
   return "We work with operators on Rezdy, FareHarbor and Inseanq, and with operators who have no booking system at all, where the team confirms by hand. Is there a trip you're keen on?";
 }
+
+// House rule 4: never promise the lowest price or a price match, and say what is true instead. Asked
+// "can you promise me the lowest price and price match?", Kai used to answer "I won't guess", which
+// dodged the question (found by running docs/kai-personality.md against production, 2026-10-03).
+// Only asks for a promise: "what's the cheapest price for Komodo?" is an ordinary price question.
+const pricePromisePattern =
+  /\bprice[- ]?(?:match|guarantee|beat|promise)\w*|\b(?:promise|guarantee|guaranteed?|assure)\b.{0,40}\b(?:lowest|best|cheapest|cheaper)\b|\b(?:lowest|best|cheapest) price\b.{0,30}\b(?:promise|guarantee|guaranteed)\b|\b(?:match|beat)\b(?: \S+){0,3} (?:price|prices|quote|offer)\b/i;
+
+export function isBluePassPricePromiseRequest(content: string) {
+  return pricePromisePattern.test(content);
+}
+
+export function buildBluePassPricePromiseReply() {
+  return "I can't promise the lowest price or match another site, but you pay the operator's own price, the same as booking direct, with nothing added on top. Want me to find something that fits your budget?";
+}

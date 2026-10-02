@@ -36,6 +36,8 @@ import {
   buildBluePassBookingSystemsReply,
   buildBluePassCommissionReply,
   isBluePassBookingSystemQuestion,
+  isBluePassPricePromiseRequest,
+  buildBluePassPricePromiseReply,
   buildBluePassConservationReply,
   buildBluePassInquiryConfirmationReply,
   buildBluePassInquiryReadyReply,
@@ -159,6 +161,21 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         team: "the BluePass team"
       }),
       humanHandoff: "REQUESTED" as const,
+      bluepassMatches: [],
+      bluepassInquiry: null,
+      bluepassLedger: [],
+      bluepassDispatch: null,
+      paymentRequest: null,
+      contactRequest: null,
+      suggestedReplies: null
+    };
+  }
+
+  if (isBluePassPricePromiseRequest(input.content)) {
+    return {
+      replyMode: "ACTION" as const,
+      persona: classifyBluePassPersona([...input.priorTravellerMessages, input.content]),
+      assistantContent: buildBluePassPricePromiseReply(),
       bluepassMatches: [],
       bluepassInquiry: null,
       bluepassLedger: [],
