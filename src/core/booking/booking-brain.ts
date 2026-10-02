@@ -1,3 +1,6 @@
+import { extractGuestCount } from "@/core/conversation/guest-count";
+import { formatDatePhrase } from "./friendly-date";
+
 export type BookingBrainIntent =
   | "CHECK_AVAILABILITY"
   | "BOOKING_INQUIRY"
@@ -204,15 +207,10 @@ function findDateText(message: string, now: Date = new Date()) {
 // kai-conversation-flow-notes.md finding #5: "2 adults" failed the same way bare "2" did - only
 // guest|guests|pax|people|person|persons were accepted as the unit word, so a completely normal
 // reply to "how many guests?" fell through to null and re-triggered the same question.
+// Now the shared parser, so "3 of us", "four people" and "2 adults and 1 child" (3, not 2) work here
+// the same way they do in the BluePass chat.
 function findGuests(message: string) {
-  const guestCount = message.match(
-    /\b(\d{1,2})\s*(guest|guests|pax|people|person|persons|adult|adults|traveller|travellers|traveler|travelers)\b/i
-  );
-  if (!guestCount) {
-    return null;
-  }
-
-  return Number(guestCount[1]);
+  return extractGuestCount(message) ?? null;
 }
 
 // kai-conversation-flow-notes.md item 10: "budget about $500 each"/"budget $500" - AUD-only since
@@ -344,26 +342,34 @@ export function analyzeTravellerBookingMessage(message: string, now: Date = new 
   };
 }
 
+const slotWords = { product: "which trip", date: "the date", guests: "how many of you" } as const;
+
+function friendlySlots(slots: ("product" | "date" | "guests")[]) {
+  const words = slots.map((slot) => slotWords[slot]);
+  if (words.length <= 1) return words[0] ?? "the details";
+  return `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
+
 export function composeBookingBrainReply(analysis: BookingBrainResult) {
   if (analysis.intent === "HUMAN_HANDOFF") {
-    return "I can hand this to the team. I will keep the booking details grounded and avoid making changes until an operator reviews it.";
+    return "Of course, I'll get a person from the team onto this as soon as possible, and nothing gets booked or changed in the meantime.";
   }
 
   if (analysis.intent === "GENERAL_QUESTION") {
-    return "I can help with availability, booking, or handing you off to the team.";
+    return "Happy to help. I can check times and prices, book you in, or answer questions about the trips.";
   }
 
   if (analysis.missingSlots.length > 0) {
     const missing = analysis.missingSlots;
 
     if (missing.join(",") === "product,date,guests") {
-      return "I can help with that. Which tour, date, and number of guests should I check first?";
+      return "Happy to check. Which trip, what date, and how many of you?";
     }
 
-    return `I can help with that. Please share the ${missing.join(", ")} and I'll check availability.`;
+    return `Happy to check. Just tell me ${friendlySlots(missing)}, and I'll see what's free.`;
   }
 
-  return `I can check ${analysis.slots.productHint} for ${analysis.slots.guests} guest${
+  return `Let me check ${analysis.slots.productHint} for ${analysis.slots.guests} guest${
     analysis.slots.guests === 1 ? "" : "s"
-  } on ${analysis.slots.dateText}. Let me check availability before confirming anything.`;
+  } ${formatDatePhrase(analysis.slots.dateText)}. Nothing's booked until you say so.`;
 }

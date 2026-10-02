@@ -172,7 +172,7 @@ export function classifyBluePassRegion(market: BluePassMarket, messages: string[
 
 /** Step 1 - the very first thing Kai asks: which country. */
 export function buildBluePassMarketGreeting(): string {
-  return "Hey - Kai here, the BluePass ocean concierge. First up so I point you the right way: are you in Australia or Indonesia?";
+  return "Hey, I'm Kai from BluePass. First up, so I can point you the right way: are you looking at Australia or Indonesia?";
 }
 
 /**
@@ -182,9 +182,9 @@ export function buildBluePassMarketGreeting(): string {
  */
 export function bluePassRegionsPitch(market?: BluePassMarket): string {
   if (market === "INDONESIA") {
-    return "We're also live in Indonesia, with Komodo and Raja Ampat - two of the best reef destinations on the planet, through one link.";
+    return "We're also live in Indonesia, with Komodo and Raja Ampat, two of the best reef destinations on the planet, through one link.";
   }
-  return "In Australia we're live right across the coast - the Great Barrier Reef, Whitsundays, Ningaloo, Gold Coast, Sydney, Byron Bay, Tasmania and Rottnest, all through one link.";
+  return "In Australia we're live right across the coast: the Great Barrier Reef, Whitsundays, Ningaloo, Gold Coast, Sydney, Byron Bay, Tasmania and Rottnest, all through one link.";
 }
 
 /** Market-aware descriptor for the operator catalogue ("vetted X operators"). AU-default. */
@@ -226,7 +226,9 @@ export function bluePassFlagshipVessel(market?: BluePassMarket): string {
 }
 
 /**
- * Commission numbers for operator-facing chat copy. AU moved to 20%/80% (7% platform fee) on
+ * Commission numbers, for internal use only. Kai's chat copy no longer quotes them: per Tony
+ * (2026-09-21), travellers and operators hear only the 5% to conservation (and where it goes) and
+ * that guests pay the same as booking direct. History: AU moved to 20%/80% (7% platform fee) on
  * 2026-08-05; Indonesia was corrected to the same split on 2026-08-24 ("Indonesia ternyata 20% juga,
  * bukan 18%"); Boattime (previously believed frozen on an old 18%/82% figure that turned out to have
  * no real, checkable source) was folded into the same 20%/80% rate the same day - see ledger.ts's
@@ -300,7 +302,7 @@ export function buildBluePassRegionPrompt(market: BluePassMarket): string {
       ? regions.join(" or ")
       : `${regions.slice(0, -1).join(", ")}, or ${last}`;
   if (market === "AUSTRALIA") {
-    return `Australia - welcome. Which stretch of coast are you on: ${list}?`;
+    return `Australia, great. Which stretch of coast are you after: ${list}?`;
   }
-  return `Indonesia it is. Komodo and Raja Ampat are live, more waters coming - which one: ${list}?`;
+  return `Indonesia it is. Komodo and Raja Ampat are live, with more waters coming. Which one: ${list}?`;
 }

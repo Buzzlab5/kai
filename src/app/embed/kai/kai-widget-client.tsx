@@ -106,7 +106,7 @@ function loadStripeScript() {
     const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://js.stripe.com/v3/"]');
     if (existingScript) {
       existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("Secure payment could not load.")), {
+      existingScript.addEventListener("error", () => reject(new Error("Secure payment couldn't load. Please try again.")), {
         once: true
       });
       return;
@@ -116,7 +116,7 @@ function loadStripeScript() {
     script.src = "https://js.stripe.com/v3/";
     script.async = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Secure payment could not load."));
+    script.onerror = () => reject(new Error("Secure payment couldn't load. Please try again."));
     document.head.appendChild(script);
   });
 }
@@ -161,7 +161,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
 
         const stripe = window.Stripe?.(paymentIntent.publishableKey) ?? null;
         if (!stripe) {
-          throw new Error("Secure payment could not initialize.");
+          throw new Error("Secure payment couldn't start. Please try again.");
         }
 
         const cardElement = stripe.elements().create("card", {
@@ -174,7 +174,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
       } catch (mountError) {
         if (!active) return;
         setPaymentStatus("idle");
-        setPaymentError(mountError instanceof Error ? mountError.message : "Secure payment could not load.");
+        setPaymentError(mountError instanceof Error ? mountError.message : "Secure payment couldn't load. Please try again.");
       }
     }
 
@@ -235,7 +235,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
         }
 
         setStatus("error");
-        setError(bootError instanceof Error ? bootError.message : "Kai failed to load.");
+        setError(bootError instanceof Error ? bootError.message : "Kai couldn't load just now. Please try again.");
       }
     }
 
@@ -261,7 +261,9 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
       return "Connecting to Kai";
     }
 
-    return `${config.tenant.name} · ${config.capabilities.pmsProvider.toUpperCase()}`;
+    // Travellers see who they're talking to, never the booking system behind it ("NATIVE", "REZDY")
+    // or an admin's note in the tenant name ("BluePass Australia (Rezdy pilot)").
+    return `${config.tenant.name.replace(/\s*\([^)]*\)/g, "").trim()} concierge`;
   }, [config]);
 
   async function submitContent(content: string) {
@@ -319,7 +321,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
       setMessages((currentMessages) =>
         currentMessages.filter((chatMessage) => chatMessage.id !== localTravellerMessage.id)
       );
-      setError(sendError instanceof Error ? sendError.message : "Message failed to send.");
+      setError(sendError instanceof Error ? sendError.message : "That didn't send. Mind trying again?");
     }
   }
 
@@ -336,17 +338,17 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
     const phone = contactForm.phone.trim();
 
     if (name.length < 2) {
-      setContactFormError("Please enter your full name.");
+      setContactFormError("Please add your full name.");
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setContactFormError("Please enter a valid email address.");
+      setContactFormError("That email doesn't look quite right.");
       return;
     }
 
     if (phone.replace(/\D/g, "").length < 6) {
-      setContactFormError("Please enter a valid phone number.");
+      setContactFormError("That phone number doesn't look quite right.");
       return;
     }
 
@@ -375,7 +377,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
     } catch (paymentStartError) {
       setPaymentStatus("idle");
       setPaymentError(
-        paymentStartError instanceof Error ? paymentStartError.message : "Secure payment is not available yet."
+        paymentStartError instanceof Error ? paymentStartError.message : "Secure payment isn't available just yet."
       );
     }
   }
@@ -424,7 +426,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
       setPaymentStatus("idle");
     } catch (confirmError) {
       setPaymentStatus("ready");
-      setPaymentError(confirmError instanceof Error ? confirmError.message : "Payment could not be completed.");
+      setPaymentError(confirmError instanceof Error ? confirmError.message : "That payment didn't go through. Please try again.");
     }
   }
 
@@ -587,7 +589,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
                 boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)"
               }}
             >
-              <h2 style={{ margin: 0, fontSize: 16, lineHeight: 1.25 }}>Contact details</h2>
+              <h2 style={{ margin: 0, fontSize: 16, lineHeight: 1.25 }}>Your details</h2>
               <p style={{ margin: 0, color: "#4f625b", fontSize: 13, lineHeight: 1.45 }}>
                 This keeps names, email, and phone number in the right format for the booking.
               </p>
@@ -865,7 +867,7 @@ export default function KaiWidgetClient({ widgetKey }: KaiWidgetClientProps) {
             id="kai-message"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="Ask about availability"
+            placeholder="Ask me anything"
             disabled={status === "loading" || status === "error"}
             style={{
               minWidth: 0,

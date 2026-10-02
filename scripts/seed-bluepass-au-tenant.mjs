@@ -21,7 +21,7 @@ const responseGuardrails = [
 
 const bluepassAuTenant = {
   slug: "bluepass-au",
-  name: "BluePass Australia (Rezdy pilot)",
+  name: "BluePass Australia",
   widgetPublicKey: "pk_test_bluepass_au",
   // localhost/127.0.0.1:3107 is Kai's own origin (needed for the /embed/kai iframe pattern, which
   // always calls Kai's relative API paths from Kai's own origin regardless of the embedding page).
@@ -39,9 +39,8 @@ const bluepassAuTenant = {
     logoUrl: null,
     primaryColor: "#0f766e",
     widgetTitle: "Kai",
-    welcomeMessage: "Ask me about Gold Coast charter trips - I can check live availability and book instantly.",
-    brandVoice:
-      "Trustworthy, concierge-like BluePass voice, proving instant Gold Coast charter booking ahead of a full Australia operator rollout."
+    welcomeMessage: "Hey, I'm Kai. Ask me about Gold Coast charters and I'll check live times and book you in.",
+    brandVoice: "Trustworthy, relaxed and quick to get people on the water."
   },
   config: {
     supportedChannels: ["WEB_WIDGET"],

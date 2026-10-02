@@ -461,6 +461,16 @@ export async function dispatchBluePassOperatorWhatsApp(input: { inquiryId: strin
   });
 }
 
+/** Any enquiry at all from this chat, whatever its status: once one exists, "say yes and I'll send it" is wrong. */
+export async function hasBluePassInquiryInConversation(input: { tenantId: string; conversationId: string }) {
+  const inquiry = await prisma.bluePassInquiry.findFirst({
+    where: { tenantId: input.tenantId, conversationId: input.conversationId },
+    select: { id: true }
+  });
+
+  return Boolean(inquiry);
+}
+
 export async function getActiveBluePassInquiryStatus(input: { tenantId: string; conversationId: string }) {
   const inquiry = await prisma.bluePassInquiry.findFirst({
     where: {
@@ -1073,7 +1083,7 @@ async function dispatchDeclinedAlternativeFromTravellerApproval(input: {
       inquiry: input.inquiry,
       dispatch: null,
       reply:
-        "I checked the BluePass catalog but do not have a strong similar alternative ready for this request yet. BluePass will follow up before sending another operator inquiry."
+        "I had a look, but there's nothing similar enough in the BluePass catalogue for this one yet. The team will follow up with you before sending another enquiry."
     };
   }
 
@@ -1253,10 +1263,10 @@ function buildAlternativeDispatchReply(input: {
   const previousYachtName =
     input.previousInquiry.selectedYachtName ?? input.previousInquiry.operatorName ?? "the previous operator";
   const dispatchLine = input.dispatchFailed
-    ? "I tried to send the next operator inquiry, but WhatsApp dispatch failed. BluePass will retry from the operator pipeline."
-    : "I sent the next operator inquiry and will update you when the operator replies.";
+    ? "I couldn't reach them on WhatsApp just now, so the team will send it on."
+    : "I've sent them your enquiry and I'll let you know as soon as they reply.";
 
-  return `${previousYachtName} was not available, so I moved to a similar BluePass option: ${yachtName} for ${formatTripSummary(input.inquiry)}. ${dispatchLine} This is still not a confirmed booking; availability, final price, and payment wait for operator confirmation.`;
+  return `${previousYachtName} couldn't do it, so I've tried a similar boat: ${yachtName} for ${describeTrip(input.inquiry)}. ${dispatchLine} It's not booked yet: they'll confirm availability and the final price first.`;
 }
 
 async function findBluePassInquiryWithRecentEvents(inquiryId: string) {
@@ -1286,121 +1296,126 @@ async function buildBluePassWhatsAppContextReply(input: {
   const hasQuoteApproval = Boolean(inquiry.events?.some((event) => event.type === "BLUEPASS_QUOTE_APPROVED"));
 
   if (input.participant === "operator") {
+    const travellerName = inquiry.travellerName ?? "the traveller";
+    const guestTrip = describeTrip(inquiry, `${travellerName}'s`);
+
     if (inquiry.status === "CLOSED" || confirmationText) {
       return composeBluePassWhatsAppContextReply({
-        deterministicReply: `I found ${inquiry.travellerName ?? "the traveller"}'s ${yachtName} inquiry for ${tripSummary}. Booking is marked confirmed. ${confirmationText ? `Latest confirmation: ${confirmationText}` : "BluePass will keep the traveller updated."}`,
+        deterministicReply: `${capitalise(guestTrip)} with ${yachtName} is marked confirmed. ${confirmationText ? `Latest confirmation: ${confirmationText}` : "I'll keep the traveller posted."}`,
         inquiry,
         participant: input.participant,
         latestMessage: input.latestMessage,
-        requiredFacts: [yachtName, tripSummary]
+        requiredFacts: [yachtName, guestTrip]
       });
     }
 
     if (paymentText) {
       return composeBluePassWhatsAppContextReply({
-        deterministicReply: `I found ${inquiry.travellerName ?? "the traveller"}'s ${yachtName} inquiry for ${tripSummary}. Payment details are already with the traveller: ${paymentText} Please reply here once payment is received and booking is confirmed.`,
+        deterministicReply: `The payment details for ${guestTrip} with ${yachtName} are already with them: ${paymentText} Just reply here once payment's in and the booking's confirmed.`,
         inquiry,
         participant: input.participant,
         latestMessage: input.latestMessage,
-        requiredFacts: [yachtName, tripSummary, paymentText]
+        requiredFacts: [yachtName, guestTrip, paymentText]
       });
     }
 
     if (hasQuoteApproval) {
       return composeBluePassWhatsAppContextReply({
-        deterministicReply: `I found ${inquiry.travellerName ?? "the traveller"}'s ${yachtName} inquiry for ${tripSummary}. The traveller approved the BluePass quote. Please hold the slot and send the payment link, deposit terms, and booking reference here.`,
+        deterministicReply: `${capitalise(travellerName)} approved the BluePass quote for ${describeTrip(inquiry, "their")} with ${yachtName}. Please hold the spot and send the payment link, deposit terms and booking reference here.`,
         inquiry,
         participant: input.participant,
         latestMessage: input.latestMessage,
-        requiredFacts: [yachtName, tripSummary, "traveller approved"]
+        requiredFacts: [yachtName, "approved the BluePass quote"]
       });
     }
 
     if (inquiry.status === "COUNTER_OFFERED") {
       return composeBluePassWhatsAppContextReply({
-        deterministicReply: `I found ${inquiry.travellerName ?? "the traveller"}'s ${yachtName} inquiry for ${tripSummary}. Your counter-offer has been sent to the traveller. BluePass is waiting for traveller approval or negotiation.`,
+        deterministicReply: `Your counter-offer for ${guestTrip} with ${yachtName} is with them now, and I'm waiting to hear if they take it or want changes.`,
         inquiry,
         participant: input.participant,
         latestMessage: input.latestMessage,
-        requiredFacts: [yachtName, tripSummary, "counter-offer"]
+        requiredFacts: [yachtName, guestTrip, "counter-offer"]
       });
     }
 
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found ${inquiry.travellerName ?? "the traveller"}'s ${yachtName} inquiry for ${tripSummary}. Current status: ${formatStatusForReply(inquiry.status)}. You can reply with availability, a counter-offer, payment details, or booking confirmation.`,
+      deterministicReply: `${capitalise(guestTrip)} with ${yachtName} is ${describeStatus(inquiry.status, "operator")}. You can reply with availability, a counter-offer, payment details or a booking confirmation.`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, formatStatusForReply(inquiry.status)]
+      requiredFacts: [yachtName, guestTrip]
     });
   }
 
+  const trip = describeTrip(inquiry);
+
   if (inquiry.status === "CLOSED" || confirmationText) {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. Booking is confirmed. ${confirmationText ? `Operator confirmation: ${confirmationText}` : "BluePass can still help if you need pre-departure support."}`,
+      deterministicReply: `You're all booked with ${yachtName} for ${trip}. ${confirmationText ? `Their confirmation: ${confirmationText}` : "I'm here if you need anything before you go."}`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary]
+      requiredFacts: [yachtName, trip]
     });
   }
 
   if (paymentText) {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. The operator has sent payment instructions: ${paymentText} Your booking is not confirmed until payment and final operator confirmation are complete.`,
+      deterministicReply: `${yachtName} has sent the payment details for ${trip}: ${paymentText} It's not booked until you've paid and they've confirmed.`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, paymentText, "not confirmed"]
+      requiredFacts: [yachtName, trip, paymentText, "not booked"]
     });
   }
 
   if (hasQuoteApproval) {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. You approved the quote, and BluePass is waiting for the operator to hold the slot and send payment instructions. Quote: ${quoteUrl}`,
+      deterministicReply: `You've approved the quote for ${trip}, and I'm waiting on ${yachtName} to hold your spot and send the payment details. Here's your quote: ${quoteUrl}`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, quoteUrl]
+      requiredFacts: [yachtName, trip, quoteUrl]
     });
   }
 
   if (inquiry.status === "COUNTER_OFFERED") {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. A counter-offer is ready for review. You can approve it, negotiate, or compare alternatives here: ${quoteUrl}`,
+      deterministicReply: `${yachtName} has come back with a different offer for ${trip}. You can take it, ask for changes or compare other options here: ${quoteUrl}`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, quoteUrl]
+      requiredFacts: [yachtName, trip, quoteUrl]
     });
   }
 
   if (inquiry.status === "DECLINED") {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. The operator is not available. BluePass can compare similar alternatives before sending another inquiry.`,
+      deterministicReply: `Sorry, ${yachtName} can't do ${trip}. Want me to find you something similar?`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, "not available"]
+      requiredFacts: [yachtName, trip, "can't do"]
     });
   }
 
   if (inquiry.status === "OPERATOR_ACCEPTED") {
     return composeBluePassWhatsAppContextReply({
-      deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. The operator accepted, but this is not a confirmed booking yet. BluePass is waiting for final quote and payment instructions.`,
+      deterministicReply: `Good news, ${yachtName} said yes to ${trip}. It's not booked yet: I'm waiting on the final quote and payment details.`,
       inquiry,
       participant: input.participant,
       latestMessage: input.latestMessage,
-      requiredFacts: [yachtName, tripSummary, "not a confirmed booking"]
+      requiredFacts: [yachtName, trip, "not booked yet"]
     });
   }
 
   return composeBluePassWhatsAppContextReply({
-    deterministicReply: `I found your latest BluePass inquiry with ${yachtName} for ${tripSummary}. Current status: ${formatStatusForReply(inquiry.status)}. BluePass will keep coordinating operator confirmation, quote, and payment readiness here.`,
+    deterministicReply: `Your enquiry with ${yachtName} for ${trip} is ${describeStatus(inquiry.status, "traveller")}. I'll keep you posted here.`,
     inquiry,
     participant: input.participant,
     latestMessage: input.latestMessage,
-    requiredFacts: [yachtName, tripSummary, formatStatusForReply(inquiry.status)]
+    requiredFacts: [yachtName, trip]
   });
 }
 
@@ -1424,10 +1439,9 @@ async function composeBluePassWhatsAppContextReply(input: {
     llmClient,
     tenantContext: {
       tenantName: "BluePass",
+      // Travellers get Kai's own voice (core/llm/kai-persona.ts); operators get it with a crisper tone.
       brandVoice:
-        input.participant === "operator"
-          ? "Concise, operational, and clear about the next action needed from the operator."
-          : "Warm, premium marine travel concierge, concise, and grounded in verified BluePass marketplace data.",
+        input.participant === "operator" ? "Concise, operational, and clear about the next action needed from the operator." : null,
       pmsProvider: "BluePass operator network",
       responseGuardrails: [
         "Do not confirm availability, final price, payment, or booking before operator confirmation.",
@@ -1454,14 +1468,6 @@ function findLatestEventMetadataString(
 
   const value = event.metadata[key as keyof typeof event.metadata];
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function formatStatusForReply(status: BluePassInquiry["status"]) {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function buildBluePassQuoteUrl(quoteId: string) {
@@ -1539,32 +1545,35 @@ function buildOperatorResponseTravellerNotification(input: {
 }) {
   const yachtName = input.inquiry.selectedYachtName ?? input.inquiry.operatorName ?? "the operator";
   const quoteLink = input.quoteUrl ? ` Quote link: ${input.quoteUrl}` : "";
+  const trip = describeTrip(input.inquiry);
 
   if (input.action === "accept") {
-    return `${yachtName} accepted your BluePass inquiry for ${formatTripSummary(input.inquiry)}. This is still not a confirmed booking yet; BluePass will follow up with the final price, payment path, and operator confirmation.${quoteLink}`;
+    return `Good news, ${yachtName} said yes to ${trip}. It's not booked yet: the final price and payment details come next, and I'll send them through as soon as they're ready.${quoteLink}`;
   }
 
   if (input.action === "decline") {
     const alternatives = formatDeclineAlternatives(input.inquiry);
-    return `${yachtName} is not available for ${formatTripSummary(input.inquiry)}.${alternatives}`;
+    return `Sorry, ${yachtName} can't do ${trip}.${alternatives}`;
   }
 
   const counterText = input.counterText?.trim();
-  const details = counterText ? ` Details: ${counterText}` : " BluePass needs the operator's counter details before this becomes actionable.";
+  const details = counterText
+    ? ` Here's what they said: ${counterText}`
+    : " I'm waiting on the details from them and will pass them on as soon as they land.";
 
-  return `${yachtName} sent a counter-offer for ${formatTripSummary(input.inquiry)}.${details} You can accept the counter, negotiate, or compare alternatives with BluePass.${quoteLink}`;
+  return `${yachtName} has come back with a different offer for ${trip}.${details} You can take it, ask for changes or have me compare other options.${quoteLink}`;
 }
 
 function buildPaymentReadyTravellerNotification(input: { inquiry: BluePassInquiry; paymentText: string }) {
   const yachtName = input.inquiry.selectedYachtName ?? input.inquiry.operatorName ?? "the operator";
 
-  return `${yachtName} has held your BluePass trip for ${formatTripSummary(input.inquiry)}. Payment and booking instructions: ${input.paymentText} This is not a confirmed booking until payment and final operator confirmation are complete.`;
+  return `${yachtName} is holding ${describeTrip(input.inquiry)} for you. Here's how to pay and lock it in: ${input.paymentText} It's not booked until you've paid and they've confirmed.`;
 }
 
 function buildBookingConfirmedTravellerNotification(input: { inquiry: BluePassInquiry; confirmationText: string }) {
   const yachtName = input.inquiry.selectedYachtName ?? input.inquiry.operatorName ?? "the operator";
 
-  return `Your BluePass booking with ${yachtName} is confirmed for ${formatTripSummary(input.inquiry)}. Operator confirmation: ${input.confirmationText} BluePass will keep this thread available if you need help before departure.`;
+  return `You're booked with ${yachtName} for ${describeTrip(input.inquiry)}. Their confirmation: ${input.confirmationText} I'm here in this chat if you need anything before you go.`;
 }
 
 async function handleBluePassPaymentReadyOperatorResponse(input: {
@@ -1730,13 +1739,36 @@ function formatDeclineAlternatives(inquiry: BluePassInquiry) {
   });
 
   if (alternatives.length === 0) {
-    return " BluePass will compare similar alternatives next and ask before dispatching the next operator inquiry.";
+    return " I'll look for something similar and check with you before I send another enquiry.";
   }
 
   const optionLines = alternatives.map((alternative, index) => `${index + 1}. ${alternative.name}`).join("\n");
   const firstAlternative = alternatives[0]?.name ?? "the best match";
 
-  return `\n\nSimilar BluePass options:\n${optionLines}\n\nReply "try ${firstAlternative}" to send that operator inquiry, or ask Kai to compare before BluePass dispatches another operator.`;
+  return `\n\nSimilar BluePass options:\n${optionLines}\n\nReply "try ${firstAlternative}" and I'll send them an enquiry, or ask me to compare them first.`;
+}
+
+// "your Komodo trip (20 July, 2 guests)", for messages a person reads. formatTripSummary below stays
+// compact because it also fills the approved WhatsApp template.
+function describeTrip(inquiry: BluePassInquiry, owner = "your") {
+  const details = [inquiry.dateWindow, inquiry.guests ? `${inquiry.guests} guest${inquiry.guests === 1 ? "" : "s"}` : null]
+    .filter(Boolean)
+    .join(", ");
+  const trip = inquiry.destination ? `${owner} ${inquiry.destination} trip` : `${owner} trip`;
+
+  return details ? `${trip} (${details})` : trip;
+}
+
+function describeStatus(status: BluePassInquiry["status"], participant: "traveller" | "operator") {
+  if (status === "OPERATOR_PENDING") return participant === "operator" ? "waiting on your reply" : "with the operator, waiting on their reply";
+  if (status === "DRAFT" || status === "READY_TO_DISPATCH") return "saved and on its way to the operator";
+  if (status === "CLOSED") return "closed";
+
+  return status.replace(/_/g, " ").toLowerCase();
+}
+
+function capitalise(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatTripSummary(inquiry: BluePassInquiry) {
@@ -2004,7 +2036,7 @@ function buildDeliveryStatusFallbackTravellerContent(inquiry: BluePassInquiry) {
     });
   }
 
-  return `BluePass update for ${formatTripSummary(inquiry)}. Current status: ${formatStatusForReply(inquiry.status)}.`;
+  return `A quick update on ${describeTrip(inquiry)}: it's ${describeStatus(inquiry.status, "traveller")}.`;
 }
 
 function resolveTravellerWhatsAppNotificationMode(): "disabled" | "text" | "template" {
@@ -2031,18 +2063,18 @@ function formatTravellerTemplateStatus(status: BluePassInquiry["status"], conten
   const quoteUrl = extractQuoteUrl(content);
   const quoteSuffix = quoteUrl ? `. Quote: ${quoteUrl}` : "";
 
-  if (status === "OPERATOR_ACCEPTED") return `Accepted by operator${quoteSuffix}`;
+  if (status === "OPERATOR_ACCEPTED") return `The operator said yes${quoteSuffix}`;
   if (status === "DECLINED") return formatDeclinedTravellerTemplateStatus(content);
-  if (status === "COUNTER_OFFERED") return `Counter-offer received${quoteSuffix}`;
+  if (status === "COUNTER_OFFERED") return `The operator sent a different offer${quoteSuffix}`;
 
-  return "Update received";
+  return "There's an update on your enquiry";
 }
 
 function formatDeclinedTravellerTemplateStatus(content?: string) {
   const alternatives = extractDeclineAlternativeNames(content);
-  if (alternatives.length === 0) return "Not available. BluePass is checking similar options.";
+  if (alternatives.length === 0) return "The operator can't do it. Similar options are being checked.";
 
-  return `Not available. Similar options: ${alternatives.join(", ")}. Reply try ${alternatives[0]}.`;
+  return `The operator can't do it. Similar options: ${alternatives.join(", ")}. Reply try ${alternatives[0]}.`;
 }
 
 function extractDeclineAlternativeNames(content?: string) {

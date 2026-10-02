@@ -52,5 +52,5 @@ export function redactCardShapedInput(message: string): string {
 }
 
 export function buildCardDeclineReply() {
-  return "I can't take card or payment details in chat, so I didn't save that - please don't paste it here. When you're ready to pay, I'll send a secure checkout link that Kai never sees or stores.";
+  return "I can't take card or payment details in chat, so I didn't save that. Best not to paste them here. When you're ready to pay, I'll send you a secure checkout link, and your card details never pass through me.";
 }

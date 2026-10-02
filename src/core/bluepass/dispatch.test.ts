@@ -15,10 +15,10 @@ describe("buildBluePassDispatchText", () => {
       referralCode: "CREATOR42"
     });
 
-    expect(text).toContain("BluePass inquiry inquiry_1");
+    expect(text).toContain("BluePass enquiry inquiry_1");
     expect(text).toContain("Alila Purnama");
     expect(text).toContain("Maya Chen");
-    expect(text).toContain("operator confirmation required");
+    expect(text).toContain("nothing is booked or paid until you confirm");
     expect(text).not.toMatch(/confirmed booking/i);
   });
 });

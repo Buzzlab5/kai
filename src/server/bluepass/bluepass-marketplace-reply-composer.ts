@@ -6,6 +6,7 @@ import {
 import { resolveBluePassCatalog, type BluePassCatalogSnapshotItem } from "@/core/bluepass/catalog";
 import { isBluePassConservationQuestion, isBluePassValuePropQuestion } from "@/core/bluepass/reply";
 import { isBluePassCommissionQuestion } from "./bluepass-message-flow";
+import { PERSON_OFFER } from "@/core/conversation/human-handoff";
 
 type BluePassMarketplaceComposerResult = {
   reply: string;
@@ -46,8 +47,18 @@ export async function composeBluePassMarketplaceAssistantReply(input: {
   //   required so a hallucinated rewrite that keeps "5%" but flips the direction still gets rejected.
   const isValueOrConservationQuestion =
     isBluePassConservationQuestion(input.latestMessage) || isBluePassValuePropQuestion(input.latestMessage);
+  // A mid-enquiry reminder ("When you're ready, just tell me your dates...") is the traveller's way
+  // back into their enquiry after a side question, so a rewrite has to keep it word for word.
+  const enquiryReminder = input.deterministicReply.match(
+    /When you're ready, (?:just tell me|just say yes|pop your details|send me your)[^.]*\./
+  )?.[0];
   const requiredFacts = [
     ...(conciergeMode ? [] : buildMarketplaceRequiredFacts(input.marketplaceResult, input.deterministicReply)),
+    ...(enquiryReminder ? [enquiryReminder] : []),
+    // The offer of a person has to survive word for word, or a "yes" to it can't be recognised.
+    ...(input.deterministicReply.includes(PERSON_OFFER) ? [PERSON_OFFER] : []),
+    // The offer of a person has to survive word for word, or a "yes" to it can't be recognised.
+    ...(input.deterministicReply.includes(PERSON_OFFER) ? [PERSON_OFFER] : []),
     ...(isBluePassCommissionQuestion(input.latestMessage) ? extractBluePassPercentageFacts(input.deterministicReply) : []),
     ...(isValueOrConservationQuestion ? ["operator's side", "never added to your fare"] : [])
   ];
@@ -65,15 +76,15 @@ export async function composeBluePassMarketplaceAssistantReply(input: {
     llmClient: input.llmClient ?? null,
     tenantContext: {
       tenantName: "BluePass",
-      brandVoice:
-        "Warm, natural marine travel concierge. Helpful like a human travel advisor, but concise and honest about operator confirmation.",
-      pmsProvider: "BluePass marketplace catalog and operator network",
+      // Kai's own personality (core/llm/kai-persona.ts) is the BluePass voice, so no extra tenant tone.
+      brandVoice: null,
+      pmsProvider: "BluePass marketplace catalogue and operator network",
       responseGuardrails: [
         conciergeMode
           ? "For discovery and travel inspiration, answer the traveller naturally first; do not force name, email, or inquiry collection until they clearly want to send an operator inquiry."
           : "For transactional inquiry replies, preserve all operational facts exactly.",
         conciergeMode
-          ? "Act as a knowledgeable Indonesia travel concierge: freely use your own general travel knowledge to answer questions about any destination, activity, culture, or logistics, even outside the BluePass catalog, as long as you stay honest about what BluePass has actually vetted."
+          ? "Act as a knowledgeable marine travel concierge across Australia, Indonesia and beyond: freely use your own general travel knowledge to answer questions about any destination, activity, culture, or logistics, even outside the BluePass catalogue, as long as you stay honest about what BluePass has actually vetted."
           : null,
         // kai-conversation-flow-notes.md stop-the-line item B: a real conversation, when the
         // traveller's budget didn't match any catalog yacht, volunteered "I can try to suggest
@@ -131,7 +142,7 @@ function extractBluePassDeterministicFacts(reply: string) {
 
   for (const pattern of [
     /\bfor\s+([A-Z][A-Za-z0-9' ]+?)\s+in\s+(?:Komodo|Raja Ampat)\b/g,
-    /\bGreat choice\s+-\s+([A-Z][A-Za-z0-9' ]+?)\s+is\b/g,
+    /\b(?:Great choice\s+-|Good pick\.)\s+([A-Z][A-Za-z0-9' ]+?)\s+is\b/g,
     /^([A-Z][A-Za-z0-9' ]+?)\s+is\s+(?:a|an)\s+/gm
   ]) {
     for (const match of reply.matchAll(pattern)) {
@@ -152,7 +163,7 @@ function extractBluePassDeterministicFacts(reply: string) {
     facts.push(contactMatch[1].trim());
   }
 
-  const tripMatch = reply.match(/\btrip details as\s+([^.\n]+)\./i);
+  const tripMatch = reply.match(/\btrip details(?:\s+as|:)\s+([^.\n]+)\./i);
   if (tripMatch) {
     const tripDetails = tripMatch[1];
     const dateMatch = tripDetails.match(/\b\d{1,2}\s+[A-Z][a-z]+(?:\s+\d{4})?\b/);

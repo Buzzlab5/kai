@@ -219,14 +219,14 @@ describe("bluepass quote", () => {
       type: "text"
     });
     expect(sentBodies[0].text.body).toContain("Putro approved the BluePass quote");
-    expect(sentBodies[0].text.body).toContain("Please hold the slot");
-    expect(sentBodies[0].text.body).toContain("payment path");
+    expect(sentBodies[0].text.body).toContain("Please hold the spot");
+    expect(sentBodies[0].text.body).toContain("how the guest pays");
     expect(sentBodies[1]).toMatchObject({
       to: "6285156246329",
       type: "text"
     });
-    expect(sentBodies[1].text.body).toContain("Your BluePass quote for Calico Jack is approved");
-    expect(sentBodies[1].text.body).toContain("payment path");
+    expect(sentBodies[1].text.body).toContain("your quote for Calico Jack is approved");
+    expect(sentBodies[1].text.body).toContain("how to pay");
     expect(events.map((event) => event.type)).toEqual([
       "BLUEPASS_QUOTE_APPROVED",
       "QUOTE_APPROVAL_OPERATOR_NOTIFICATION_SENT",

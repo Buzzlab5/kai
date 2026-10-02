@@ -34,9 +34,7 @@ describe("booking brain", () => {
 
     expect(analysis.intent).toBe("BOOKING_INQUIRY");
     expect(analysis.missingSlots).toEqual(["product", "date", "guests"]);
-    expect(reply).toBe(
-      "I can help with that. Which tour, date, and number of guests should I check first?"
-    );
+    expect(reply).toBe("Happy to check. Which trip, what date, and how many of you?");
   });
   it("treats plural tour wording as a booking inquiry", () => {
     const result = analyzeTravellerBookingMessage("Show me tomorrow tours");
@@ -239,5 +237,11 @@ describe("booking brain", () => {
     expect(analyzeTravellerBookingMessage("budget about $500 each").slots.budget).toBe(500);
     expect(analyzeTravellerBookingMessage("my budget is 1,200").slots.budget).toBe(1200);
     expect(analyzeTravellerBookingMessage("Komodo Day Trip for 2 guests tomorrow").slots.budget).toBeNull();
+  });
+
+  it("understands the everyday ways people give a group size", () => {
+    expect(analyzeTravellerBookingMessage("28 june, 3 of us").slots.guests).toBe(3);
+    expect(analyzeTravellerBookingMessage("2 adults and 1 child").slots.guests).toBe(3);
+    expect(analyzeTravellerBookingMessage("four people please").slots.guests).toBe(4);
   });
 });

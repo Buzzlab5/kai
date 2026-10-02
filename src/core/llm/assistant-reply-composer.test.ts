@@ -93,7 +93,7 @@ describe("assistant reply composer", () => {
             "I can do 12pm please.",
             "- Gold Coast Whale Escape is available at 12:00 PM.",
             "Which ticket option should I use?",
-            "Do you want adult tickets?"
+            "Do you're after adult tickets?"
           ].join("\n");
         }
       }

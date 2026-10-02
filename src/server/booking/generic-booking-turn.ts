@@ -1,3 +1,4 @@
+import { formatDateAndTime } from "@/core/booking/friendly-date";
 import type { BookingMemoryState } from "@/core/booking/booking-memory";
 import { updateBookingMemoryState } from "@/core/booking/booking-memory";
 import { handleTravellerBookingMessage, formatCurrencyAmount, type BookingOrchestratorResult } from "@/core/booking/booking-orchestrator";
@@ -48,6 +49,8 @@ export interface RunGenericBookingTurnInput {
    * same injection point bluepass-pms-stripe.ts already uses for that call, so a test can fake the
    * cross-repo HTTP call instead of hitting it for real. */
   fetcher?: typeof fetch;
+  /** WhatsApp already has the traveller's number, so a handoff to a person never asks for it. */
+  channel?: "whatsapp" | "web";
 }
 
 export interface RunGenericBookingTurnResult {
@@ -115,6 +118,7 @@ export async function runGenericBookingTurn(
       conversationHistory: [...input.priorConversationMessages, { role: "traveller", content: input.content }],
       bookingMemory: bookingState,
       pmsAdapter,
+      channel: input.channel ?? "web",
       bookingWriteEnabled: input.tenant.config?.bookingWriteEnabled ?? false,
       allowUnpaidExternalBooking: false,
       bluePassStripeCheckoutEnabled,
@@ -161,11 +165,11 @@ export async function runGenericBookingTurn(
               ...bookingResult.pmsCheckoutHold
             });
             checkoutUrl = session.checkoutUrl;
-            assistantContentOverride = `Thanks - I have everything for ${bookingResult.pmsCheckoutHold.productTitle} on ${bookingResult.pmsCheckoutHold.dateText} for ${bookingResult.pmsCheckoutHold.guests} guest${bookingResult.pmsCheckoutHold.guests === 1 ? "" : "s"}. Please complete secure payment here: ${session.checkoutUrl}. Kai never sees or stores your card details.`;
+            assistantContentOverride = `Thanks, I've got everything for ${bookingResult.pmsCheckoutHold.productTitle} ${formatDateAndTime(bookingResult.pmsCheckoutHold.dateText)} for ${bookingResult.pmsCheckoutHold.guests} guest${bookingResult.pmsCheckoutHold.guests === 1 ? "" : "s"}. You can pay securely here: ${session.checkoutUrl}. I never see or store your card details.`;
           } catch (error) {
             checkoutUrl = null;
             assistantContentOverride =
-              "I've saved this as a lead for the operator - I could not prepare the secure payment link just now, so someone will follow up to complete payment.";
+              "I've saved this for the operator, but I couldn't set up the secure payment link just now, so someone will follow up with you to finish the booking.";
             console.error("generic_booking_turn.bluepass_pms_checkout_failed", {
               conversationId: input.conversationId,
               error: error instanceof Error ? error.message : String(error)

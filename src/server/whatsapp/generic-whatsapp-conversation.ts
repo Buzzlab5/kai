@@ -5,8 +5,11 @@ import {
   findConversationBookingState,
   findOrCreateWhatsAppConversation,
   listRecentConversationMessages,
-  listRecentTravellerMessageContents
+  listRecentTravellerMessageContents,
+  setConversationControlMode
 } from "@/server/conversation/conversation-repository";
+import { alertTeam } from "@/server/conversation/team-alert";
+import { isEmergencyMessage } from "@/core/conversation/emergency";
 import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
 import { createGenericBookingRouterClient } from "@/server/llm/generic-booking-router-client";
 import { normalizeLocalPhone } from "@/server/phone/normalize-local-phone";
@@ -32,6 +35,13 @@ export async function handleGenericWhatsAppInboundMessage(
     whatsappPhone: travellerPhone
   });
 
+  // A person from the operator's team has this chat: keep the message, stay quiet.
+  if (conversation.controlMode !== "AI") {
+    await createTravellerMessage({ tenantId: tenant.id, conversationId: conversation.id, content: input.body });
+    console.log("generic_whatsapp.kai_quiet_person_has_chat", { conversationId: conversation.id });
+    return { handled: true, sent: false, reply: null };
+  }
+
   const [previousBookingState, priorTravellerMessages, priorConversationMessages] = await Promise.all([
     findConversationBookingState({ tenantId: tenant.id, conversationId: conversation.id }),
     listRecentTravellerMessageContents({ tenantId: tenant.id, conversationId: conversation.id }),
@@ -44,7 +54,7 @@ export async function handleGenericWhatsAppInboundMessage(
     content: input.body
   });
 
-  const { assistantContent } = await runGenericBookingTurn({
+  const { assistantContent, bookingResult } = await runGenericBookingTurn({
     tenant,
     conversationId: conversation.id,
     content: input.body,
@@ -52,7 +62,8 @@ export async function handleGenericWhatsAppInboundMessage(
     priorTravellerMessages,
     priorConversationMessages,
     llmClient: createAssistantLlmClient(process.env),
-    routerClient: createGenericBookingRouterClient(process.env)
+    routerClient: createGenericBookingRouterClient(process.env),
+    channel: "whatsapp"
   });
 
   await createAssistantMessage({
@@ -66,6 +77,29 @@ export async function handleGenericWhatsAppInboundMessage(
     role: "kai",
     body: assistantContent
   });
+
+  // The handoff reply is out, so the chat goes to a person on the operator's team, who hears about it.
+  if (bookingResult?.action === "HUMAN_HANDOFF") {
+    await setConversationControlMode({ tenantId: tenant.id, conversationId: conversation.id, controlMode: "HUMAN" });
+    await alertTeam({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      reason: "PERSON_REQUESTED",
+      channel: "whatsapp",
+      travellerPhone,
+      latestMessage: input.body
+    });
+  }
+  if (isEmergencyMessage(input.body)) {
+    await alertTeam({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      reason: "EMERGENCY",
+      channel: "whatsapp",
+      travellerPhone,
+      latestMessage: input.body
+    });
+  }
 
   return {
     handled: true,

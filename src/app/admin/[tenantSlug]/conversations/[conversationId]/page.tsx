@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { submitAdminTokenAction } from "../../../inquiries/actions";
+import { setConversationControlModeAction } from "./actions";
 import { findConversationTranscriptForTenantSlug } from "@/server/conversation/conversation-repository";
 
 export const dynamic = "force-dynamic";
@@ -117,10 +118,24 @@ export default async function AdminConversationPage({ params }: AdminConversatio
 
           <section style={{ border: "1px solid #dbe5e1", borderRadius: 8, background: "#ffffff", padding: 16 }}>
             <p style={{ margin: 0, color: "#62746e", fontSize: 13 }}>Conversation</p>
-            <h2 style={{ margin: "6px 0 10px", fontSize: 20 }}>{conversation.controlMode}</h2>
+            <h2 style={{ margin: "6px 0 10px", fontSize: 20 }}>
+              {conversation.controlMode === "AI" ? "Kai is replying" : "A person has this chat"}
+            </h2>
             <p style={{ margin: 0, color: "#53655f", lineHeight: 1.5 }}>
               {conversation.channel} · {conversation.messages.length} messages
+              {conversation.controlMode === "AI" ? "" : " · Kai is staying quiet until it's handed back"}
             </p>
+            <form action={setConversationControlModeAction} style={{ marginTop: 12 }}>
+              <input type="hidden" name="tenantSlug" value={tenantSlug} />
+              <input type="hidden" name="conversationId" value={conversationId} />
+              <input type="hidden" name="controlMode" value={conversation.controlMode === "AI" ? "HUMAN" : "AI"} />
+              <button
+                type="submit"
+                style={{ border: "1px solid #0f766e", borderRadius: 8, background: conversation.controlMode === "AI" ? "#ffffff" : "#0f766e", color: conversation.controlMode === "AI" ? "#0f766e" : "#ffffff", cursor: "pointer", fontSize: 14, fontWeight: 800, padding: "9px 12px" }}
+              >
+                {conversation.controlMode === "AI" ? "Take over this chat" : "Hand back to Kai"}
+              </button>
+            </form>
           </section>
         </div>
 

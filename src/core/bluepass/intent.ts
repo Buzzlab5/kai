@@ -1,3 +1,8 @@
+import { extractGuestCount } from "@/core/conversation/guest-count";
+
+// Group-size phrasing is shared with the operator booking flow (core/conversation/guest-count.ts).
+export { extractGuestCount as extractBluePassGuestCount } from "@/core/conversation/guest-count";
+
 export type BluePassInquiryIntent = {
   destination?: string;
   tripType?: string;
@@ -92,8 +97,8 @@ export function extractBluePassInquiryIntent(
   if (/\b(private|charter)\b/i.test(text)) intent.interests = unique([...(intent.interests ?? []), "private"]);
   if (/\bcabin\b/i.test(text)) intent.interests = unique([...(intent.interests ?? []), "cabin"]);
 
-  const guestMatch = text.match(/\b(\d{1,3})\s*(?:guests?|people|pax|travellers?|travelers?)\b/i);
-  if (guestMatch) intent.guests = Number(guestMatch[1]);
+  const guests = extractGuestCount(text);
+  if (guests) intent.guests = guests;
 
   const dateWindow = extractDateWindow(text, lowerText);
   if (dateWindow) intent.dateWindow = dateWindow;
@@ -119,7 +124,13 @@ export function extractBluePassInquiryIntent(
   if (emailMatch) intent.travellerEmail = emailMatch[0];
 
   const phoneMatch = text.match(/\b(?:phone|whatsapp|wa)(?:\s+number)?\s*(?:is|:)?\s*([+\d][\d\s().-]{6,})/i);
+  const barePhone =
+    // No "phone is" in front: an international number (+61 400 111 222) or an Australian or
+    // Indonesian mobile (0400 111 222, 081234567890) is still clearly a phone number.
+    text.match(/(?:^|[\s,;:(])(\+\d{1,3}[\d\s().-]{7,16}\d)/) ??
+    text.match(/\b(04\d{2}[\s-]?\d{3}[\s-]?\d{3}|08\d{8,11})\b/);
   if (phoneMatch) intent.travellerPhone = phoneMatch[1].trim();
+  else if (barePhone) intent.travellerPhone = barePhone[1].trim();
 
   const nameMatch = text.match(
     /\b(?:my name is|name is|i am|i'm)\s+([A-Za-z][A-Za-z' -]{1,60})(?=,|\.|$|\s+(?:email|phone|whatsapp)\b)/i

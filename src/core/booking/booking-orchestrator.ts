@@ -1,3 +1,4 @@
+import { formatDateAndTime, formatDateForSentence, formatDatePhrase } from "./friendly-date";
 import { bookingMemoryToContext, type BookingMemoryState } from "./booking-memory";
 import {
   buildBluePassConservationReply,
@@ -26,6 +27,20 @@ import {
   markExternalBookingFailed,
   type BookingFlowState
 } from "./booking-state-machine";
+import { findBookingSmallTalkReply, isOfferQuestion, isQuestionShaped } from "./booking-small-talk";
+import { findOperatorKnowHowReply } from "./operator-know-how";
+import { buildEmergencyReply, isEmergencyMessage } from "@/core/conversation/emergency";
+import {
+  acceptsPersonOffer,
+  buildCallbackNumberThanksReply,
+  buildHumanHandoffReply,
+  givesCallbackNumber,
+  isAskingForAPerson,
+  PERSON_OFFER,
+  type ConversationChannel
+} from "@/core/conversation/human-handoff";
+import { describePendingBookingStep } from "./booking-thread";
+import { asksForSuggestion, pickProductForOccasion, summariseProductDescription } from "./product-insight";
 import { matchPmsProduct } from "./product-matcher";
 import { calculateBookingGrossAmountCents } from "./booking-pricing";
 import {
@@ -133,6 +148,8 @@ export interface BookingOrchestratorResult {
   ticketOptions?: PmsTicketOption[] | null;
   /** Present only alongside a BOOKING_EXTRAS_SELECTION_REQUIRED reply. */
   extraOptions?: PmsExtraOption[] | null;
+  /** A web visitor's WhatsApp number, left for the person the team is sending. */
+  callbackNumber?: string | null;
 }
 
 export interface HandleTravellerBookingMessageInput {
@@ -152,6 +169,8 @@ export interface HandleTravellerBookingMessageInput {
   tenantContext?: AssistantTenantContext | null;
   /** Operator-authored answers (policies, logistics, FAQs). Loaded per tenant. */
   knowledgePack?: OperatorKnowledgePack | null;
+  /** WhatsApp already has the traveller's number, so a handoff to a person never asks for it. */
+  channel?: ConversationChannel;
   /** Reference clock for date parsing (resolveDefaultYear in booking-brain.ts) - defaults to the
    * real current time. Tests pin this so hardcoded expected dates stay deterministic regardless of
    * the actual wall-clock date the suite runs on. */
@@ -419,6 +438,12 @@ function formatTicketLabelForReply(label: string) {
 // avoids the label's price and the appended price doubling up (e.g. "Adult - $159.00 - AUD 159.00").
 // formatTicketQuantities/formatExtraQuantities (confirming an already-picked option, no price
 // appended alongside) must NOT strip this - that price is the only place it's shown there.
+// "1 x Sparkling for 2": an example built from this operator's real first option, so Kai never
+// suggests something they don't sell.
+function optionExample(options: Array<{ label: string }>) {
+  return `1 x ${stripEmbeddedPriceFromLabel(options[0]?.label ?? "")}`;
+}
+
 function stripEmbeddedPriceFromLabel(label: string) {
   return formatTicketLabelForReply(label)
     .replace(/\s*(?:for|at)?\s*[-–]?\s*(?:AUD|USD|\$)\s*[\d,]+(?:\.\d{2})?\s*$/i, "")
@@ -799,20 +824,22 @@ function composeMissingDetailsReply(input: {
   message?: string | null;
 }) {
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "guests" && input.productTitle && input.dateText) {
-    return `I have ${input.productTitle} for ${input.dateText}. How many guests will be joining?`;
+    return `Nice, ${input.productTitle} ${formatDatePhrase(input.dateText)}. How many of you are going?`;
   }
 
   if (input.missingSlots.length === 1 && input.missingSlots[0] === "date" && input.productTitle && input.guests) {
     const guestPhrase = `${input.guests} guest${input.guests === 1 ? "" : "s"}`;
 
     if (input.message && OPEN_DATE_QUESTION_PATTERN.test(input.message)) {
-      return `I don't have a calendar to browse yet - I can only check one date at a time. I have ${input.productTitle} for ${guestPhrase}. Do you have a date in mind? I'll check it right away.`;
+      return `I can only check one date at a time for ${input.productTitle}, so I can't show you a calendar just yet. Got a date in mind for ${guestPhrase}? I'll check it straight away.`;
     }
 
-    return `I have ${input.productTitle} for ${guestPhrase}. What date works for you?`;
+    return `Nice, ${input.productTitle} for ${guestPhrase}. What date suits you?`;
   }
 
-  return `I can help with that. Please share the ${input.missingSlots.join(", ")} and I'll check availability.`;
+  const slotWords = { product: "which trip", date: "the date", guests: "how many of you" } as const;
+
+  return `Happy to check. Just tell me ${formatList(input.missingSlots.map((slot) => slotWords[slot]))}, and I'll see what's free.`;
 }
 
 // kai-conversation-flow-notes.md-style finding, caught live: when no date is known yet, the cards
@@ -821,19 +848,53 @@ function composeMissingDetailsReply(input: {
 // contradictory: "choose one" next to "we don't have enough info to price this yet." Naming the next
 // step explicitly closes that gap instead of leaving it to be inferred from the cards alone.
 export function formatRecommendationReply(products: PmsProduct[], dateText: string | null) {
-  const datePrefix = dateText ? `For ${dateText}, ` : "";
+  const datePrefix = dateText ? `For ${formatDateForSentence(dateText)}, ` : "";
   const firstWord = dateText ? "you" : "You";
   const closing = dateText
-    ? "Which one sounds closest to what you want?"
-    : "Which one sounds closest? Tell me your date too and I'll check pricing.";
+    ? "Which one sounds closest to what you're after?"
+    : "Which one sounds closest to what you're after? Tell me your date too and I'll check the price.";
 
   return `${datePrefix}${firstWord} can choose from:\n${formatProductOptionsList(products)}\n\n${closing}`;
+}
+
+// Anything in a mid-booking message that could be the step Kai is waiting on: a time, tickets, extras,
+// contact details, a date or a headcount, or words about any of them.
+function mightBeBookingStepAnswer(message: string, memory: BookingMemoryState | null | undefined) {
+  const analysis = analyzeTravellerBookingMessage(message);
+  if (analysis.slots.dateText || analysis.slots.guests || extractEmailAddress(message) || /\d{6,}|\d{3,4}\s?\d{3}\s?\d{3}/.test(message)) {
+    return true;
+  }
+  if (memory?.timeOptions?.length && parseSelectedTimeOption(message, memory.timeOptions)) return true;
+  if (memory?.ticketOptions?.length && parseTicketQuantities(message, memory.ticketOptions, memory.guests).length > 0) return true;
+  // "No extras" parses to an empty list, which is still an answer; null means nothing matched.
+  if (memory?.extraOptions?.length && parseExtraQuantities(message, memory.extraOptions) !== null) return true;
+
+  return /\b(?:time|times|am|pm|morning|afternoon|arvo|evening|earlier|later|tickets?|adults?|child|children|kids?|concession|extras?|add|name|email|phone|number|book|booking|date|day|tomorrow|today|week|guests?|people|us|change|instead|cancel)\b/i.test(
+    message
+  );
+}
+
+// Trips the operator confirms by hand: say what happens next in plain words, and never imply it's booked.
+function composeManualInquiryReply(productTitle: string) {
+  return `The crew confirm ${productTitle} bookings themselves, so I can't lock it in on the spot. I can take your details and pass the request on, and nothing's booked until they confirm.`;
+}
+
+// The traveller named a trip this operator doesn't run ("Komodo Day Trip" on a Gold Coast charter):
+// say so plainly before offering what they do have, rather than quietly changing the subject.
+function notOfferedPrefix(requestedProduct: string | null | undefined, products: PmsProduct[]) {
+  if (!requestedProduct) return "";
+  const requested = requestedProduct.toLowerCase();
+  if (products.some((product) => product.title.toLowerCase().includes(requested) || requested.includes(product.title.toLowerCase()))) {
+    return "";
+  }
+
+  return `I don't have ${/^[aeiou]/i.test(requestedProduct) ? "an" : "a"} ${requestedProduct} here, sorry. `;
 }
 
 // kai-conversation-flow-notes.md's proposed copy for the "we don't have that" path - honest,
 // short, and converts a dead end into a lead instead of a silently repeated wrong-fit list.
 export function buildScopeDeclineReply() {
-  return "Not yet - none of these quite fit what you're after. Want to leave your email so we can follow up once we have something that does?";
+  return "None of these quite fit what you're after, and I'd rather not force it. Want to leave your email so the team can follow up when something does?";
 }
 
 export function extractEmailAddress(message: string) {
@@ -845,34 +906,29 @@ function lowerFirstLetter(value: string) {
 }
 
 function formatProductInfoReply(product: PmsProduct) {
-  const description = product.description ? ` is a ${lowerFirstLetter(product.description)}` : "";
-  const linkSentence = product.productUrl
-    ? ` You can see the product page here: ${product.productUrl}.`
-    : " I do not have a product page link for it yet.";
+  // Booking systems hand over anything from "Sunset cruise" to pages of HTML: a short phrase reads
+  // as "X is a sunset cruise", a full sentence is quoted as the operator wrote it, and anything
+  // longer is left to the product page.
+  const summary = summariseProductDescription(product.description);
+  const isPhrase = Boolean(summary && !/[.!?]$/.test(summary) && summary.split(/\s+/).length <= 8);
+  const intro = !summary
+    ? `${product.title} is one I can book for you.`
+    : isPhrase
+      ? `${product.title} is ${/^[aeiou]/i.test(summary!) ? "an" : "a"} ${lowerFirstLetter(summary!)}.`
+      : `Here's ${product.title} in a nutshell: ${summary}`;
+  const linkSentence = product.productUrl ? ` You can see the full details here: ${product.productUrl}.` : "";
 
-  return `${product.title}${description}.${linkSentence} If you like it, tell me your date and group size and I can check availability.`;
+  return `${intro}${linkSentence} If it looks good, tell me your date and how many of you, and I'll check it.`;
 }
 
-function formatDatePhrase(dateText: string | null) {
-  if (!dateText) {
-    return "that date";
-  }
+// Kai's pick for who's travelling, with the reason taken from the operator's own trip details.
+function composeProductPickReply(pick: NonNullable<ReturnType<typeof pickProductForOccasion>>) {
+  const agesNote = pick.isFamily ? " The crew can confirm it suits your kids' ages." : "";
 
-  return ["today", "tomorrow", "tonight"].includes(dateText.toLowerCase()) ? dateText : `on ${dateText}`;
+  return `For ${pick.occasion}, I'd go with the ${pick.product.title}: ${pick.reason}.${agesNote} Tell me your date and I'll check it, or I can run you through the others.`;
 }
 
-function formatDateAndTime(dateText: string | null) {
-  if (!dateText) return "that date";
 
-  const match = dateText.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):\d{2}$/);
-  if (!match) return formatDatePhrase(dateText);
-
-  const hour24 = Number(match[2]);
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-
-  return `on ${match[1]} at ${hour12}:${match[3]} ${period}`;
-}
 
 function formatAvailabilityDatePhrase(dateText: string | null) {
   return dateText?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):\d{2}$/)
@@ -971,6 +1027,33 @@ function findClockSelection(message: string, options: PmsTimeOption[]) {
 // always refers to a TICKET option ("option 2 and option 5") instead, so callers checking for a
 // time CORRECTION mid-ticket-selection must pass allowBareNumberFallback: false, or they will
 // silently reinterpret a ticket choice as a time change and corrupt an already-confirmed time.
+// The newest explicit clock time ("1:30", "9am", "noon") in the traveller's last few messages that
+// matches one of the offered times. Bare numbers don't count here: "3" is more likely a headcount.
+function findEarlierClockSelection(messages: string[], options: PmsTimeOption[]) {
+  for (const message of [...messages].slice(-3).reverse()) {
+    const match = findClockSelection(message, options);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function declinesSuggestion(message: string) {
+  return /\b(?:no|nah|nope|not that|another|different|other)\b/i.test(message);
+}
+
+// True when Kai's last message already listed every one of these options, so repeating the whole
+// list again would read as a loop.
+function optionsAlreadyShown(history: HandleTravellerBookingMessageInput["conversationHistory"], labels: string[]) {
+  const lastAssistant = [...(history ?? [])].reverse().find((message) => message.role === "assistant");
+  return Boolean(lastAssistant && labels.every((label) => lastAssistant.content.includes(label)));
+}
+
+function formatOrList(values: string[]) {
+  if (values.length <= 1) return values[0] ?? "";
+  return `${values.slice(0, -1).join(", ")} or ${values.at(-1)}`;
+}
+
 function parseSelectedTimeOption(
   message: string,
   options: PmsTimeOption[],
@@ -1143,10 +1226,11 @@ function composeContactCollectionReply(capture: ReturnType<typeof evaluateBookin
   const missing = formatMissingContactSlots(capture.missingContactSlots);
 
   if (capture.details.travellerName) {
-    return `Thanks, ${capture.details.travellerName}. I still need your ${missing} to prepare the secure payment step.`;
+    const firstName = capture.details.travellerName.trim().split(/\s+/)[0];
+    return `Thanks, ${firstName}. I just need your ${missing} to set up secure payment.`;
   }
 
-  return `I still need your ${missing} to prepare the secure payment step.`;
+  return `I just need your ${missing} to set up secure payment.`;
 }
 
 export async function handleTravellerBookingMessage(
@@ -1196,6 +1280,33 @@ async function handleTravellerBookingMessageInner(
     return cachedProducts;
   };
 
+  // Someone hurt or in danger comes before any booking logic, and is never handed to the AI.
+  if (isEmergencyMessage(input.message)) {
+    return { action: "GENERAL_REPLY", reply: buildEmergencyReply(), replySource: "DETERMINISTIC" };
+  }
+
+  // Asking for a person (or saying yes when Kai offered one) gets one: a person from the team jumps
+  // into the chat as soon as possible. Kept word for word, never rewritten by the AI.
+  const previousKaiMessage =
+    [...(input.conversationHistory ?? [])].reverse().find((message) => message.role === "assistant")?.content ?? null;
+  const callbackNumber = givesCallbackNumber(input.message, previousKaiMessage);
+  if (callbackNumber) {
+    return {
+      action: "HUMAN_HANDOFF",
+      reply: buildCallbackNumberThanksReply(callbackNumber),
+      replySource: "DETERMINISTIC",
+      callbackNumber
+    };
+  }
+
+  if (isAskingForAPerson(input.message) || acceptsPersonOffer(input.message, previousKaiMessage)) {
+    return {
+      action: "HUMAN_HANDOFF",
+      reply: buildHumanHandoffReply({ channel: input.channel ?? "web", nothingChanges: true }),
+      replySource: "DETERMINISTIC"
+    };
+  }
+
   if (
     input.bookingWriteEnabled === true &&
     input.bookingMemory?.bookingStatus === "READY_TO_CONFIRM" &&
@@ -1206,7 +1317,7 @@ async function handleTravellerBookingMessageInner(
     if (!readyState) {
       return {
         action: "BOOKING_FAILED",
-        reply: "I cannot create the booking yet because the booking details are incomplete.",
+        reply: "I can't book this in just yet because some details are missing. Let's run through the date, group size and your contact details again.",
         replySource: "DETERMINISTIC"
       };
     }
@@ -1222,7 +1333,7 @@ async function handleTravellerBookingMessageInner(
       return {
         action: "BOOKING_WRITE_DISABLED",
         reply:
-          "I have saved this booking request for the operator. Kai has not collected payment yet, so I will not create an unpaid confirmed booking in the PMS automatically.",
+          "I've saved your booking request for the operator. Nothing has been paid yet, so I won't lock in the booking until payment is sorted, and they'll follow up with you on that.",
         replySource: "DETERMINISTIC",
         inquiryDraft: {
           productExternalId: readyState.productExternalId,
@@ -1254,7 +1365,7 @@ async function handleTravellerBookingMessageInner(
         return {
           action: "BOOKING_FAILED",
           reply:
-            "I could not confirm this booking in the PMS, so I saved the request in admin as a fallback. The booking is not confirmed yet.",
+            "I couldn't lock this in with the operator's booking system just now, so I've saved your request and passed it to the team to confirm. It's not booked yet.",
           replySource: "DETERMINISTIC",
           bookingStatePatch: failedState
         };
@@ -1267,11 +1378,11 @@ async function handleTravellerBookingMessageInner(
 
       return {
         action: "BOOKING_CONFIRMED",
-        reply: `Your booking is confirmed. Confirmation reference ${booking.externalBookingId} belongs to ${
-          confirmedState.productTitle
-        } on ${confirmedState.dateText} for ${confirmedState.guests} guest${
-          confirmedState.guests === 1 ? "" : "s"
-        }. I have not collected payment in Kai.`,
+        reply: `You're booked in: ${confirmedState.productTitle} ${formatDatePhrase(confirmedState.dateText)} for ${
+          confirmedState.guests
+        } guest${confirmedState.guests === 1 ? "" : "s"}, confirmation reference ${
+          booking.externalBookingId
+        }. I haven't taken any payment here, so the operator will sort that with you.`,
         replySource: "DETERMINISTIC",
         bookingStatePatch: confirmedState
       };
@@ -1284,7 +1395,7 @@ async function handleTravellerBookingMessageInner(
       return {
         action: "BOOKING_FAILED",
         reply:
-          "I could not confirm this booking in the PMS, so I saved the request in admin as a fallback. The booking is not confirmed yet.",
+          "I couldn't lock this in with the operator's booking system just now, so I've saved your request and passed it to the team to confirm. It's not booked yet.",
         replySource: "DETERMINISTIC",
         bookingStatePatch: failedState
       };
@@ -1370,6 +1481,120 @@ async function handleTravellerBookingMessageInner(
     });
   }
 
+  // "Will I get seasick?" or "when's whale season?" mid-booking is still a question in its own right:
+  // answer it before the booking context from earlier turns turns it into a booking step. A trip the
+  // operator doesn't run is left to the honest "I don't have that" path further down.
+  const pendingStep = describePendingBookingStep(input.bookingMemory);
+  // Said in Kai's last message? Then saying it again straight away would read like a script.
+  const lastKaiMessage = [...(input.conversationHistory ?? [])].reverse().find((message) => message.role === "assistant")?.content ?? "";
+  const reminderJustSaid = Boolean(pendingStep && lastKaiMessage.includes(pendingStep));
+  const answerKnowHow = async (productTitle: string | null) => {
+    const knowHow = await findOperatorKnowHowReply({
+      message: input.message,
+      tenantName: input.tenantContext?.tenantName,
+      productTitle,
+      dateKnown: Boolean(currentMessageAnalysis.slots.dateText ?? input.bookingMemory?.dateText),
+      loadCatalogue: listProducts
+    });
+
+    if (!knowHow) return null;
+
+    // Mid-booking, the answer is followed by where the booking is up to, not a fresh "check a date?",
+    // unless Kai only just said it.
+    const standsAlone = knowHow.asksBack || knowHow.topic === "TIMES" || knowHow.topic === "PRICE";
+    const reminder = standsAlone || reminderJustSaid ? null : pendingStep;
+    const deterministicReply = reminder
+      ? `${knowHow.answer} ${reminder}`
+      : pendingStep && !standsAlone
+        ? knowHow.answer
+        : knowHow.reply;
+
+    return composeReplyResult({
+      action: "GENERAL_REPLY",
+      deterministicReply,
+      requiredFacts: [...(reminder ? [reminder] : []), ...(deterministicReply.includes(PERSON_OFFER) ? [PERSON_OFFER] : [])],
+      llmClient: input.llmClient,
+      tenantContext: input.tenantContext,
+      latestUserMessage: input.message,
+      conversationHistory: input.conversationHistory
+    });
+  };
+  // "What's good for a couple?" gets a pick and a reason, when one trip clearly suits them best.
+  const answerPick = async (requireAsk: boolean): Promise<BookingOrchestratorResult | null> => {
+    if (requireAsk && !asksForSuggestion(input.message)) return null;
+
+    const catalogue = await listProducts();
+    const pick = pickProductForOccasion(input.message, catalogue);
+    if (!pick) return null;
+
+    return {
+      action: "PRODUCT_RECOMMENDATION",
+      reply: composeProductPickReply(pick),
+      replySource: "DETERMINISTIC",
+      productCards: await buildProductCards({
+        products: [pick.product, ...catalogue.filter((product) => product !== pick.product)],
+        dateText: currentMessageAnalysis.slots.dateText,
+        guests: effectiveSlots.guests,
+        pmsAdapter: input.pmsAdapter,
+        budgetAud: currentMessageAnalysis.slots.budget
+      })
+    };
+  };
+  const namedHint = currentMessageAnalysis.slots.productHint;
+  const namesTripNotOffered = namedHint
+    ? Boolean(notOfferedPrefix(namedHint, await listProducts())) && matchPmsProduct(namedHint, await listProducts()).status !== "MATCHED"
+    : false;
+
+  if (currentMessageAnalysis.intent === "GENERAL_QUESTION" && !namesTripNotOffered) {
+    const ownTermsReply = (await answerKnowHow(input.bookingMemory?.productTitle ?? null)) ?? (await answerPick(true));
+    if (ownTermsReply) return ownTermsReply;
+
+    // "Can I bring my dog?" while Kai is waiting on a time: an honest word, then back to the booking,
+    // rather than a reply that ignores the question. Anything that could be the booking step itself
+    // ("can we do 1:30?", "is it ok if I use my work email?") is left to the booking flow.
+    if (pendingStep && isQuestionShaped(input.message) && !mightBeBookingStepAnswer(input.message, input.bookingMemory)) {
+      const honestAnswer =
+        "Good question. I don't want to give you a dud answer on that one, so I won't guess. Just ask if you'd like a person from the team to jump in.";
+
+      return composeReplyResult({
+        action: "GENERAL_REPLY",
+        deterministicReply: reminderJustSaid ? honestAnswer : `${honestAnswer} ${pendingStep}`,
+        requiredFacts: reminderJustSaid ? undefined : [pendingStep],
+        llmClient: input.llmClient,
+        tenantContext: input.tenantContext,
+        latestUserMessage: input.message,
+        conversationHistory: input.conversationHistory
+      });
+    }
+  }
+
+  // "Will I get seasick?" or "when's whale season?" mid-booking is still a question in its own right:
+  // answer it before the booking context from earlier turns turns it into a booking step. A trip the
+  // operator doesn't run is left to the honest "I don't have that" path further down.
+
+  if (currentMessageAnalysis.intent === "GENERAL_QUESTION" && !namesTripNotOffered) {
+    const ownTermsReply = (await answerKnowHow(input.bookingMemory?.productTitle ?? null)) ?? (await answerPick(true));
+    if (ownTermsReply) return ownTermsReply;
+
+    // "Can I bring my dog?" while Kai is waiting on a time: an honest word, then back to the booking,
+    // rather than a reply that ignores the question. Anything that could be the booking step itself
+    // ("can we do 1:30?", "is it ok if I use my work email?") is left to the booking flow.
+    if (pendingStep && isQuestionShaped(input.message) && !mightBeBookingStepAnswer(input.message, input.bookingMemory)) {
+      const honestAnswer =
+        "Good question. I don't want to give you a dud answer on that one, so I won't guess. Just ask if you'd like a person from the team to jump in.";
+
+      return composeReplyResult({
+        action: "GENERAL_REPLY",
+        deterministicReply: reminderJustSaid ? honestAnswer : `${honestAnswer} ${pendingStep}`,
+        requiredFacts: reminderJustSaid ? undefined : [pendingStep],
+        llmClient: input.llmClient,
+        tenantContext: input.tenantContext,
+        latestUserMessage: input.message,
+        conversationHistory: input.conversationHistory
+      });
+    }
+  }
+
   const capture = evaluateBookingCapture({
     message: input.message,
     priorTravellerMessages: input.priorTravellerMessages ?? [],
@@ -1448,7 +1673,7 @@ async function handleTravellerBookingMessageInner(
     if (productSelection.bookingMode === "MANUAL_INQUIRY") {
       return {
         action: "MANUAL_INQUIRY_REQUIRED",
-        reply: `${productSelection.title} requires operator confirmation. I can collect the details, but I will not confirm availability automatically.`,
+        reply: composeManualInquiryReply(productSelection.title),
         replySource: "DETERMINISTIC"
       };
     }
@@ -1475,7 +1700,11 @@ async function handleTravellerBookingMessageInner(
   }
 
   if (timeOptions.length > 1 && !rememberedTime) {
-    const parsedTime = parseSelectedTimeOption(input.message, timeOptions);
+    // A time the traveller gave before the times were on screen ("1:30 please") still counts,
+    // unless this message turns it down.
+    const parsedTime =
+      parseSelectedTimeOption(input.message, timeOptions) ??
+      (declinesSuggestion(input.message) ? null : findEarlierClockSelection(input.priorTravellerMessages ?? [], timeOptions));
 
     if (parsedTime) {
       const timeStatePatch: BookingFlowState = {
@@ -1511,7 +1740,7 @@ async function handleTravellerBookingMessageInner(
           }.\n\nTicket options:\n${formatTicketOptionsList(
             rememberedTicketOptions,
             "AUD"
-          )}\n\nWhich ticket option should I use? You can say "option 2" or "1 x 2 people".`,
+          )}\n\nWhich ticket suits? Just say "option 2" or "${optionExample(rememberedTicketOptions)}".`,
           replySource: "DETERMINISTIC",
           bookingStatePatch: timeStatePatch
         };
@@ -1523,7 +1752,7 @@ async function handleTravellerBookingMessageInner(
           parsedTime.startTimeLocal
         )} for ${input.bookingMemory?.guests} guest${
           input.bookingMemory?.guests === 1 ? "" : "s"
-        }. Please share your name, email, and phone number so I can prepare the checkout handoff.`,
+        }. Pop through your name, email and phone number and I'll set up secure payment.`,
         replySource: "DETERMINISTIC",
         inquiryDraft: null,
         bookingStatePatch: timeStatePatch
@@ -1538,7 +1767,9 @@ async function handleTravellerBookingMessageInner(
     ) {
       return {
         action: "BOOKING_TIME_SELECTION_REQUIRED",
-        reply: `Please choose one available time:\n${formatTimeOptionsList(timeOptions)}\n\nI have not confirmed anything yet.`,
+        reply: optionsAlreadyShown(input.conversationHistory, timeOptions.map((option) => option.label))
+          ? `I just need a time first: ${formatOrList(timeOptions.map((option) => option.label))}?`
+          : `Here are the available times:\n${formatTimeOptionsList(timeOptions)}\n\nNothing's booked yet, so pick whichever suits.`,
         replySource: "DETERMINISTIC"
       };
     }
@@ -1559,11 +1790,9 @@ async function handleTravellerBookingMessageInner(
       if (input.bookingMemory?.guests && participantCount !== input.bookingMemory.guests) {
         return {
           action: "BOOKING_TICKET_SELECTION_REQUIRED",
-          reply: `I counted ${participantCount} participant${
-            participantCount === 1 ? "" : "s"
-          } from that ticket selection, but we were checking ${
+          reply: `Those tickets add up to ${participantCount} ${participantCount === 1 ? "person" : "people"}, but we were checking ${
             input.bookingMemory.guests
-          }. Please choose a ticket option and quantity that matches ${input.bookingMemory.guests} participants.`,
+          }. Can you pick tickets for ${input.bookingMemory.guests} ${input.bookingMemory.guests === 1 ? "person" : "people"}?`,
           replySource: "DETERMINISTIC"
         };
       }
@@ -1603,7 +1832,7 @@ async function handleTravellerBookingMessageInner(
           )}.\n\nOptional extras:\n${formatExtraOptionsList(
             extraOptions,
             "AUD"
-          )}\n\nWould you like to add any extras? You can say "no extras" or "1 x Corona Bucket".`,
+          )}\n\nWant to add any? Just say "no extras" or "${optionExample(extraOptions)}".`,
           replySource: "DETERMINISTIC",
           bookingStatePatch: ticketStatePatch
         };
@@ -1611,11 +1840,11 @@ async function handleTravellerBookingMessageInner(
 
       return {
         action: "BOOKING_DETAILS_REQUIRED",
-        reply: `Got it. I have ${input.bookingMemory?.productTitle} ${formatDateAndTime(
+        reply: `Got it: ${input.bookingMemory?.productTitle} ${formatDateAndTime(
           dateTextForTicketSelection
         )} for ${input.bookingMemory?.guests ?? participantCount} guest${
           (input.bookingMemory?.guests ?? participantCount) === 1 ? "" : "s"
-        } with ${formatTicketQuantities(parsedTicketQuantities)}. Please share your name, email, and phone number so I can prepare the secure payment step.`,
+        } with ${formatTicketQuantities(parsedTicketQuantities)}. Pop through your name, email and phone number and I'll set up secure payment.`,
         replySource: "DETERMINISTIC",
         inquiryDraft: null,
         bookingStatePatch: ticketStatePatch
@@ -1647,14 +1876,14 @@ async function handleTravellerBookingMessageInner(
 
       return {
         action: "BOOKING_TICKET_SELECTION_REQUIRED",
-        reply: `Got it, I have ${input.bookingMemory?.productTitle} ${formatDateAndTime(
+        reply: `Got it: ${input.bookingMemory?.productTitle} ${formatDateAndTime(
           correctedTime.startTimeLocal
         )} for ${input.bookingMemory?.guests} guest${
           input.bookingMemory?.guests === 1 ? "" : "s"
         }.\n\nTicket options:\n${formatTicketOptionsList(
           ticketOptions,
           "AUD"
-        )}\n\nPlease choose one ticket option and quantity.`,
+        )}\n\nWhich ticket suits, and how many?`,
         replySource: "DETERMINISTIC",
         bookingStatePatch: correctedTimeStatePatch
       };
@@ -1668,12 +1897,12 @@ async function handleTravellerBookingMessageInner(
     ) {
       return {
         action: "BOOKING_TICKET_SELECTION_REQUIRED",
-        reply: `Before I prepare the booking, please choose one ticket option and quantity for ${
-          input.bookingMemory?.guests
-        } participant${input.bookingMemory?.guests === 1 ? "" : "s"}:\n${formatTicketOptionsList(
+        reply: `Ticket options for ${input.bookingMemory?.guests} ${
+          input.bookingMemory?.guests === 1 ? "person" : "people"
+        }:\n${formatTicketOptionsList(
           ticketOptions,
           "AUD"
-        )}\n\nFor example, "1 x 2 people" or "2 adults".`,
+        )}\n\nWhich would you like? For example, "1 x 2 people" or "2 adults".`,
         replySource: "DETERMINISTIC"
       };
     }
@@ -1705,12 +1934,12 @@ async function handleTravellerBookingMessageInner(
       };
       const extraReplyPrefix =
         parsedExtraQuantities.length === 0
-          ? "No extras added."
+          ? "No extras, no worries."
           : `Added ${formatExtraQuantities(parsedExtraQuantities)}.`;
 
       return {
         action: "BOOKING_DETAILS_REQUIRED",
-        reply: `${extraReplyPrefix} Please share your name, email, and phone number so I can prepare the secure payment step.`,
+        reply: `${extraReplyPrefix} Pop through your name, email and phone number and I'll set up secure payment.`,
         replySource: "DETERMINISTIC",
         bookingStatePatch: extraStatePatch
       };
@@ -1721,7 +1950,7 @@ async function handleTravellerBookingMessageInner(
       reply: `Optional extras:\n${formatExtraOptionsList(
         extraOptions,
         "AUD"
-      )}\n\nWould you like to add any extras? You can say "no extras" or "1 x Corona Bucket".`,
+      )}\n\nWant to add any? Just say "no extras" or "${optionExample(extraOptions)}".`,
       replySource: "DETERMINISTIC"
     };
   }
@@ -1737,7 +1966,7 @@ async function handleTravellerBookingMessageInner(
     if (product?.productUrl) {
       return {
         action: "PRODUCT_LINK",
-        reply: `Of course. Here is the page for ${product.title}: ${product.productUrl}. Take a look, and if it feels right, just tell me you want to continue.`,
+        reply: `Sure thing, here's the page for ${product.title}: ${product.productUrl}. Have a look, and if it feels right, just tell me you'd like to go ahead.`,
         replySource: "DETERMINISTIC"
       };
     }
@@ -1745,7 +1974,7 @@ async function handleTravellerBookingMessageInner(
     if (product) {
       return {
         action: "PRODUCT_LINK",
-        reply: `I do not have a product page link for ${product.title} yet, but I can help with availability, pricing, and booking questions here.`,
+        reply: `I don't have a page link for ${product.title} yet, but I can help with times, prices and booking right here.`,
         replySource: "DETERMINISTIC"
       };
     }
@@ -1801,11 +2030,11 @@ async function handleTravellerBookingMessageInner(
       if (product?.bookingMode === "AUTO_BOOKING") {
         return {
           action: "BOOKING_DETAILS_REQUIRED",
-          reply: `Nice. To prepare ${capture.details.productTitle} for ${capture.details.guests} guest${
+          reply: `Nice. To book ${capture.details.productTitle} for ${capture.details.guests} guest${
             capture.details.guests === 1 ? "" : "s"
           } ${formatDatePhrase(
             capture.details.dateText
-          )}, I just need your name, email, and phone number. After that I will show you the details once more before creating the booking.`,
+          )}, I just need your name, email and phone number. I'll run the details past you once more before anything's booked.`,
           replySource: "DETERMINISTIC",
           inquiryDraft: null
         };
@@ -1823,11 +2052,11 @@ async function handleTravellerBookingMessageInner(
       if (product?.bookingMode === "AUTO_BOOKING") {
         return {
           action: "BOOKING_WRITE_DISABLED",
-          reply: `Thanks, I have the details for ${capture.details.productTitle} on ${
+          reply: `Thanks, I've got the details for ${capture.details.productTitle} ${formatDatePhrase(
             capture.details.dateText
-          } for ${capture.details.guests} guest${
+          )} for ${capture.details.guests} guest${
             capture.details.guests === 1 ? "" : "s"
-          }. Booking confirmation is not enabled for this tenant yet, so I will send this to the operator for confirmation.`,
+          }. I'll send this to the operator to confirm, and they'll get back to you.`,
           replySource: "DETERMINISTIC",
           inquiryDraft: capture.details
         };
@@ -1934,13 +2163,13 @@ async function handleTravellerBookingMessageInner(
 
             return {
               action: "BOOKING_PAYMENT_REQUIRED",
-              reply: `Thanks, I have everything for ${readyState.productTitle} ${formatDateAndTime(
+              reply: `Thanks, I've got everything for ${readyState.productTitle} ${formatDateAndTime(
                 readyState.dateText
               )} for ${
                 readyState.guests
               } guest${readyState.guests === 1 ? "" : "s"}${ticketSummary}${extraSummary} under ${readyState.travellerName}, ${
                 readyState.travellerEmail
-              }, ${readyState.travellerPhone}.\n\nI'm preparing your secure payment link now.`,
+              }, ${readyState.travellerPhone}.\n\nI'm setting up your secure payment link now.`,
               replySource: "DETERMINISTIC",
               inquiryDraft: capture.details,
               bookingStatePatch: paymentStateWithOrder,
@@ -1955,13 +2184,13 @@ async function handleTravellerBookingMessageInner(
         const paymentHandoffUrl = paymentOrder?.paymentUrl ?? null;
         const paymentInstruction = paymentOrder
           ? paymentHandoffUrl
-            ? `I saved this as a lead and created pending Rezdy order ${paymentOrder.externalBookingId}. Please complete payment on the secure Rezdy link below; Kai will not ask for or store card details.`
-            : `I saved this as a lead and created Rezdy pending cart ${paymentOrder.externalBookingId}. The operator needs to send the secure payment link from Rezdy or follow up manually; Kai will not ask for or store card details.`
-          : `I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.`;
+            ? `I've put a hold on it with the operator (order ${paymentOrder.externalBookingId}). You can pay on the secure Rezdy payment link below, and I never see or store your card details.`
+            : `I've put a hold on it with the operator (reference ${paymentOrder.externalBookingId}), and they'll send you a secure payment link or be in touch to finish up. I never see or store your card details.`
+          : `I've passed this to the operator, and they'll be in touch to sort out payment. I never see or store your card details.`;
 
         return {
           action: "BOOKING_PAYMENT_REQUIRED",
-          reply: `Thanks, I have everything for ${readyState.productTitle} ${formatDateAndTime(
+          reply: `Thanks, I've got everything for ${readyState.productTitle} ${formatDateAndTime(
             readyState.dateText
           )} for ${
             readyState.guests
@@ -1987,6 +2216,12 @@ async function handleTravellerBookingMessageInner(
   }
 
   if (resolvedIntent === "HUMAN_HANDOFF") {
+    // "Am I talking to a real person?" trips the handoff words but is a question about Kai.
+    const smallTalk = findBookingSmallTalkReply(input.message, { tenantName: input.tenantContext?.tenantName });
+    if (smallTalk) {
+      return { action: "GENERAL_REPLY", reply: smallTalk.reply, replySource: "DETERMINISTIC" };
+    }
+
     const pack = input.knowledgePack ?? null;
     // An operator-authored handoff line, or a knowledge answer if the handoff was actually a
     // policy question we can answer.
@@ -2004,7 +2239,8 @@ async function handleTravellerBookingMessageInner(
     }
     return composeReplyResult({
       action: "HUMAN_HANDOFF",
-      deterministicReply: pack?.escalation.handoffMessage ?? composeBookingBrainReply({ ...analysis, intent: resolvedIntent }),
+      deterministicReply:
+        pack?.escalation.handoffMessage ?? buildHumanHandoffReply({ channel: input.channel ?? "web", nothingChanges: true }),
       requiredFacts: pack?.escalation.handoffMessage ? [pack.escalation.handoffMessage] : undefined,
       llmClient: input.llmClient,
       tenantContext: input.tenantContext,
@@ -2027,18 +2263,27 @@ async function handleTravellerBookingMessageInner(
 
   if (shouldTreatAsProductRecommendation) {
     const products = await listProducts();
+    // "Info on the whale escape" names the trip in the traveller's own words, even when it isn't one
+    // of the stock product hints.
+    const asksAboutATrip = /\b(?:know about|learn about|tell me about|more about|info (?:about|on)|details? (?:about|on)|curious about)\b/i.test(
+      input.message
+    );
+    const productMatch = analysis.slots.productHint
+      ? matchPmsProduct(analysis.slots.productHint, products)
+      : asksAboutATrip
+        ? matchPmsProduct(input.message, products)
+        : null;
 
-    if (analysis.slots.productHint) {
-      const productMatch = matchPmsProduct(analysis.slots.productHint, products);
-
-      if (productMatch.status === "MATCHED") {
-        return {
-          action: "PRODUCT_LINK",
-          reply: formatProductInfoReply(productMatch.product),
-          replySource: "DETERMINISTIC"
-        };
-      }
+    if (productMatch?.status === "MATCHED") {
+      return {
+        action: "PRODUCT_LINK",
+        reply: formatProductInfoReply(productMatch.product),
+        replySource: "DETERMINISTIC"
+      };
     }
+
+    const pickReply = await answerPick(false);
+    if (pickReply) return pickReply;
 
     // kai-conversation-flow-notes.md finding #2 (critical): across 9 traveller turns Kai never once
     // declined - it re-offered the same 4 products 3 times, including after "I don't want a yacht
@@ -2051,7 +2296,7 @@ async function handleTravellerBookingMessageInner(
       if (email) {
         return composeReplyResult({
           action: "HUMAN_HANDOFF",
-          deterministicReply: `Got it, ${email} - I'll let the team know you're interested once we have something that fits, and they'll follow up.`,
+          deterministicReply: `Thanks, I've got ${email}. The team can see this chat, so they can get in touch when something fits.`,
           requiredFacts: [email],
           llmClient: input.llmClient,
           tenantContext: input.tenantContext,
@@ -2069,7 +2314,10 @@ async function handleTravellerBookingMessageInner(
 
     return {
       action: "PRODUCT_RECOMMENDATION",
-      reply: formatRecommendationReply(products, currentMessageAnalysis.slots.dateText),
+      reply: `${notOfferedPrefix(currentMessageAnalysis.slots.productHint, products)}${formatRecommendationReply(
+        products,
+        currentMessageAnalysis.slots.dateText
+      )}`,
       replySource: "DETERMINISTIC",
       productCards: await buildProductCards({
         products,
@@ -2082,6 +2330,12 @@ async function handleTravellerBookingMessageInner(
   }
 
   if (resolvedIntent === "GENERAL_QUESTION") {
+    // A hello, a thank you or "are you a bot?" gets a real answer, not the booking menu.
+    const smallTalk = findBookingSmallTalkReply(input.message, { tenantName: input.tenantContext?.tenantName });
+    if (smallTalk) {
+      return { action: "GENERAL_REPLY", reply: smallTalk.reply, replySource: "DETERMINISTIC" };
+    }
+
     const pack = input.knowledgePack ?? null;
 
     // Prefer an operator-authored answer when the question matches one.
@@ -2099,6 +2353,57 @@ async function handleTravellerBookingMessageInner(
       });
     }
 
+    const suggestionReply = await answerPick(true);
+    if (suggestionReply) return suggestionReply;
+
+    // "Do you do the reef snorkel?" deserves a straight yes or no, not a change of subject.
+    const askedProduct = currentMessageAnalysis.slots.productHint;
+    let askedProductTitle: string | null = null;
+    if (askedProduct) {
+      const catalogue = await listProducts();
+      const notOffered = notOfferedPrefix(askedProduct, catalogue);
+      const askedMatch = matchPmsProduct(askedProduct, catalogue);
+
+      if (notOffered && catalogue.length > 0 && askedMatch.status !== "MATCHED") {
+        return {
+          action: "PRODUCT_RECOMMENDATION",
+          reply: `${notOffered}${formatRecommendationReply(catalogue, currentMessageAnalysis.slots.dateText)}`,
+          replySource: "DETERMINISTIC",
+          productCards: await buildProductCards({
+            products: catalogue,
+            dateText: currentMessageAnalysis.slots.dateText,
+            guests: effectiveSlots.guests,
+            pmsAdapter: input.pmsAdapter,
+            budgetAud: currentMessageAnalysis.slots.budget
+          })
+        };
+      }
+
+      if (askedMatch.status === "MATCHED" && isOfferQuestion(input.message)) {
+        return {
+          action: "GENERAL_REPLY",
+          reply: `Yes, ${askedMatch.product.title} is one I can book for you. Tell me the date and how many of you, and I'll check it.`,
+          replySource: "DETERMINISTIC"
+        };
+      }
+
+      askedProductTitle = askedMatch.status === "MATCHED" ? askedMatch.product.title : null;
+    }
+
+    // A bare trip name ("the whale escape") is someone picking a trip, so tell them about it rather
+    // than reading them the menu.
+    if (!isQuestionShaped(input.message) && input.message.trim().split(/\s+/).length <= 5) {
+      const named = matchPmsProduct(input.message, await listProducts());
+      if (named.status === "MATCHED") {
+        return { action: "PRODUCT_LINK", reply: formatProductInfoReply(named.product), replySource: "DETERMINISTIC" };
+      }
+    }
+
+    // What a well-travelled mate would know (seasickness, stingers, when to go), plus the way to
+    // real times and prices, before falling back to "I won't guess".
+    const knowHowReply = await answerKnowHow(askedProductTitle ?? input.bookingMemory?.productTitle ?? null);
+    if (knowHowReply) return knowHowReply;
+
     // No matching answer to a policy-shaped question -> hand to a human rather than let Kai
     // improvise a policy the operator never gave.
     if (
@@ -2109,8 +2414,7 @@ async function handleTravellerBookingMessageInner(
       return composeReplyResult({
         action: "HUMAN_HANDOFF",
         deterministicReply:
-          pack.escalation.handoffMessage ??
-          "That's a good question for the operator directly - I'll pass you to their team so you get an accurate answer.",
+          pack.escalation.handoffMessage ?? buildHumanHandoffReply({ channel: input.channel ?? "web", escalation: true }),
         requiredFacts: pack.escalation.handoffMessage ? [pack.escalation.handoffMessage] : undefined,
         llmClient: input.llmClient,
         tenantContext: input.tenantContext,
@@ -2121,7 +2425,12 @@ async function handleTravellerBookingMessageInner(
 
     return composeReplyResult({
       action: "GENERAL_REPLY",
-      deterministicReply: composeBookingBrainReply({ ...analysis, intent: resolvedIntent }),
+      // A real question gets an honest "I won't guess", not the booking menu as if it wasn't asked.
+      deterministicReply: isQuestionShaped(input.message)
+        ? `Good question. I don't want to give you a dud answer on that one, so I won't guess. ${PERSON_OFFER}`
+        : composeBookingBrainReply({ ...analysis, intent: resolvedIntent }),
+      // The offer of a person has to survive any rewrite, or a "yes" to it can't be recognised.
+      requiredFacts: isQuestionShaped(input.message) ? [PERSON_OFFER] : undefined,
       llmClient: input.llmClient,
       tenantContext: input.tenantContext,
       latestUserMessage: input.message,
@@ -2130,6 +2439,32 @@ async function handleTravellerBookingMessageInner(
   }
 
   if (missingSlots.includes("date") || missingSlots.includes("guests")) {
+    // A named trip this operator doesn't run must never come back as "Nice, <that trip>": say so and
+    // show what they do run instead. A trip already picked from their catalogue is trusted as is.
+    const hintIsRememberedSelection =
+      Boolean(input.bookingMemory?.productExternalId) &&
+      effectiveSlots.productHint?.toLowerCase() === input.bookingMemory?.productTitle?.toLowerCase();
+
+    if (effectiveSlots.productHint && !hintIsRememberedSelection) {
+      const detailProducts = await listProducts();
+      const notOffered = notOfferedPrefix(effectiveSlots.productHint, detailProducts);
+
+      if (notOffered && detailProducts.length > 0 && matchPmsProduct(effectiveSlots.productHint, detailProducts).status !== "MATCHED") {
+        return {
+          action: "NEEDS_PRODUCT_SELECTION",
+          reply: `${notOffered}${formatRecommendationReply(detailProducts, effectiveSlots.dateText)}`,
+          replySource: "DETERMINISTIC",
+          productCards: await buildProductCards({
+            products: detailProducts,
+            dateText: effectiveSlots.dateText,
+            guests: effectiveSlots.guests,
+            pmsAdapter: input.pmsAdapter,
+            budgetAud: currentMessageAnalysis.slots.budget
+          })
+        };
+      }
+    }
+
     // "What dates are available?" with a product already known - answering with "please share a
     // date" is circular (see isAskingWhichDatesAvailable's own comment). Show the real calendar
     // instead, same mechanism as the post-unavailability branch below, defaulting to 1 guest until
@@ -2158,8 +2493,8 @@ async function handleTravellerBookingMessageInner(
           action: "AVAILABILITY_CHECKED",
           reply:
             dates.length > 0
-              ? `Here are the open dates I found for ${browseMatch.product.title}${guestsPhrase}. Pick one and I'll check pricing.`
-              : `I couldn't find any open dates for ${browseMatch.product.title}${guestsPhrase} in the next 60 days. Would you like me to pass this to the team, or check a different experience?`,
+              ? `Here are the open dates for ${browseMatch.product.title}${guestsPhrase}. Pick one and I'll check the price.`
+              : `I couldn't find any open dates for ${browseMatch.product.title}${guestsPhrase} in the next 60 days. Want me to pass this to the team, or look at a different trip?`,
           replySource: "DETERMINISTIC",
           dateOptions: dates.length > 0 ? dates : null
         };
@@ -2190,7 +2525,10 @@ async function handleTravellerBookingMessageInner(
     // triggered it.
     return {
       action: "NEEDS_PRODUCT_SELECTION",
-      reply: formatRecommendationReply(productMatch.products, effectiveSlots.dateText),
+      reply: `${notOfferedPrefix(currentMessageAnalysis.slots.productHint, products)}${formatRecommendationReply(
+        productMatch.products,
+        effectiveSlots.dateText
+      )}`,
       replySource: "DETERMINISTIC",
       productCards: await buildProductCards({
         products: productMatch.products,
@@ -2207,7 +2545,7 @@ async function handleTravellerBookingMessageInner(
   if (product.bookingMode === "MANUAL_INQUIRY") {
     return {
       action: "MANUAL_INQUIRY_REQUIRED",
-      reply: `${product.title} requires operator confirmation. I can collect the details, but I will not confirm availability automatically.`,
+      reply: composeManualInquiryReply(product.title),
       replySource: "DETERMINISTIC"
     };
   }
@@ -2235,10 +2573,21 @@ async function handleTravellerBookingMessageInner(
         ).dates
       : [];
 
+    const nextStep =
+      dateOptions.length > 0
+        ? "Here are some other dates with space, or I can check a different trip."
+        : "Want me to check another date or a different trip?";
     const composed = await composeReplyResult({
       action: "AVAILABILITY_CHECKED",
-      deterministicReply: `${product.title} is not available for ${effectiveSlots.guests} guests on ${effectiveSlots.dateText} according to PMS. I have not confirmed a booking.`,
-      requiredFacts: [product.title, `${effectiveSlots.guests} guests`, effectiveSlots.dateText ?? "", "not available"],
+      deterministicReply: `Sorry, ${product.title} isn't available for ${effectiveSlots.guests} guests ${formatDatePhrase(
+        effectiveSlots.dateText
+      )}. ${nextStep}`,
+      requiredFacts: [
+        product.title,
+        `${effectiveSlots.guests} guests`,
+        effectiveSlots.dateText ? formatDateForSentence(effectiveSlots.dateText) : "",
+        "isn't available"
+      ],
       llmClient: input.llmClient,
       tenantContext: input.tenantContext,
       latestUserMessage: input.message,
@@ -2256,13 +2605,30 @@ async function handleTravellerBookingMessageInner(
     : "";
 
   if (input.bookingWriteEnabled === true && availability.timeOptions && availability.timeOptions.length > 1) {
+    const requestedTime = findEarlierClockSelection([...(input.priorTravellerMessages ?? []), input.message], availability.timeOptions);
+    const timeLabels = availability.timeOptions.map((option) => option.label);
+    // Same trip and the same times already on screen: a short nudge, not the whole list again.
+    const sameTimesAlreadyShown =
+      !requestedTime &&
+      !currentMessageAnalysis.slots.dateText &&
+      !currentMessageAnalysis.slots.guests &&
+      optionsAlreadyShown(input.conversationHistory, timeLabels);
+
     return {
       action: "BOOKING_TIME_SELECTION_REQUIRED",
-      reply: `${product.title} is available for ${
-        effectiveSlots.guests
-      } guests ${formatDatePhrase(effectiveSlots.dateText)}. I found these times:\n${formatTimeOptionsList(
-        availability.timeOptions
-      )}\n\nWhich time works best? Nothing is booked yet.`,
+      reply: sameTimesAlreadyShown
+        ? `I just need a time first: ${formatOrList(timeLabels)}?`
+        : requestedTime
+        ? `Good news, ${product.title} has room for ${effectiveSlots.guests} guests ${formatDatePhrase(
+            effectiveSlots.dateText
+          )}, and ${requestedTime.label} is free. Here are the available times:\n${formatTimeOptionsList(
+            availability.timeOptions
+          )}\n\nWant ${requestedTime.label}? Just say yes, or pick another.`
+        : `Good news, ${product.title} has room for ${
+            effectiveSlots.guests
+          } guests ${formatDatePhrase(effectiveSlots.dateText)}. Here are the available times:\n${formatTimeOptionsList(
+            availability.timeOptions
+          )}\n\nWhich time works best? Nothing's booked yet.`,
       replySource: "DETERMINISTIC",
       bookingStatePatch: buildAvailabilityState({
         product,
@@ -2278,7 +2644,7 @@ async function handleTravellerBookingMessageInner(
   if (input.bookingWriteEnabled === true && availability.ticketOptions && availability.ticketOptions.length > 1) {
     return {
       action: "BOOKING_TICKET_SELECTION_REQUIRED",
-      reply: `${product.title} is available for ${
+      reply: `Good news, ${product.title} has room for ${
         effectiveSlots.guests
       } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There ${
         availability.remaining === 1 ? "is" : "are"
@@ -2287,7 +2653,7 @@ async function handleTravellerBookingMessageInner(
       } available.\n\nTicket options:\n${formatTicketOptionsList(
         availability.ticketOptions,
         availability.currency
-      )}\n\nWhich ticket option should I use? You can say "option 2" or "1 x 2 people". Nothing is booked yet.`,
+      )}\n\nWhich ticket suits? Just say "option 2" or "${optionExample(availability.ticketOptions)}". Nothing's booked yet.`,
       replySource: "DETERMINISTIC",
       bookingStatePatch: buildAvailabilityState({
         product,
@@ -2300,7 +2666,7 @@ async function handleTravellerBookingMessageInner(
     };
   }
 
-  const deterministicReply = `Good news, ${product.title} has availability for ${
+  const deterministicReply = `Good news, ${product.title} has room for ${
     effectiveSlots.guests
   } guests ${formatAvailabilityDatePhrase(availabilityDateText)}.${onlyAvailableTimeSentence} There ${
     availability.remaining === 1 ? "is" : "are"
@@ -2309,7 +2675,7 @@ async function handleTravellerBookingMessageInner(
   } available at ${formatCurrencyAmount(
     availability.currency,
     availability.unitPriceCents
-  )} per guest. I have not confirmed anything yet, but I can help you continue if this looks good.`;
+  )} per guest. Nothing's booked yet, so just say the word if it looks good.`;
 
   // Persists bookingStatus: "AVAILABILITY_CHECKED" (via buildAvailabilityState) even for this
   // simplest, single-price case with no time/ticket choices to make - without it, the capture flow

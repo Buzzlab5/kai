@@ -43,7 +43,7 @@ export function toPublicWidgetConfig(tenant: WidgetTenantInput) {
       logoUrl: tenant.branding?.logoUrl ?? null,
       primaryColor: tenant.branding?.primaryColor ?? "#0f766e",
       widgetTitle: tenant.branding?.widgetTitle ?? tenant.name,
-      welcomeMessage: tenant.branding?.welcomeMessage ?? "Hi, I am Kai. How can I help?"
+      welcomeMessage: tenant.branding?.welcomeMessage ?? "Hey, I'm Kai. Tell me what you're after and I'll help you find it."
     },
     capabilities: {
       supportedChannels: tenant.config?.supportedChannels ?? ["WEB_WIDGET"],

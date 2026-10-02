@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBluePassEnquiryReminder,
+  buildBluePassSmallTalkReply,
   buildBluePassConservationReply,
   buildBluePassInquiryConfirmationReply,
   buildBluePassInquiryReadyReply,
@@ -58,7 +60,7 @@ describe("bluepass traveller replies (reply.ts)", () => {
   it("only ever states the honest 5% (no invented percentages)", () => {
     for (const reply of allTravellerReplies()) {
       for (const m of reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
-        expect(["3", "5", "18", "82"].includes(m[1]), `bad % in: ${reply}`).toBe(true);
+        expect(m[1], `bad % in: ${reply}`).toBe("5");
       }
     }
   });
@@ -82,7 +84,7 @@ describe("bluepass traveller replies (reply.ts)", () => {
     const y = { ...yacht, name: "Alila Purnama Phinisi Expedition" } as any;
     const reply = buildBluePassYachtOverviewReply(y);
     expect(reply.length, `overview too long: ${reply.length}`).toBeLessThanOrEqual(320);
-    expect(reply.toLowerCase()).toContain("operator inquiry");
+    expect(reply.toLowerCase()).toContain("enquiry");
   });
 
   it("keeps the yacht-comparison reply <=320 with 3 real yachts (incl. long names)", () => {
@@ -93,7 +95,7 @@ describe("bluepass traveller replies (reply.ts)", () => {
     ] as any;
     const reply = buildBluePassYachtComparisonReply(three);
     expect(reply.length, `comparison too long: ${reply.length}`).toBeLessThanOrEqual(320);
-    expect(reply.toLowerCase()).toContain("operator inquiry");
+    expect(reply.toLowerCase()).toContain("narrow it down");
   });
 
   it("keeps the data-independent replies concise (<=320 chars)", () => {
@@ -145,7 +147,7 @@ describe("bluepass traveller replies (reply.ts)", () => {
     expect(auComparison).not.toContain("Komodo");
     expect(auComparison).not.toContain("Raja Ampat");
     expect(auComparison).toContain("Great Barrier Reef");
-    expect(auComparison.toLowerCase()).toContain("operator inquiry");
+    expect(auComparison.toLowerCase()).toContain("narrow it down");
     expect(auComparison.length).toBeLessThanOrEqual(320);
   });
 
@@ -157,13 +159,13 @@ describe("bluepass traveller replies (reply.ts)", () => {
 
   it("confirmation reply asks the traveller to confirm before sending", () => {
     const reply = buildBluePassInquiryConfirmationReply({ selectedYachtName: "Sea Dragon", destination: "Komodo" });
-    expect(reply.toLowerCase()).toContain("should i send this inquiry now?");
+    expect(reply.toLowerCase()).toContain("want me to send it now?");
   });
 
   it("status reply reflects the normalized inquiry status", () => {
     const reply = buildBluePassInquiryStatusReply({ inquiryId: "BP-9001", status: "OPERATOR_PENDING" });
     expect(reply).toContain("BP-9001");
-    expect(reply.toLowerCase()).toContain("operator pending");
+    expect(reply.toLowerCase()).toContain("with the operator");
   });
 
   it("booking-implying replies reference the operator and never assert a confirmed booking", () => {
@@ -232,5 +234,50 @@ describe("conservation/value-prop grounding", () => {
       true
     );
     expect(isBluePassValuePropQuestion("Where exactly does the 5% go, and who verifies it?")).toBe(false);
+  });
+
+  it("isBluePassValuePropQuestion recognises everyday ways of asking why BluePass", () => {
+    for (const question of [
+      "Why should I book through BluePass?",
+      "why book via bluepass",
+      "Why should I use you?",
+      "why go through you instead of the operator"
+    ]) {
+      expect(isBluePassValuePropQuestion(question), question).toBe(true);
+    }
+    expect(isBluePassValuePropQuestion("how do I book with you")).toBe(false);
+  });
+});
+
+describe("buildBluePassEnquiryReminder", () => {
+  it("asks only for what the enquiry still needs", () => {
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: ["dateWindow", "guests"] })).toBe(
+      "When you're ready, just tell me your dates and how many of you for Alila Purnama."
+    );
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: ["guests", "travellerName"] })).toBe(
+      "When you're ready, just tell me how many of you are going on Alila Purnama."
+    );
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: ["travellerPhone", "travellerEmail"] })).toBe(
+      "When you're ready, pop your details in the form below and I'll get your enquiry to the operator."
+    );
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: ["travellerName", "travellerEmail"] })).toBe(
+      "When you're ready, send me your name and email and I'll get your enquiry to the operator."
+    );
+  });
+
+  it("has nothing to add once everything's in, unless the enquiry is still waiting on a yes", () => {
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: [] })).toBeNull();
+    expect(buildBluePassEnquiryReminder({ yachtName: "Alila Purnama", missingFields: [], readyToSend: true })).toBe(
+      "When you're ready, just say yes and I'll send your Alila Purnama enquiry to the operator."
+    );
+  });
+
+  it("lets small talk pick the enquiry back up", () => {
+    const enquiryReminder = "When you're ready, just tell me your dates and how many of you for Alila Purnama.";
+
+    expect(buildBluePassSmallTalkReply({ gratitude: true, enquiryReminder })).toBe(`No worries at all. ${enquiryReminder}`);
+    expect(buildBluePassSmallTalkReply({ latestMessage: "how's it going?", enquiryReminder })).toBe(
+      `Going well, thanks for asking. ${enquiryReminder}`
+    );
   });
 });
