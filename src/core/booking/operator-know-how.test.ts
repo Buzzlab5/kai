@@ -24,6 +24,31 @@ function ask(message: string, catalogue: PmsProduct[] = goldCoast, extra: { prod
 }
 
 describe("findOperatorKnowHowReply", () => {
+  // Reported live on bluepass.co, 2026-10-03: "How much commission do you take?" got the trip-price
+  // line ("Prices depend on the trip and the date...") because the price pattern matched "how much".
+  it("answers a commission question about the booking site, not as a trip price", async () => {
+    for (const question of [
+      "How much commission do you take?",
+      "what's your cut?",
+      "do you charge a booking fee?",
+      "how do you make money?"
+    ]) {
+      const answer = await ask(question);
+
+      expect(answer?.topic, question).toBe("FEES");
+      expect(answer?.reply, question).toContain("operator's own price");
+      expect(answer?.reply, question).toContain("never added to your fare");
+      expect(answer?.reply, question).not.toMatch(/\d\s*%/);
+      expect(findKaiStyleBreaches(answer!.reply), question).toEqual([]);
+      expect(findKaiHouseRuleBreaches(answer!.reply), question).toEqual([]);
+    }
+  });
+
+  it("still treats real trip price questions as price questions", async () => {
+    expect((await ask("how much is the whale one?"))?.topic).toBe("PRICE");
+    expect((await ask("what does it cost per person?"))?.topic).toBe("PRICE");
+  });
+
   it("gives seasickness tips and points to the crew, not 'the operator'", async () => {
     const answer = await ask("will I get seasick?");
 

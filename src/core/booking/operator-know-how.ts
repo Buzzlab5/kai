@@ -14,7 +14,7 @@ import { matchPmsProduct } from "./product-matcher";
  * prices. Anything specific to the operator (kids, parking, drinks, refunds) is left to their own
  * knowledge answers or the team.
  */
-export type OperatorKnowHowTopic = TravellerFaqTopic | "SEASON" | "TIMES" | "PRICE" | "DURATION" | "INCLUSIONS";
+export type OperatorKnowHowTopic = TravellerFaqTopic | "SEASON" | "TIMES" | "PRICE" | "FEES" | "DURATION" | "INCLUSIONS";
 
 export interface OperatorKnowHowReply {
   topic: OperatorKnowHowTopic;
@@ -47,6 +47,11 @@ const generalInclusionQuestionPattern =
   /\b(?:what'?s included|what is included|what do (?:we|you|i) get|what does (?:it|the [\w\s]{1,40}?) include|what comes with|inclusions)\b/i;
 const inclusionItemPattern =
   /\b(lunch|dinner|breakfast|morning tea|afternoon tea|food|snacks|drinks|alcohol|snorkel gear|wetsuits?|stinger suits?|equipment|gear|transfers?|pick ?ups?|parking|towels?)\b/i;
+// A question about what the booking site itself takes ("how much commission do you take?"), not what a
+// trip costs. Reported live on bluepass.co, 2026-10-03: the price pattern below matched "how much"
+// and answered with a trip-price line, which read as Kai ignoring the question.
+const feesPattern =
+  /\b(?:commissions?|your cut|service fees?|booking fees?|platform fees?|mark ?-?ups?|(?:how|where) (?:do|does) (?:bluepass|kai|you|this) (?:make|earn) (?:its |your )?money)\b/i;
 const pricePattern = /\b(?:how much|price|prices|pricing|cost|costs|(?<!-)rates?|fares?|per person)\b/i;
 
 export async function findOperatorKnowHowReply(input: {
@@ -96,6 +101,16 @@ export async function findOperatorKnowHowReply(input: {
     if (!place) return null;
 
     return knowHow("SEASON", place.season, "If you've got dates in mind, I'll check what's running.");
+  }
+
+  if (feesPattern.test(input.message)) {
+    // Only what is true on every booking: the fare is the operator's own and nothing is added on top.
+    // No percentage here: the one number Kai ever states is the 5% for the ocean (see kai-persona.ts).
+    return knowHow(
+      "FEES",
+      "You pay the operator's own price, the same as booking direct. Any commission comes out of the operator's side and is never added to your fare.",
+      "Tell me the trip and your date and I'll check it for you."
+    );
   }
 
   const asksDuration = durationQuestionPattern.test(input.message);
