@@ -816,7 +816,7 @@ describe("bluepass inquiry repository", () => {
       channel: "conversation",
       sent: true
     });
-    expect(messages.at(-1)?.content).toContain("Calico Jack accepted");
+    expect(messages.at(-1)?.content).toContain("Calico Jack said yes");
     expect(messages.at(-1)?.content).toContain("Quote link: https://bluepass.co/quotes/");
     expect(status).toBeNull();
     const event = await prisma.bluePassInquiryEvent.findFirst({
@@ -952,11 +952,11 @@ describe("bluepass inquiry repository", () => {
     expect(result.inquiry).toMatchObject({
       status: "DECLINED"
     });
-    expect(messages.at(-1)?.content).toContain("Calico Jack is not available");
+    expect(messages.at(-1)?.content).toContain("Calico Jack can't do");
     expect(messages.at(-1)?.content).toContain("Similar BluePass options");
     expect(messages.at(-1)?.content).toContain("1. Alila Purnama");
     expect(messages.at(-1)?.content).toContain('Reply "try Alila Purnama"');
-    expect(messages.at(-1)?.content).toContain("before BluePass dispatches");
+    expect(messages.at(-1)?.content).toContain("ask me to compare them first");
   }, 20_000);
 
   it("records a counter-offer and notifies the traveller without recommending alternatives by default", async () => {
@@ -1022,9 +1022,9 @@ describe("bluepass inquiry repository", () => {
     expect(result.inquiry).toMatchObject({
       status: "COUNTER_OFFERED"
     });
-    expect(messages.at(-1)?.content).toContain("Calico Jack sent a counter-offer");
+    expect(messages.at(-1)?.content).toContain("Calico Jack has come back with a different offer");
     expect(messages.at(-1)?.content).toContain("21 July");
-    expect(messages.at(-1)?.content).toContain("accept the counter");
+    expect(messages.at(-1)?.content).toContain("You can take it");
     expect(messages.at(-1)?.content).not.toContain("2-3 similar alternatives");
     expect(event?.metadata).toMatchObject({
       counterText: "Available 21 July instead at USD 48,000 private charter."
@@ -1173,7 +1173,7 @@ describe("bluepass inquiry repository", () => {
       to: "62876634231987",
       type: "text"
     });
-    expect(requestBody.text.body).toContain("Calico Jack accepted");
+    expect(requestBody.text.body).toContain("Calico Jack said yes");
     expect(result.travellerNotification).toMatchObject({
       channel: "whatsapp",
       sent: true,
@@ -1253,7 +1253,7 @@ describe("bluepass inquiry repository", () => {
       "Inov Afani",
       "Komodo / 24 July / 4 guests",
       "Calico Jack",
-      expect.stringContaining("Accepted by operator. Quote: https://bluepass.co/quotes/")
+      expect.stringContaining("The operator said yes. Quote: https://bluepass.co/quotes/")
     ]);
     expect(result.travellerNotification).toMatchObject({
       channel: "whatsapp",
@@ -1464,9 +1464,9 @@ describe("bluepass inquiry repository", () => {
       to: "6285156246329",
       type: "text"
     });
-    expect(requestBody.text.body).toContain("Calico Jack has held your BluePass trip");
+    expect(requestBody.text.body).toContain("Calico Jack is holding your Komodo trip");
     expect(requestBody.text.body).toContain("https://pay.example/cj-22");
-    expect(requestBody.text.body).toContain("not a confirmed booking until payment");
+    expect(requestBody.text.body).toContain("not booked until you've paid");
   }, 50_000);
 
   it("records booking confirmation from the operator and notifies the traveller", async () => {
@@ -1564,7 +1564,7 @@ describe("bluepass inquiry repository", () => {
       to: "6285156246329",
       type: "text"
     });
-    expect(requestBody.text.body).toContain("Your BluePass booking with Calico Jack is confirmed");
+    expect(requestBody.text.body).toContain("You're booked with Calico Jack");
     expect(requestBody.text.body).toContain("CJ-2207");
   }, 30_000);
 

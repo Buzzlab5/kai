@@ -1,3 +1,4 @@
+import { findKaiHouseRuleBreaches } from "@/core/llm/kai-persona";
 import { describe, expect, it } from "vitest";
 import {
   buildBluePassHandoffReply,
@@ -168,27 +169,30 @@ describe("shouldSendBluePassTriageGreeting", () => {
 });
 
 describe("buildBluePassOperatorReply", () => {
-  it("opens with the honest economics pitch", () => {
+  // Per Tony (2026-09-21): operators hear only the 5% to conservation (and where it goes) and that
+  // guests pay the same as booking direct. The commission split is never quoted in chat.
+  it("opens with the 5% to conservation and the same-as-direct price, never the commission split", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "I run a dive resort in Raja Ampat", pitched: false });
 
-    expect(result.reply).toContain("80%");
-    expect(result.reply).toContain("never marked up");
-    expect(result.reply).toContain("5% conservation");
+    expect(result.reply).toContain("same as booking direct");
+    expect(result.reply).toContain("5% of every booking goes to conservation");
+    expect(result.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
   });
 
-  it("itemises the 20% when asked", () => {
+  it("answers a fee breakdown question with the 5%, where it goes and the same price, not the split", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "How does the 20% break down?", pitched: true });
 
-    expect(result.reply).toContain("5%");
-    expect(result.reply).toContain("3%");
-    expect(result.reply).toContain("80%");
-    expect(result.reply).toContain("no listing fees");
+    expect(result.reply).toContain("5% of every booking goes to conservation");
+    expect(result.reply).toContain("Great Barrier Reef Foundation");
+    expect(result.reply).toContain("same as booking direct");
+    expect(result.reply).toContain("capped commission");
+    expect(result.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
   });
 
   it("routes Indonesian operators to the pre-built claim path", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "We're in Indonesia", pitched: true });
 
-    expect(result.reply).toContain("pre-built");
+    expect(result.reply).toContain("built pages for hundreds of Indonesian operators");
     expect(result.reply).toContain("claim link");
   });
 
@@ -206,11 +210,12 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply).toContain("won't promise");
   });
 
-  it("greets an Indonesian operator in Bahasa with the honest numbers", () => {
+  it("greets an Indonesian operator in Bahasa with the 5% and the same-as-direct price", () => {
     expect(classifyBluePassPersona(["saya punya kapal, ingin daftar"])).toBe("OPERATOR");
     const result = buildBluePassOperatorReply({ latestMessage: "saya punya kapal di Komodo", pitched: false });
-    expect(result.reply).toContain("80%");
-    expect(result.reply).toMatch(/menyimpan|perairan|dibatasi/);
+    expect(result.reply).toContain("5% dari setiap pemesanan");
+    expect(result.reply).toContain("sama seperti memesan langsung");
+    expect(result.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
   });
 
   it("answers page/dashboard questions with the what-you-get pitch", () => {
@@ -240,10 +245,11 @@ describe("buildBluePassOperatorReply", () => {
     expect(result.reply.toLowerCase()).toMatch(/partner|network|whatsapp/);
   });
 
-  it("tells operators they set their own rate and keep 80%", () => {
+  it("tells operators they set their own rate and guests pay the same as booking direct", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "can I set my own prices?", pitched: true });
-    expect(result.reply).toContain("80%");
+    expect(result.reply).toContain("same as booking direct");
     expect(result.reply.toLowerCase()).toMatch(/your (own )?rate|your price/);
+    expect(result.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
   });
 
   it("gives an honest no-timeline answer to approval-speed questions", () => {
@@ -393,12 +399,12 @@ describe("buildBluePassPartnerReply", () => {
       const r = buildBluePassPartnerReply({ latestMessage: msg, pitched: true });
       expect(r.showCatalog, `no cards for "${msg}"`).toBe(true);
       expect(r.catalogDestination, `wrong dest for "${msg}"`).toBe(dest);
-      expect(r.reply, `AU brief hit conservation: "${msg}"`).not.toContain("funds verified conservation");
+      expect(r.reply, `AU brief hit conservation: "${msg}"`).not.toContain("funds conservation where your clients travel");
       expect(r.reply.length).toBeLessThanOrEqual(320);
     }
     // a genuine conservation question (no AU region) still hits conservation
     const cons = buildBluePassPartnerReply({ latestMessage: "tell me about the conservation impact", pitched: true });
-    expect(cons.reply).toContain("funds verified conservation");
+    expect(cons.reply).toContain("funds conservation where your clients travel");
     expect(cons.showCatalog).toBeFalsy();
   });
 
@@ -448,8 +454,8 @@ describe("buildBluePassPartnerReply", () => {
 
   it("pins the default openers (unmatched, pitched:false) to the core honest pitch", () => {
     const op = buildBluePassOperatorReply({ latestMessage: "ok sounds good", pitched: false }).reply;
-    expect(op).toContain("80%");
-    expect(op.toLowerCase()).toContain("never marked up");
+    expect(op).toContain("same as booking direct");
+    expect(op).toContain("5% of every booking goes to conservation");
     const pa = buildBluePassPartnerReply({ latestMessage: "ok sounds good", pitched: false }).reply;
     expect(pa.toLowerCase()).toContain("operator's own rate");
     expect(pa.toLowerCase()).toContain("never marked up");
@@ -463,7 +469,7 @@ describe("buildBluePassPartnerReply", () => {
       ["how do i start?", /three steps|claim/i],                            // "start" vs "star" (reviews)
       ["how do i get started?", /three steps|claim/i],
       ["is there an app?", /no separate app|browser|whatsapp/i],            // "app" substring
-      ["how does the 18% break down?", /every point|5% conservation/i],     // 18% not stolen by undercut
+      ["how does the 18% break down?", /5% of every booking goes to conservation/i], // 18% not stolen by undercut
       ["will you list my competitors?", /curated marketplace|storefront/i],
     ];
     for (const [msg, re] of opTraps) {
@@ -505,7 +511,7 @@ describe("buildBluePassPartnerReply", () => {
       expect(reply.includes("  ")).toBe(false);
       expect(EMOJI.test(reply)).toBe(false);
       for (const m of reply.matchAll(/(\d+)\s*(?:%|percent)/gi)) {
-        expect(["3", "5", "18", "82"].includes(m[1]), `bad % in: ${reply}`).toBe(true);
+        expect(m[1], `bad % in: ${reply}`).toBe("5");
       }
     };
     const leads = [
@@ -586,18 +592,17 @@ describe("buildBluePassPartnerReply", () => {
 
   it("the honest-% guard catches word-form invented percentages, not just the symbol", () => {
     const PCT = /(\d+)\s*(?:%|percent)/gi;
-    const bad = (s: string) => [...s.matchAll(PCT)].map((m) => m[1]).filter((n) => !["3", "5", "18", "82"].includes(n));
+    const bad = (s: string) => [...s.matchAll(PCT)].map((m) => m[1]).filter((n) => n !== "5");
     expect(bad("your cut is 20 percent")).toEqual(["20"]); // word form caught
     expect(bad("we take 20%")).toEqual(["20"]); // symbol form caught
-    expect(bad("5% conservation and 18 percent capped")).toEqual([]); // honest values pass either form
+    expect(bad("5% conservation and 18 percent capped")).toEqual(["18"]); // only the 5% is ever stated
     expect(bad("a 60-day window, 3 payments")).toEqual([]); // non-% numbers ignored
   });
 
-  it("only ever states the honest percentages {3,5,7,20,80} - never invents a commission %", () => {
-    // Corrected 2026-08-24: Indonesia's chat copy moved from 18%/82% (5% platform fee) to the same
-    // 20%/80% (7% platform fee) AU already had, via market.ts's bluePassCommissionSummary - see that
-    // file's comment. 18/82 no longer appear anywhere in this chat-copy layer for either market.
-    const ALLOWED = new Set(["3", "5", "7", "20", "80"]);
+  it("only ever states the 5% to conservation, never a commission percentage", () => {
+    // Per Tony (2026-09-21): the only percentage in operator or partner chat is the 5% to
+    // conservation. The commission split (market.ts's bluePassCommissionSummary) stays internal.
+    const ALLOWED = new Set(["5"]);
     const inputs = [
       "break down the 18%", "what do i get", "how do guests pay", "whats the catch", "do you charge per lead",
       "will i get bookings", "how do commissions work", "just give me a ballpark", "how do i get paid",
@@ -700,17 +705,20 @@ describe("buildBluePassPartnerReply", () => {
     }
   });
 
-  it("answers an operator 'is it free to list?' branch (free, keep 80%, capped 20% on bookings)", () => {
+  it("answers an operator 'is it free to list?' branch (free, capped commission only on bookings, the 5%)", () => {
     for (const m of ["is it free to list?", "how much does it cost to list?", "any upfront cost to join?"]) {
       const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
       expect(r.reply.toLowerCase(), `weak answer for "${m}"`).toMatch(/free to list|no sign-up fee/);
-      expect(r.reply).toContain("80%");
+      expect(r.reply).toContain("capped commission");
+      expect(r.reply).toContain("5% of every booking goes to conservation");
+      expect(r.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
     }
   });
 
   it("answers 'what's the catch / how do you make money' honestly (only capped 20% on bookings)", () => {
     const result = buildBluePassOperatorReply({ latestMessage: "what's the catch? how do you make money?", pitched: true });
-    expect(result.reply.toLowerCase()).toMatch(/no catch|20%|earn when you earn/);
+    expect(result.reply.toLowerCase()).toMatch(/no catch|earn when you earn/);
+    expect(result.reply).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
   });
 
   it("routes 'lead fee' phrasing to the no-per-lead answer, not the 18% breakdown", () => {
@@ -718,9 +726,9 @@ describe("buildBluePassPartnerReply", () => {
       const r = buildBluePassOperatorReply({ latestMessage: m, pitched: true });
       expect(r.reply.toLowerCase(), `misrouted "${m}"`).toMatch(/never charge per lead|no listing fee/);
     }
-    // a generic fee question still reaches the 18% breakdown
+    // a generic fee question still reaches the fee answer (the 5% and the same-as-direct price)
     const generic = buildBluePassOperatorReply({ latestMessage: "what's your fee?", pitched: true });
-    expect(generic.reply).toContain("5% conservation in your waters");
+    expect(generic.reply).toContain("5% of every booking goes to conservation in your waters");
   });
 
   it("confirms no pay-per-lead / listing fees (only earns on completed bookings)", () => {
@@ -909,10 +917,10 @@ describe("buildBluePassPartnerReply", () => {
   it("does not misroute a message containing '18' (boat count) to the fee-breakdown branch", () => {
     const fleet = buildBluePassOperatorReply({ latestMessage: "can I list 18 boats?", pitched: true });
     expect(fleet.reply.toLowerCase()).toMatch(/fleet|one page|each/);
-    expect(fleet.reply).not.toContain("5% conservation in your waters");
-    // genuine 18% questions still reach the breakdown branch
+    expect(fleet.reply).not.toContain("5% of every booking goes to conservation");
+    // genuine 18% questions still reach the fee answer
     const fee = buildBluePassOperatorReply({ latestMessage: "how does the 18% break down?", pitched: true });
-    expect(fee.reply).toContain("5% conservation in your waters");
+    expect(fee.reply).toContain("5% of every booking goes to conservation in your waters");
   });
 
   it("confirms an operator can list a whole fleet / multiple trips under one page", () => {
@@ -1068,4 +1076,58 @@ describe("buildBluePassPartnerReply", () => {
     expect(result.reply).toContain("claim link");
     expect(result.reply).not.toContain("tracked link and a catalogue");
   });
+
+  it("gives creators the creator answer when they just say what they do", () => {
+    for (const latestMessage of ["I'm a creator", "I'm an influencer on TikTok", "I post dive content on YouTube"]) {
+      expect(buildBluePassPartnerReply({ latestMessage, pitched: true }).reply, latestMessage).toContain(
+        "Creators are first-class here"
+      );
+    }
+  });
 });
+
+describe("operators and partners asking what Kai is, and pushing back", () => {
+  const operator = (latestMessage: string) =>
+    buildBluePassOperatorReply({ latestMessage, pitched: true, market: "AUSTRALIA" }).reply;
+
+  it("never lets an operator or partner think Kai is a person", () => {
+    for (const reply of [
+      operator("are you a real person?"),
+      buildBluePassPartnerReply({ latestMessage: "am I talking to a bot?", pitched: true, market: "AUSTRALIA" }).reply
+    ]) {
+      expect(reply.startsWith("I'm Kai, BluePass's AI concierge, so not a person")).toBe(true);
+    }
+    expect(operator("can I talk to a real person?")).toContain("the team's happy to jump on a call");
+  });
+
+  it("only names booking systems that actually connect", () => {
+    expect(operator("we use Rezdy")).toContain("Rezdy's one we connect with");
+    expect(operator("we're on FareHarbor")).toContain("FareHarbor's one we connect with");
+    expect(operator("we use Bokun")).toContain("We don't connect to Bokun yet");
+    expect(operator("does it work with my booking system?")).toContain("Rezdy, FareHarbor and Inseanq");
+    for (const reply of [operator("we use Rezdy"), operator("do I need new software?")]) {
+      expect(reply).not.toContain("Bokun");
+    }
+  });
+
+  it("answers the common pushback straight instead of changing the subject", () => {
+    expect(operator("how much do you take?")).toContain("capped commission");
+    expect(operator("do I need new software?")).toContain("No new software");
+    expect(operator("we don't have a booking system")).toContain("plenty of good operators don't");
+    expect(operator("how do guests find us?")).toContain("partner network");
+    expect(operator("I'm flat out, I don't have time for another platform")).toContain("no extra inbox");
+    expect(operator("can I leave if it doesn't work for us?")).toContain("No lock-in");
+  });
+
+  it("never quotes a split, only the 5%", () => {
+    for (const message of ["how much do you take?", "what's your commission?", "what percentage do you charge?"]) {
+      expect(findKaiHouseRuleBreaches(operator(message))).toEqual([]);
+    }
+  });
+
+  it("asks for contact details on a handoff instead of promising a callback nothing triggers", () => {
+    expect(buildBluePassHandoffReply()).toContain("Send your company and best email or WhatsApp");
+    expect(buildBluePassHandoffReply()).not.toContain("I'll flag it");
+  });
+});
+

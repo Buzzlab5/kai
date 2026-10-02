@@ -258,6 +258,32 @@ export async function setWhatsAppConversationControlMode(input: {
   });
 }
 
+/**
+ * Hands a chat to a person on the team (HUMAN: Kai stays quiet and only records messages) or back
+ * to Kai (AI). Used by the handoff itself and by the admin conversation page.
+ */
+export async function setConversationControlMode(input: {
+  tenantId: string;
+  conversationId: string;
+  controlMode: "AI" | "HUMAN" | "PAUSED";
+}) {
+  return prisma.conversation.updateMany({
+    where: { id: input.conversationId, tenantId: input.tenantId },
+    data: { controlMode: input.controlMode }
+  });
+}
+
+export async function setConversationControlModeForTenantSlug(input: {
+  tenantSlug: string;
+  conversationId: string;
+  controlMode: "AI" | "HUMAN" | "PAUSED";
+}) {
+  return prisma.conversation.updateMany({
+    where: { id: input.conversationId, tenant: { slug: input.tenantSlug } },
+    data: { controlMode: input.controlMode }
+  });
+}
+
 // Lets a logged-in traveller's Kai memory follow their account instead of one browser's local
 // storage: the widget session endpoint uses this to resume their most recent conversation with a
 // tenant (if any) rather than always starting fresh, so switching devices/browsers while logged in

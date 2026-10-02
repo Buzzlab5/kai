@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractBluePassInquiryIntent, getMissingBluePassInquiryFields } from "./intent";
+import {
+  extractBluePassInquiryIntent,
+  getMissingBluePassInquiryFields,
+  extractBluePassGuestCount
+} from "./intent";
 
 describe("BluePass inquiry intent", () => {
   it("extracts traveller and trip fields from message history", () => {
@@ -105,5 +109,40 @@ describe("BluePass inquiry intent", () => {
         guests: 8
       })
     ).toEqual(["dateWindow", "travellerName", "travellerEmail", "travellerPhone"]);
+  });
+});
+
+describe("extractBluePassGuestCount", () => {
+  it("understands the everyday ways travellers give a group size", () => {
+    expect(extractBluePassGuestCount("8 guests")).toBe(8);
+    expect(extractBluePassGuestCount("four people")).toBe(4);
+    expect(extractBluePassGuestCount("19 July, 2 of us")).toBe(2);
+    expect(extractBluePassGuestCount("there's six of us")).toBe(6);
+    expect(extractBluePassGuestCount("2 adults and 2 kids")).toBe(4);
+    expect(extractBluePassGuestCount("just me this time")).toBe(1);
+    expect(extractBluePassGuestCount("me and my partner")).toBe(2);
+    expect(extractBluePassGuestCount("my wife and I")).toBe(2);
+  });
+
+  it("doesn't guess when the phrasing isn't really a headcount", () => {
+    expect(extractBluePassGuestCount("one of us gets seasick")).toBeUndefined();
+    expect(extractBluePassGuestCount("we have 2 kids")).toBeUndefined();
+    expect(extractBluePassGuestCount("me and my partner and our kids")).toBeUndefined();
+    expect(extractBluePassGuestCount("19 July")).toBeUndefined();
+  });
+});
+
+describe("bare phone numbers", () => {
+  it("recognises a phone number without the word 'phone' in front of it", () => {
+    expect(extractBluePassInquiryIntent(["I'm Maya Chen, maya@example.com, +61 400 111 222"]).travellerPhone).toBe(
+      "+61 400 111 222"
+    );
+    expect(extractBluePassInquiryIntent(["call me on 0400 111 222"]).travellerPhone).toBe("0400 111 222");
+    expect(extractBluePassInquiryIntent(["wa saya 081234567890"]).travellerPhone).toBe("081234567890");
+  });
+
+  it("doesn't mistake prices, dates or group sizes for a phone number", () => {
+    const intent = extractBluePassInquiryIntent(["19 July 2026 for 4 people, budget USD 10000"]);
+    expect(intent.travellerPhone).toBeUndefined();
   });
 });

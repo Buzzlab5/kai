@@ -57,18 +57,19 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.persona).toBe("OPERATOR");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("80%");
-    expect(result.assistantContent).toContain("7% platform");
-    expect(result.assistantContent).toContain("Claim link");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).toContain("5% of every booking goes to");
+    expect(result.assistantContent).toContain("same as booking direct");
+    expect(result.assistantContent).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
+    expect(result.assistantContent).toContain("claim link");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.assistantContent).not.toContain("guest count");
   });
 
   it("answers a commission question accurately even when persona locked to traveller from an earlier message", async () => {
     // Regression: "charter" (a travellerSignals word) in the opener locks persona to TRAVELLER for
     // the rest of the conversation (classifyBluePassPersona is sticky/first-signal-wins), so this
-    // never reaches triage.ts's operator/partner commission copy - the real 80/20 breakdown must
-    // still be reachable and accurate regardless of which persona got locked in.
+    // never reaches triage.ts's operator/partner commission copy - an accurate commission answer
+    // must still be reachable regardless of which persona got locked in.
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
       conversationId: `conversation_${randomUUID()}`,
@@ -77,16 +78,17 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
 
     expect(result.persona).toBe("TRAVELLER");
-    // "Australia" in the opener resolves market to AUSTRALIA, so this should reflect the 20%/80%
-    // split confirmed 2026-08-05 (see ledger.ts's BluePassLedgerMarket) - Indonesia was corrected to
-    // the same 20%/80% split on 2026-08-24, so this no longer distinguishes the two markets either.
-    expect(result.assistantContent).toContain("20%");
-    expect(result.assistantContent).toContain("80%");
+    // Travellers hear how the commission works (capped, operator-side, never added to the fare) and
+    // only the 5% to the ocean as a number, per the BluePass copy rule; the split stays internal.
+    expect(result.assistantContent).toContain("capped commission");
+    expect(result.assistantContent).toContain("operator's side");
+    expect(result.assistantContent).toContain("5%");
+    expect(result.assistantContent).not.toMatch(/\b(?:20|80|7|3)\s*%/);
     expect(result.assistantContent).not.toContain("not publicly disclosed");
     expect(result.assistantContent).not.toContain("isn't publicly disclosed");
   });
 
-  it("never asks the LLM router about a commission question - the real numbers are trusted without a call", async () => {
+  it("never asks the LLM router about a commission question - the scripted answer is trusted without a call", async () => {
     const routerClient = { route: vi.fn(async () => ({ action: "GENERAL_QUESTION" as never, intent: {}, seasonDestination: null, gratitude: false })) };
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
@@ -97,7 +99,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
 
     expect(routerClient.route).not.toHaveBeenCalled();
-    expect(result.assistantContent).toContain("20%");
+    expect(result.assistantContent).toContain("capped commission");
   });
 
   it("treats travel inspiration as concierge chat instead of forcing inquiry fields", async () => {
@@ -115,8 +117,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassMatches.length).toBeGreaterThanOrEqual(2);
     expect(result.assistantContent).toContain("Raja Ampat");
     expect(result.assistantContent).toContain("Komodo");
-    expect(result.assistantContent).not.toContain("Please share your name");
-    expect(result.assistantContent).not.toContain("prepare the inquiry");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
+    expect(result.assistantContent).not.toContain("enquiry");
     expect(result.suggestedReplies).toEqual(["Komodo", "Raja Ampat"]);
   });
 
@@ -133,11 +135,11 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.persona).toBe("OPERATOR");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("80%");
-    expect(result.assistantContent).toContain("5% conservation");
-    expect(result.assistantContent).toContain("7% platform");
+    expect(result.assistantContent).toContain("5% of every booking goes to conservation");
+    expect(result.assistantContent).toContain("same as booking direct");
+    expect(result.assistantContent).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
     expect(result.assistantContent).not.toContain("partner commission");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("lets a registered operator switch into traveller booking mode with a strong booking request", async () => {
@@ -172,7 +174,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassDispatch).toBeNull();
     expect(result.assistantContent).toContain("commission");
     expect(result.assistantContent).toContain("client");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.assistantContent).not.toContain("guest count");
   });
 
@@ -248,6 +250,271 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(lead?.events.map((event) => event.type)).toContain("PERSONA_LEAD_CREATED");
   });
 
+  it("knows when to go to Australian places even before BluePass lists boats there", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "What's the best time to see whale sharks at Ningaloo?",
+      priorTravellerMessages: []
+    });
+
+    expect(result.assistantContent).toContain("Whale sharks are on Ningaloo from about March to July");
+    expect(result.assistantContent).toContain("BluePass doesn't have trips there just yet");
+    expect(result.bluepassMatches).toEqual([]);
+  });
+
+  it("compares the Reef and the Whitsundays like someone who has done both", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "the reef or the whitsundays, which is better?",
+      priorTravellerMessages: []
+    });
+
+    expect(result.assistantContent).toContain("Divers usually pick the Reef");
+    expect(result.suggestedReplies).toEqual(["Show me boats"]);
+  });
+
+  it("answers everyday practical questions with Kai's own knowledge instead of a boat list", async () => {
+    const certification = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "Do I need to be a certified diver?",
+      priorTravellerMessages: []
+    });
+    expect(certification.assistantContent).toContain("Open Water");
+    expect(certification.bluepassMatches).toEqual([]);
+
+    const kids = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "Is Komodo good for a family with young kids?",
+      priorTravellerMessages: []
+    });
+    expect(kids.assistantContent).toContain("great with kids");
+    expect(kids.bluepassMatches).toEqual([]);
+    expect(kids.replyMode).toBe("CONCIERGE");
+  });
+
+  it("answers a side question mid-enquiry, then picks the enquiry back up", async () => {
+    const ask = (content: string, priorTravellerMessages: string[]) =>
+      handleBluePassMarketplaceMessage({
+        tenantId: `tenant_${randomUUID()}`,
+        conversationId: `conversation_${randomUUID()}`,
+        content,
+        priorTravellerMessages
+      });
+
+    const seasick = await ask("will I get seasick?", ["I'd like to book Alila Purnama"]);
+    expect(seasick.assistantContent).toContain("seasickness tablet");
+    expect(seasick.assistantContent).toContain("The Alila Purnama crew can tell you how the water's looking");
+    expect(seasick.assistantContent.endsWith("When you're ready, just tell me your dates and how many of you for Alila Purnama.")).toBe(
+      true
+    );
+
+    const visa = await ask("do I need a visa?", ["I'd like to book Alila Purnama", "19 July, 2 of us"]);
+    expect(visa.assistantContent).toContain("e-Visa on Arrival");
+    expect(
+      visa.assistantContent.endsWith("When you're ready, pop your details in the form below and I'll get your enquiry to the operator.")
+    ).toBe(true);
+    expect(visa.contactRequest?.status).toBe("CONTACT_DETAILS_REQUIRED");
+  });
+
+  it("waits on a yes once the enquiry is complete, and stops asking once it's sent", async () => {
+    const tenantId = `tenant_${randomUUID()}`;
+    const conversationId = `conversation_${randomUUID()}`;
+    const details = ["can you help me to book alila purnama?", "for 29th june 2026, 4 people, I'm Eka, eka@example.com, 0876634231987"];
+    const readyReminder = "When you're ready, just say yes and I'll send your Alila Purnama enquiry to the operator.";
+
+    const beforeSending = await handleBluePassMarketplaceMessage({ tenantId, conversationId, content: "is there wifi on board?", priorTravellerMessages: details });
+    expect(beforeSending.assistantContent).toContain("the Alila Purnama crew");
+    expect(beforeSending.assistantContent.endsWith(readyReminder)).toBe(true);
+
+    const thanks = await handleBluePassMarketplaceMessage({ tenantId, conversationId, content: "thanks heaps", priorTravellerMessages: details });
+    expect(thanks.assistantContent).toBe(`No worries at all. ${readyReminder}`);
+
+    const sent = await handleBluePassMarketplaceMessage({ tenantId, conversationId, content: "yes please", priorTravellerMessages: details });
+    expect(sent.bluepassInquiry).not.toBeNull();
+
+    const afterSending = await handleBluePassMarketplaceMessage({
+      tenantId,
+      conversationId,
+      content: "is there wifi on board?",
+      priorTravellerMessages: [...details, "yes please"]
+    });
+    expect(afterSending.assistantContent).not.toContain("just say yes");
+  });
+
+  it("keeps the enquiry going when the traveller just says thanks", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "thanks heaps",
+      priorTravellerMessages: ["I'd like to book Alila Purnama"]
+    });
+
+    expect(result.assistantContent).toBe(
+      "No worries at all. When you're ready, just tell me your dates and how many of you for Alila Purnama."
+    );
+  });
+
+  it("doesn't repeat a reminder it gave in its last message", async () => {
+    const reminder = "When you're ready, just tell me your dates and how many of you for Alila Purnama.";
+    const ask = (content: string) =>
+      handleBluePassMarketplaceMessage({
+        tenantId: `tenant_${randomUUID()}`,
+        conversationId: `conversation_${randomUUID()}`,
+        content,
+        priorTravellerMessages: ["I'd like to book Alila Purnama", "will I get seasick?"],
+        lastAssistantMessage: `Worth planning for if you're prone to it. ${reminder}`
+      });
+
+    const visa = await ask("do I need a visa?");
+    expect(visa.assistantContent).toContain("e-Visa on Arrival");
+    expect(visa.assistantContent).not.toContain("When you're ready");
+
+    const thanks = await ask("thanks heaps");
+    expect(thanks.assistantContent).toBe("No worries at all.");
+  });
+
+  it("answers an off-trip question honestly instead of re-showing the boat list", async () => {
+    const ask = (content: string, priorTravellerMessages: string[]) =>
+      handleBluePassMarketplaceMessage({
+        tenantId: `tenant_${randomUUID()}`,
+        conversationId: `conversation_${randomUUID()}`,
+        content,
+        priorTravellerMessages
+      });
+
+    const browsing = await ask("can I bring my dog?", ["looking at komodo liveaboards"]);
+    expect(browsing.bluepassMatches).toEqual([]);
+    expect(browsing.assistantContent).toContain("so I won't guess");
+
+    const enquiring = await ask("can I bring my dog?", ["I'd like to book Alila Purnama"]);
+    expect(enquiring.assistantContent).toBe(
+      "Good question. I don't want to give you a dud answer on that one, so I won't guess. It's a good one to ask the operator when they reply to your enquiry. When you're ready, just tell me your dates and how many of you for Alila Purnama."
+    );
+
+    const moreBoats = await ask("what else have you got?", ["looking at komodo liveaboards"]);
+    expect(moreBoats.bluepassMatches.length).toBeGreaterThan(0);
+  });
+
+  it("points refunds and cancellations to the people who can sort them", async () => {
+    const refund = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "I want a refund",
+      priorTravellerMessages: ["looking at komodo liveaboards"]
+    });
+    expect(refund.assistantContent).toContain("sorted by the operator and the BluePass team, not me");
+    expect(refund.assistantContent).toContain("your enquiry reference");
+    expect(refund.bluepassMatches).toEqual([]);
+
+    const policy = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "can I get a refund if it rains?",
+      priorTravellerMessages: ["looking at komodo liveaboards"]
+    });
+    expect(policy.assistantContent).toContain("Each operator sets their own cancellation terms");
+  });
+
+  it("gets a person into the chat when someone asks for one", async () => {
+    const ask = (content: string, extra: { travellerPhone?: string; lastAssistantMessage?: string } = {}) =>
+      handleBluePassMarketplaceMessage({
+        tenantId: `tenant_${randomUUID()}`,
+        conversationId: `conversation_${randomUUID()}`,
+        content,
+        priorTravellerMessages: [],
+        ...extra
+      });
+
+    // On WhatsApp the team already has their number, so Kai never asks for it.
+    const whatsapp = await ask("can I talk to a real person?", { travellerPhone: "+61400111222" });
+    expect(whatsapp.assistantContent).toBe(
+      "Of course, I'll get a person from the BluePass team to jump into this chat as soon as possible."
+    );
+    expect(whatsapp.replyMode).toBe("ACTION");
+
+    const web = await ask("I want to speak to a human");
+    expect(web.assistantContent).toBe(
+      "Of course, I'll get a person from the BluePass team onto this as soon as possible. What's the best WhatsApp number for them to reach you on?"
+    );
+
+    const bot = await ask("are you a bot?");
+    expect(bot.assistantContent).toBe(
+      "I'm Kai, BluePass's AI concierge, so not a person, but I'll always be straight with you. Want me to get a person from the team to jump in?"
+    );
+
+    const yes = await ask("yes please", { travellerPhone: "+61400111222", lastAssistantMessage: bot.assistantContent });
+    expect(yes.assistantContent).toContain("I'll get a person from the BluePass team to jump into this chat");
+    expect(yes.bluepassInquiry).toBeNull();
+  });
+
+  it("doesn't nudge towards an enquiry the traveller never started", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "will I get seasick?",
+      priorTravellerMessages: ["Can you tell me about Alila Purnama?"]
+    });
+
+    expect(result.assistantContent).toContain("seasickness tablet");
+    expect(result.assistantContent).not.toContain("When you're ready");
+  });
+
+  it("answers 'what's the best time to go?' for the place already in the chat", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "what's the best time to go?",
+      priorTravellerMessages: ["Show me boats in Komodo"]
+    });
+
+    expect(result.assistantContent.startsWith("Komodo's main liveaboard season is April to November")).toBe(true);
+    expect(result.bluepassMatches).toEqual([]);
+  });
+
+  it("gives the honest answer for a place BluePass doesn't cover, even when the message says 'boats'", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "What about Sulawesi, do you know any boats?",
+      priorTravellerMessages: []
+    });
+
+    expect(result.assistantContent).toContain("Sulawesi isn't somewhere BluePass has vetted trips yet");
+    expect(result.assistantContent).toContain("Komodo and Raja Ampat");
+    expect(result.bluepassMatches).toEqual([]);
+  });
+
+  it("understands '2 of us' and doesn't repeat the boat description on the follow-up turn", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "19 July, 2 of us",
+      priorTravellerMessages: ["I'd like to book Alila Purnama"]
+    });
+
+    expect(result.assistantContent).not.toContain("Good pick");
+    expect(result.assistantContent).not.toContain("How many of you");
+    expect(result.assistantContent).toContain("Nearly there for Alila Purnama.");
+  });
+
+  it("answers 'why should I book through BluePass?' with the value answer, not a request for trip details", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "Why should I book through BluePass?",
+      priorTravellerMessages: []
+    });
+
+    expect(result.replyMode).toBe("CONCIERGE");
+    expect(result.assistantContent).toContain("operator's own price");
+    expect(result.assistantContent).not.toContain("date window");
+    expect(result.contactRequest).toBeNull();
+  });
+
   it("explains BluePass value without starting an inquiry", async () => {
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
@@ -264,8 +531,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("operator");
     expect(result.assistantContent).toContain("5%");
     expect(result.assistantContent).toContain("conservation");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
-    expect(result.suggestedReplies).toEqual(["Show me yachts"]);
+    expect(result.assistantContent).not.toContain("Your enquiry");
+    expect(result.suggestedReplies).toEqual(["Show me boats"]);
   });
 
   it("gives destination season guidance as a concierge response", async () => {
@@ -281,7 +548,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Komodo");
     expect(result.assistantContent).toContain("April");
     expect(result.assistantContent).toContain("November");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.suggestedReplies).toBeNull();
   });
 
@@ -318,7 +585,7 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.bluepassInquiry).toBeNull();
     expect(result.assistantContent).toContain("Komodo");
-    expect(result.assistantContent).toContain("BluePass");
+    expect(result.assistantContent).toContain("options");
     expect(result.assistantContent).not.toContain("name");
     expect(result.assistantContent).not.toContain("email");
     expect(result.assistantContent).not.toContain("phone");
@@ -334,11 +601,11 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("I am here");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).toContain("Still keen on Komodo");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.assistantContent).not.toContain("email");
     expect(result.assistantContent).not.toContain("phone");
-    expect(result.suggestedReplies).toEqual(["Show me yachts"]);
+    expect(result.suggestedReplies).toEqual(["Show me boats"]);
   });
 
   it("treats new chat as a fresh traveller conversation instead of reusing old booking details", async () => {
@@ -359,8 +626,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassLedger).toEqual([]);
     expect(result.assistantContent).toContain("Fresh chat started");
     expect(result.assistantContent).not.toContain("Calico Jack");
-    expect(result.assistantContent).not.toContain("Before I send this to the operator");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).not.toContain("Want me to send it now?");
+    expect(result.assistantContent).not.toContain("Your enquiry");
   });
 
   it("does not infer operator mode from old history when the latest message resets the chat", async () => {
@@ -374,7 +641,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
     expect(result.assistantContent).toContain("Fresh chat started");
-    expect(result.assistantContent).toContain("compare BluePass liveaboards");
+    expect(result.assistantContent).toContain("Where are you thinking of heading?");
     expect(result.assistantContent).not.toContain("operator onboarding");
     expect(result.assistantContent).not.toContain("80%");
   });
@@ -394,7 +661,7 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("Anytime");
+    expect(result.assistantContent).toContain("No worries");
     expect(result.assistantContent).not.toContain("I can prepare a BluePass operator inquiry");
     expect(result.assistantContent).not.toContain("Please share your");
     expect(result.suggestedReplies).toBeNull();
@@ -412,7 +679,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Komodo");
     expect(result.assistantContent).toContain("Alila Purnama");
     expect(result.assistantContent).not.toContain("Calico Jack is a");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("excludes the named yacht when the traveller asks for something rather than it", async () => {
@@ -466,7 +733,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).not.toContain("Alila Purnama -");
     expect(result.assistantContent).not.toContain("Calico Jack -");
     expect(result.assistantContent).not.toContain("Alexa -");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("switches destinations when the traveller asks for somewhere else instead of Komodo", async () => {
@@ -481,7 +748,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Raja Ampat");
     expect(result.assistantContent).toMatch(/Aliikai|Amandira|Carpe Diem|Fenides|Majik/);
     expect(result.assistantContent).not.toContain("options in Komodo");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("uses the yacht named in the latest message instead of stale history", async () => {
@@ -495,7 +762,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassInquiry).toBeNull();
     expect(result.assistantContent).toContain("Anne Bonny");
     expect(result.assistantContent).not.toContain("Alila Purnama is a");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("compares two yachts without showing inquiry actions", async () => {
@@ -512,7 +779,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Amandira");
     expect(result.assistantContent).toContain("Komodo");
     expect(result.assistantContent).toContain("Raja Ampat");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).not.toContain("Your enquiry");
     expect(result.suggestedReplies).toEqual(["Book Alila Purnama", "Book Amandira"]);
   });
 
@@ -546,7 +813,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Raja Ampat");
     expect(result.assistantContent).toMatch(/different|depends|rule of thumb|better/i);
     expect(result.assistantContent).not.toContain("Anne Bonny is");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.suggestedReplies).toEqual(["Komodo", "Raja Ampat"]);
   });
 
@@ -564,10 +831,10 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.replyMode).toBe("CONCIERGE");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.assistantContent).toContain("BluePass");
-    expect(result.assistantContent).not.toContain("Great choice - Celestia");
+    expect(result.assistantContent).not.toContain("Good pick. Celestia");
     expect(result.assistantContent).not.toContain("Celestia is");
     expect(result.assistantContent).not.toContain("live calendar");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("treats most-beautiful destination questions as travel inspiration instead of booking collection", async () => {
@@ -584,10 +851,10 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.replyMode).toBe("CONCIERGE");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.assistantContent).toContain("BluePass");
-    expect(result.assistantContent).not.toContain("Great choice - Celestia");
+    expect(result.assistantContent).not.toContain("Good pick. Celestia");
     expect(result.assistantContent).not.toContain("Celestia is");
-    expect(result.assistantContent).not.toContain("operator to confirm availability");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toContain("get the operator to confirm");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   });
 
   it("answers an unmatched general question instead of demanding trip details", async () => {
@@ -604,7 +871,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("BluePass");
     expect(result.assistantContent).not.toContain("please share your");
     expect(result.assistantContent).not.toContain("date window");
-    expect(result.suggestedReplies).toEqual(["Show me yachts"]);
+    expect(result.suggestedReplies).toEqual(["Show me boats"]);
   });
 
   it("gives an honest answer for out-of-coverage destination questions instead of a bare boat list", async () => {
@@ -632,8 +899,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassMatches.map((match) => match.name)).toContain("Calico Jack");
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassDispatch).toBeNull();
-    expect(result.assistantContent).toContain("Good BluePass liveaboard options");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).toContain("Here are a few good options");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(result.assistantContent).not.toContain("email");
     expect(result.assistantContent).not.toContain("phone");
     expect(result.paymentRequest).toBeNull();
@@ -653,7 +920,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       content: "yachts in Komodo for 4 guests",
       priorTravellerMessages: []
     });
-    expect(first.assistantContent).toContain("Good BluePass liveaboard options");
+    expect(first.assistantContent).toContain("Here are a few good options");
     expect(first.bluepassMatches.length).toBeGreaterThan(0);
 
     // Every Komodo preview yacht is well over USD 100/cabin - nothing should fit.
@@ -664,7 +931,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       priorTravellerMessages: ["yachts in Komodo for 4 guests"]
     });
 
-    expect(second.assistantContent).not.toContain("Good BluePass liveaboard options");
+    expect(second.assistantContent).not.toContain("Here are a few good options");
     expect(second.assistantContent).toContain("budget");
     expect(second.bluepassMatches).toEqual([]);
   });
@@ -689,7 +956,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
     expect(second.assistantContent).toContain("Komodo");
     expect(second.assistantContent).not.toContain("Raja Ampat");
-    expect(second.assistantContent).not.toContain("Please share your name");
+    expect(second.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(second.bluepassMatches.length).toBeGreaterThan(0);
 
     const third = await handleBluePassMarketplaceMessage({
@@ -700,7 +967,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
     expect(third.assistantContent).toContain("Komodo");
     expect(third.assistantContent).not.toContain("Raja Ampat");
-    expect(third.assistantContent).not.toContain("Please share your name");
+    expect(third.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(third.bluepassMatches.length).toBeGreaterThan(0);
   });
 
@@ -791,8 +1058,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Alila Purnama");
     expect(result.assistantContent).not.toContain("Alexa");
     expect(result.assistantContent).not.toContain("destination");
-    expect(result.assistantContent).toContain("dates");
-    expect(result.assistantContent).toContain("group size");
+    expect(result.assistantContent).toContain("When are you thinking of going, and how many of you?");
   });
 
   it("does not ask for contact details in text while trip details are still missing", async () => {
@@ -805,8 +1071,7 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.contactRequest).toBeNull();
     expect(result.assistantContent).toContain("Alila Purnama");
-    expect(result.assistantContent).toContain("dates");
-    expect(result.assistantContent).toContain("group size");
+    expect(result.assistantContent).toContain("When are you thinking of going, and how many of you?");
     expect(result.assistantContent).not.toContain("name");
     expect(result.assistantContent).not.toContain("email");
     expect(result.assistantContent).not.toContain("phone");
@@ -822,8 +1087,8 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.contactRequest).toBeNull();
     expect(result.assistantContent).toContain("destination");
-    expect(result.assistantContent).toContain("date window");
-    expect(result.assistantContent).toContain("guest count");
+    expect(result.assistantContent).toContain("dates");
+    expect(result.assistantContent).toContain("group size");
     expect(result.assistantContent).not.toContain("name");
     expect(result.assistantContent).not.toContain("email");
     expect(result.assistantContent).not.toContain("phone");
@@ -863,7 +1128,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       status: "QUEUED",
       operatorPhone: "+6281234567001"
     });
-    expect(result.assistantContent).toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).toContain("Your enquiry");
     expect(result.assistantContent).toContain("not a confirmed booking");
     expect(result.paymentRequest).toBeNull();
   }, 20_000);
@@ -886,8 +1151,8 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
     expect(result.assistantContent).toContain("Alila Purnama");
     expect(result.assistantContent).toContain("Komodo");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
-    expect(result.assistantContent).not.toContain("queued the operator WhatsApp");
+    expect(result.assistantContent).not.toContain("Your enquiry");
+    expect(result.assistantContent).not.toContain("on its way to the operator");
     expect(result.suggestedReplies).toEqual(["Book Alila Purnama", "Something else"]);
   }, 20_000);
 
@@ -950,10 +1215,9 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassLedger).toEqual([]);
     expect(result.bluepassMatches).toEqual([]);
     expect(result.assistantContent).toContain("Alila Purnama");
-    expect(result.assistantContent).toContain("dates");
-    expect(result.assistantContent).toContain("group size");
+    expect(result.assistantContent).toContain("When are you thinking of going, and how many of you?");
     expect(result.assistantContent).not.toContain("destination");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).not.toContain("Your enquiry");
   });
 
   it("uses the BluePass Discover catalog snapshot for concierge replies", async () => {
@@ -981,12 +1245,12 @@ describe("handleBluePassMarketplaceMessage", () => {
 
     expect(result.bluepassInquiry).toBeNull();
     expect(result.bluepassMatches).toEqual([]);
-    expect(result.assistantContent).toContain("Great choice");
+    expect(result.assistantContent).toContain("Good pick");
     expect(result.assistantContent).toContain("Vela");
     expect(result.assistantContent).toContain("Legend");
     expect(result.assistantContent).toContain("Komodo");
     expect(result.assistantContent).toContain("live availability");
-    expect(result.assistantContent).toContain("dates and group size");
+    expect(result.assistantContent).toContain("When are you thinking of going, and how many of you?");
     expect(result.assistantContent).not.toContain("Alila Purnama");
   });
 
@@ -1005,9 +1269,9 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassDispatch).toBeNull();
     expect(result.bluepassMatches).toEqual([]);
     expect(result.assistantContent).toContain("Alila Purnama");
-    expect(result.assistantContent).toContain("Before I send this to the operator");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
-    expect(result.assistantContent).not.toContain("queued the operator WhatsApp");
+    expect(result.assistantContent).toContain("Want me to send it now?");
+    expect(result.assistantContent).not.toContain("Your enquiry");
+    expect(result.assistantContent).not.toContain("on its way to the operator");
   }, 20_000);
 
   it("summarizes complete custom yacht details and asks for confirmation before operator dispatch", async () => {
@@ -1026,9 +1290,9 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("29 June 2026");
     expect(result.assistantContent).toContain("4 guests");
     expect(result.assistantContent).toContain("Eka");
-    expect(result.assistantContent).toContain("Before I send this to the operator");
-    expect(result.assistantContent).not.toContain("I prepared BluePass inquiry");
-    expect(result.suggestedReplies).toEqual(["Send inquiry"]);
+    expect(result.assistantContent).toContain("Want me to send it now?");
+    expect(result.assistantContent).not.toContain("Your enquiry");
+    expect(result.suggestedReplies).toEqual(["Send enquiry"]);
   }, 20_000);
 
   it("accepts WhatsApp number phrasing when completing selected yacht details", async () => {
@@ -1046,7 +1310,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("4 guests");
     expect(result.assistantContent).toContain("Inov");
     expect(result.assistantContent).toContain("085156246329");
-    expect(result.assistantContent).toContain("Before I send this to the operator");
+    expect(result.assistantContent).toContain("Want me to send it now?");
     expect(result.assistantContent).not.toContain("Could you share your WhatsApp number");
   }, 20_000);
 
@@ -1099,7 +1363,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Alila Purnama");
     expect(result.assistantContent).not.toContain("latest BluePass inquiry");
     expect(result.assistantContent).not.toContain("Current status");
-    expect(result.assistantContent).not.toContain("Please share your name");
+    expect(result.assistantContent).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 20_000);
 
   it("requests a contact form when only traveller contact fields are missing", async () => {
@@ -1116,7 +1380,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       fields: ["name", "email", "phone"]
     });
     expect(result.assistantContent).toContain("Calico Jack");
-    expect(result.assistantContent).toContain("contact details form");
+    expect(result.assistantContent).toContain("form below");
     expect(result.assistantContent).not.toContain("Could you share your name");
   });
 
@@ -1143,10 +1407,29 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
     expect(result.bluepassMatches).toEqual([]);
     expect(result.assistantContent).toContain("Alila Purnama");
-    expect(result.assistantContent).toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).toContain("Your enquiry");
   }, 20_000);
 
-  it("creates the inquiry directly when the traveller taps the 'Send inquiry' suggested reply button", async () => {
+  it("creates the inquiry directly when the traveller taps the 'Send enquiry' suggested reply button", async () => {
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "Send enquiry",
+      priorTravellerMessages: [
+        "can you help me to book alila purnama?",
+        "for 29th june 2026, 4 people my name is Eka, email is eka@gmail.com, and phone is 0876634231987"
+      ]
+    });
+
+    expect(result.bluepassInquiry).toMatchObject({
+      status: "OPERATOR_PENDING",
+      destination: "Komodo",
+      selectedYachtSlug: "alila-purnama"
+    });
+    expect(result.assistantContent).toContain("Your enquiry");
+  }, 20_000);
+
+  it("still submits from an older 'Send inquiry' button left in the chat history", async () => {
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
       conversationId: `conversation_${randomUUID()}`,
@@ -1162,7 +1445,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       destination: "Komodo",
       selectedYachtSlug: "alila-purnama"
     });
-    expect(result.assistantContent).toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).toContain("Your enquiry");
   }, 20_000);
 
   it("keeps the traveller selected yacht when destination is provided later", async () => {
@@ -1230,7 +1513,7 @@ describe("handleBluePassMarketplaceMessage", () => {
       status: "QUEUED",
       operatorName: "Alila Purnama"
     });
-    expect(result.assistantContent).toContain("I prepared BluePass inquiry");
+    expect(result.assistantContent).toContain("Your enquiry");
   }, 20_000);
 
   it("keeps the chat responsive when operator WhatsApp send fails", async () => {
@@ -1273,9 +1556,9 @@ describe("handleBluePassMarketplaceMessage", () => {
       status: "FAILED",
       failureReason: expect.stringContaining("Authentication Error")
     });
-    expect(result.assistantContent).toContain("I prepared BluePass inquiry");
-    expect(result.assistantContent).toContain("operator WhatsApp could not be sent");
-    expect(result.assistantContent).not.toContain("queued the operator WhatsApp");
+    expect(result.assistantContent).toContain("Your enquiry");
+    expect(result.assistantContent).toContain("couldn't get it to the operator");
+    expect(result.assistantContent).not.toContain("on its way to the operator");
   }, 20_000);
 
   it("understands Labuan Bajo as the Komodo gateway", async () => {
@@ -1293,7 +1576,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.bluepassDispatch).toBeNull();
     expect(result.assistantContent).toContain("Alila Purnama");
     expect(result.assistantContent).toContain("Komodo");
-    expect(result.assistantContent).toContain("Before I send this to the operator");
+    expect(result.assistantContent).toContain("Want me to send it now?");
     expect(result.assistantContent).not.toContain("Please share your destination");
   }, 20_000);
 
@@ -1322,7 +1605,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(status.bluepassMatches).toEqual([]);
     expect(status.assistantContent).toContain("operator");
     expect(status.assistantContent).toContain("pending");
-    expect(status.assistantContent).not.toContain("I prepared BluePass inquiry");
+    expect(status.assistantContent).not.toContain("Your enquiry");
   }, 20_000);
 
   it("dispatches the suggested alternative after a declined operator inquiry when the traveller approves", async () => {
@@ -1431,10 +1714,24 @@ describe("handleBluePassMarketplaceMessage with an LLM router client", () => {
   }
 
   it("escalates a generic yacht amenity question to the LLM instead of misreading it as a recommendation request", async () => {
-    // "does the boat have wifi?" matches RECOMMENDATION's generic \bboats?\b keyword in the regex
-    // fallback with zero real trip signal - shouldEscalateBluePassRouterToLlm must still send this
-    // to the LLM so it can be correctly classified as a general question, not a yacht recommendation.
+    // "does the boat have air conditioning?" matches RECOMMENDATION's generic \bboats?\b keyword in
+    // the regex fallback with zero real trip signal - shouldEscalateBluePassRouterToLlm must still send
+    // this to the LLM so it can be correctly classified as a general question, not a yacht recommendation.
     const routerClient = fakeRouterClient({ action: "GENERAL_QUESTION" });
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "does the boat have air conditioning?",
+      priorTravellerMessages: [],
+      routerClient
+    });
+
+    expect(routerClient.route).toHaveBeenCalled();
+    expect(result.bluepassMatches).toEqual([]);
+  });
+
+  it("answers a question Kai already knows (wifi) without spending an LLM router call", async () => {
+    const routerClient = fakeRouterClient({ action: "RECOMMENDATION" });
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
       conversationId: `conversation_${randomUUID()}`,
@@ -1443,9 +1740,25 @@ describe("handleBluePassMarketplaceMessage with an LLM router client", () => {
       routerClient
     });
 
-    expect(routerClient.route).toHaveBeenCalled();
+    expect(routerClient.route).not.toHaveBeenCalled();
+    expect(result.assistantContent).toContain("Don't count on it");
     expect(result.bluepassMatches).toEqual([]);
   });
+
+  it("overrules an LLM router that lists boats for a place BluePass doesn't cover", async () => {
+    const routerClient = fakeRouterClient({ action: "RECOMMENDATION", destination: "Sulawesi" });
+    const result = await handleBluePassMarketplaceMessage({
+      tenantId: `tenant_${randomUUID()}`,
+      conversationId: `conversation_${randomUUID()}`,
+      content: "any good liveaboards around sulawesi",
+      priorTravellerMessages: [],
+      routerClient
+    });
+
+    expect(result.assistantContent).toContain("isn't somewhere BluePass has vetted trips yet");
+    expect(result.bluepassMatches).toEqual([]);
+  });
+
 
   it("lets the LLM router classify a message the regex cascade cannot recognize as a general question", async () => {
     // No regex pattern in the fallback cascade matches this phrasing at all - proving the LLM
@@ -1461,7 +1774,7 @@ describe("handleBluePassMarketplaceMessage with an LLM router client", () => {
 
     expect(routerClient.route).toHaveBeenCalled();
     expect(result.replyMode).toBe("CONCIERGE");
-    expect(result.assistantContent).toContain("Happy to help");
+    expect(result.assistantContent).toContain("won't guess");
   });
 
   it("lets the LLM router resolve the destination the regex intent extractor missed", async () => {

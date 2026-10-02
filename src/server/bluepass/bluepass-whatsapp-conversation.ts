@@ -12,14 +12,18 @@ import {
   findOrCreateWhatsAppConversation,
   listRecentConversationMessages,
   listRecentTravellerMessageContents,
-  resetWhatsAppConversation
+  resetWhatsAppConversation,
+  setConversationControlMode
 } from "@/server/conversation/conversation-repository";
+import { alertTeam } from "@/server/conversation/team-alert";
+import { isEmergencyMessage } from "@/core/conversation/emergency";
+import { shouldHandOffToPerson } from "@/core/conversation/human-handoff";
 import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
 import { createBluePassRouterClient } from "@/server/llm/bluepass-router-client";
 import type { WhatsAppInboundTextMessage } from "@/server/whatsapp/webhook";
 import { normalizeLocalPhone } from "@/server/phone/normalize-local-phone";
 import { sendWhatsAppImage, sendWhatsAppInteractiveButtons, sendWhatsAppText } from "@/server/whatsapp/client";
-import { handleBluePassMarketplaceMessage } from "./bluepass-message-flow";
+import { handleBluePassMarketplaceMessage, readBluePassTeamSignals } from "./bluepass-message-flow";
 import type { BluePassPersona } from "@/core/bluepass/triage";
 import {
   findLatestBluePassParticipantContext,
@@ -77,6 +81,19 @@ export async function handleBluePassWhatsAppInboundMessage(
     });
   }
 
+  // A person from the team has this chat: Kai keeps the traveller's messages but stays quiet until
+  // someone hands it back from the admin page.
+  const personOwnedConversation = await findPersonOwnedBluePassConversation(input.from);
+  if (personOwnedConversation) {
+    await createTravellerMessage({
+      tenantId: personOwnedConversation.tenantId,
+      conversationId: personOwnedConversation.id,
+      content: input.body
+    });
+    console.log("bluepass_whatsapp.kai_quiet_person_has_chat", { conversationId: personOwnedConversation.id });
+    return { handled: true, sent: false, reply: null };
+  }
+
   const shouldRouteToContext =
     context?.participant === "operator"
       ? shouldRouteOperatorMessageToContext(input.body)
@@ -105,7 +122,7 @@ function shouldRouteOperatorMessageToContext(body: string) {
   if (isBluePassResetConversationRequest(normalized)) return false;
 
   return [
-    /\b(?:what should i send|what do i send|how should i reply|how should i respond|what now|next step|help with this inquiry)\b/,
+    /\b(?:what should i send|what do i send|how should i reply|how should i respond|what now|next step|help with this [ei]nquiry)\b/,
     /\b(?:accept|accepted|available|availability|confirmed|confirm|ok to proceed)\b/,
     /\b(?:decline|declined|unavailable|not available|full|sold out|cannot|can't|cant)\b/,
     /\b(?:counter|counteroffer|counter-offer|alternative date|different date)\b/,
@@ -127,7 +144,7 @@ function shouldRouteTravellerMessageToContext(body: string, inquiryStatus?: stri
     /\b(?:status|update|operator replied|operator response|any news|what happened)\b/,
     /\b(?:confirmed yet|booking confirmed|is my booking confirmed|already confirmed)\b/,
     /\b(?:payment|pay|deposit|invoice|payment link|quote link|quote status)\b/,
-    /\b(?:my inquiry|latest inquiry|current inquiry|existing inquiry)\b/
+    /\b(?:my [ei]nquiry|latest [ei]nquiry|current [ei]nquiry|existing [ei]nquiry)\b/
   ].some((pattern) => pattern.test(normalized));
 }
 
@@ -182,8 +199,15 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
   // bluepass-message-flow core would double-ask website travellers. A known directory identity
   // (registered operator/partner) skips the gate - their market comes from their own onboarding,
   // not a fresh "which country" question on every conversation.
+  const previousKaiMessage = options.resetConversation
+    ? null
+    : (await listRecentConversationMessages({ tenantId: tenant.id, conversationId: conversation.id, take: 4 }))
+        .filter((item) => item.role === "assistant")
+        .at(-1)?.content ?? null;
+  // Someone who's hurt, or who asks for a person, never gets "Australia or Indonesia?" first.
+  const skipsGate = isEmergencyMessage(input.body) || shouldHandOffToPerson(input.body, previousKaiMessage);
   const gatePrompt =
-    options.resetConversation || options.overrideAssistantContent || options.identityPersona
+    options.resetConversation || options.overrideAssistantContent || options.identityPersona || skipsGate
       ? null
       : resolveBluePassGate([...priorTravellerMessages, input.body]).prompt;
   const effectiveOverrideContent = options.overrideAssistantContent ?? gatePrompt ?? undefined;
@@ -200,6 +224,7 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
 
   const catalog = effectiveOverrideContent ? undefined : await fetchBluePassCatalogSnapshot();
 
+  const lastAssistantMessage = effectiveOverrideContent ? null : previousKaiMessage;
   const result = effectiveOverrideContent
     ? null
     : await handleBluePassMarketplaceMessage({
@@ -211,7 +236,8 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
         identityPersona: options.identityPersona,
         identityName: options.identityName,
         routerClient,
-        catalog
+        catalog,
+        lastAssistantMessage
       });
   const assistantContent =
     effectiveOverrideContent ??
@@ -276,6 +302,30 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
           error: error instanceof Error ? error.message : String(error)
         });
       });
+  }
+
+  // The handoff reply is out, so the chat goes to a person and the team hears about it.
+  const teamSignals = result ? readBluePassTeamSignals(result) : null;
+  if (teamSignals?.humanHandoff === "REQUESTED") {
+    await setConversationControlMode({ tenantId: tenant.id, conversationId: conversation.id, controlMode: "HUMAN" });
+    await alertTeam({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      reason: "PERSON_REQUESTED",
+      channel: "whatsapp",
+      travellerPhone,
+      latestMessage: input.body
+    });
+  }
+  if (teamSignals?.emergency) {
+    await alertTeam({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      reason: "EMERGENCY",
+      channel: "whatsapp",
+      travellerPhone,
+      latestMessage: input.body
+    });
   }
 
   if (result?.bluepassInquiry) {
@@ -378,6 +428,21 @@ async function fetchBluePassCatalogSnapshot(): Promise<BluePassCatalogSnapshotIt
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function findPersonOwnedBluePassConversation(from: string) {
+  const tenant = await prisma.tenant.findFirst({
+    where: { slug: process.env.WHATSAPP_BLUEPASS_TENANT_SLUG?.trim() || defaultBluePassTenantSlug, status: "ACTIVE" },
+    select: { id: true }
+  });
+  if (!tenant) return null;
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { tenantId: tenant.id, whatsappPhone: normalizeWhatsAppSender(from) },
+    select: { id: true, tenantId: true, controlMode: true }
+  });
+
+  return conversation && conversation.controlMode !== "AI" ? conversation : null;
 }
 
 function normalizeWhatsAppSender(value: string) {

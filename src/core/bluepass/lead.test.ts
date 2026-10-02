@@ -57,7 +57,7 @@ describe("buildBluePassLeadCapturedReply", () => {
     expect(reply).toContain("Coral Cove Divers");
     expect(reply).toContain("ops@coralcove.com");
     expect(reply).toContain("claim link");
-    expect(reply).toContain("usually same day");
+    expect(reply).toContain("usually the same day");
   });
 
   it("gives partners the founding-terms next step", () => {

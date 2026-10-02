@@ -13,7 +13,7 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
       llmClient: {
         async composeReply(input) {
           capturedInputs.push(input);
-          return "For a healing trip, I would steer you toward Raja Ampat on Aliikai if you want quiet reefs and slow mornings, or Komodo on Alila Purnama if you want a warmer spa-like phinisi feel. Are you imagining solo/couple calm, or a group trip?";
+          return "For a healing trip, I would steer you toward Raja Ampat on Aliikai if you're after quiet reefs and slow mornings, or Komodo on Alila Purnama if you're after a warmer spa-like phinisi feel. Are you imagining solo/couple calm, or a group trip?";
         }
       },
       marketplaceResult: {
@@ -30,19 +30,21 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
     expect(result.source).toBe("LLM");
     expect(result.reply).toContain("healing trip");
     expect(result.reply).toContain("Raja Ampat");
-    expect(result.reply).not.toContain("Good BluePass liveaboard options");
+    expect(result.reply).not.toContain("Here are a few good options");
     expect(capturedInputs[0].requiredFacts).toEqual([]);
   });
 
-  it("rejects a concierge-mode LLM rewrite that drops a real percentage fact, even though concierge mode has no other required facts", async () => {
+  it("rejects a concierge-mode LLM rewrite that drops the 5% fact, even though concierge mode has no other required facts", async () => {
     // Regression: a real bug reached production behavior in manual testing - the LLM rewrote an
-    // accurate commission-breakdown answer into a hallucinated "isn't publicly disclosed" hedge, and
-    // it passed isSafeRewrite because concierge mode's requiredFacts list was empty. Percentages in
-    // the deterministic reply must survive rewriting regardless of replyMode.
+    // accurate commission answer into a hallucinated "isn't publicly disclosed" hedge, and it passed
+    // isSafeRewrite because concierge mode's requiredFacts list was empty. Percentages in the
+    // deterministic reply (now only ever the 5% to conservation) must survive rewriting regardless
+    // of replyMode.
+    const deterministicReply =
+      "It's a capped commission that comes from the operator's side, never added to your fare, so you pay the same as booking direct. And 5% of every booking is set aside for the ocean before we take a cent.";
     const capturedInputs: Parameters<AssistantLlmClient["composeReply"]>[0][] = [];
     const result = await composeBluePassMarketplaceAssistantReply({
-      deterministicReply:
-        "BluePass takes a capped 20% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 7% is the platform fee. Operators keep 80% of their own rate, and guests never pay more than booking direct.",
+      deterministicReply,
       latestMessage: "what commission does BluePass take",
       conversationHistory: [],
       llmClient: {
@@ -59,22 +61,42 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
       }
     });
 
-    expect(capturedInputs[0].requiredFacts).toEqual(expect.arrayContaining(["20%", "80%", "7%", "5%", "3%"]));
+    expect(capturedInputs[0].requiredFacts).toEqual(["5%"]);
     expect(result.source).toBe("DETERMINISTIC");
-    expect(result.reply).toContain("20%");
-    expect(result.reply).toContain("80%");
-    expect(result.reply).not.toContain("isn't publicly disclosed");
+    expect(result.reply).toBe(deterministicReply);
   });
 
-  it("still allows a concierge-mode LLM rewrite that correctly preserves the real percentages", async () => {
+  it("keeps the mid-enquiry reminder through any rewrite", async () => {
+    const reminder = "When you're ready, just tell me your dates and how many of you for Alila Purnama.";
+    const deterministicReply = `Worth planning for if you're prone to it. A seasickness tablet before you board helps. ${reminder}`;
+    const capturedInputs: Parameters<AssistantLlmClient["composeReply"]>[0][] = [];
+    const result = await composeBluePassMarketplaceAssistantReply({
+      deterministicReply,
+      latestMessage: "will I get seasick?",
+      conversationHistory: [],
+      llmClient: {
+        async composeReply(input) {
+          capturedInputs.push(input);
+          return "Take a seasickness tablet before you board and keep your eyes on the horizon, you'll be right.";
+        }
+      },
+      marketplaceResult: { replyMode: "CONCIERGE", bluepassMatches: [], bluepassInquiry: null, assistantContent: "" }
+    });
+
+    expect(capturedInputs[0].requiredFacts).toContain(reminder);
+    expect(result.source).toBe("DETERMINISTIC");
+    expect(result.reply).toBe(deterministicReply);
+  });
+
+  it("still allows a concierge-mode LLM rewrite that keeps the 5% and adds no other percentage", async () => {
     const result = await composeBluePassMarketplaceAssistantReply({
       deterministicReply:
-        "BluePass takes a capped 20% total: 5% funds reef conservation, 5% goes to partners who refer guests, 3% covers payment processing, and 7% is the platform fee. Operators keep 80% of their own rate, and guests never pay more than booking direct.",
+        "It's a capped commission that comes from the operator's side, never added to your fare, so you pay the same as booking direct. And 5% of every booking is set aside for the ocean before we take a cent.",
       latestMessage: "what commission does BluePass take",
       conversationHistory: [],
       llmClient: {
         async composeReply() {
-          return "Great question - BluePass takes a capped 20% total (5% conservation, 5% partners, 3% payments, 7% platform), so operators keep 80% of their own rate. Guests never pay more than booking direct.";
+          return "It's a capped commission paid on the operator's side, so you pay exactly what you'd pay booking direct. On top of that, 5% of every booking goes to protecting the ocean before we take anything.";
         }
       },
       marketplaceResult: {
@@ -86,15 +108,38 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
     });
 
     expect(result.source).toBe("LLM");
-    expect(result.reply).toContain("20%");
-    expect(result.reply).toContain("80%");
+    expect(result.reply).toContain("5%");
+  });
+
+  it("rejects a rewrite that brings the commission split back into the answer", async () => {
+    const deterministicReply =
+      "It's a capped commission that comes from the operator's side, never added to your fare, so you pay the same as booking direct. And 5% of every booking is set aside for the ocean before we take a cent.";
+    const result = await composeBluePassMarketplaceAssistantReply({
+      deterministicReply,
+      latestMessage: "what commission does BluePass take",
+      conversationHistory: [],
+      llmClient: {
+        async composeReply() {
+          return "We take a capped 20%, so operators keep 80%, and 5% of every booking goes to the ocean.";
+        }
+      },
+      marketplaceResult: {
+        replyMode: "CONCIERGE",
+        bluepassMatches: [],
+        bluepassInquiry: null,
+        assistantContent: ""
+      }
+    });
+
+    expect(result.source).toBe("DETERMINISTIC");
+    expect(result.reply).toBe(deterministicReply);
   });
 
   it("keeps transactional replies fact-preserving", async () => {
     const capturedInputs: Parameters<AssistantLlmClient["composeReply"]>[0][] = [];
     const result = await composeBluePassMarketplaceAssistantReply({
       deterministicReply:
-        "I prepared BluePass inquiry inquiry_123 for Calico Jack. This is not a confirmed booking; availability, final price, and payment wait for operator confirmation.",
+        "Done. Your enquiry for Calico Jack is on its way to the operator (reference inquiry_123). It's not a confirmed booking yet: they'll confirm availability and the final price, and I'll let you know as soon as they reply.",
       latestMessage: "yes please send inquiry",
       conversationHistory: [],
       llmClient: {
@@ -116,7 +161,7 @@ describe("composeBluePassMarketplaceAssistantReply", () => {
     });
 
     expect(result.source).toBe("DETERMINISTIC");
-    expect(result.reply).toContain("I prepared BluePass inquiry");
+    expect(result.reply).toContain("Your enquiry");
     expect(capturedInputs[0].requiredFacts).toEqual(
       expect.arrayContaining(["Calico Jack", "Komodo", "19 July", "2"])
     );

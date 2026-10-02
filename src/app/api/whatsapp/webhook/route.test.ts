@@ -817,6 +817,8 @@ describe("/api/whatsapp/webhook", () => {
   }, 20_000);
 
   it("answers traveller WhatsApp status questions from the latest BluePass inquiry context", async () => {
+    // Uses its own phone number: the webhook finds "the latest inquiry for this phone" across the
+    // whole database, and other test files create inquiries for the shared fixture number in parallel.
     process.env.META_GRAPH_VERSION = "v20.0";
     process.env.WHATSAPP_ACCESS_TOKEN = "test_access_token";
     process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
@@ -853,7 +855,7 @@ describe("/api/whatsapp/webhook", () => {
         guests: 2,
         travellerName: "Putro",
         travellerEmail: "putro@example.com",
-        travellerPhone: "085156246329"
+        travellerPhone: "081998877001"
       },
       selectedYacht: {
         slug: "calico-jack",
@@ -892,7 +894,7 @@ describe("/api/whatsapp/webhook", () => {
                   value: {
                     messages: [
                       {
-                        from: "6285156246329",
+                        from: "6281998877001",
                         id: "wamid.traveller.context",
                         type: "text",
                         text: {
@@ -929,7 +931,7 @@ describe("/api/whatsapp/webhook", () => {
     });
     expect(requestBody).toMatchObject({
       messaging_product: "whatsapp",
-      to: "6285156246329",
+      to: "6281998877001",
       type: "text"
     });
     expect(requestBody.text.body).toContain("Calico Jack");
@@ -1081,7 +1083,7 @@ describe("/api/whatsapp/webhook", () => {
     expect(oldConversationMessages).toHaveLength(0);
   }, 20_000);
 
-  it("sends a 'Send inquiry' suggested reply button and creates the inquiry when the traveller taps it", async () => {
+  it("sends a 'Send enquiry' suggested reply button and creates the inquiry when the traveller taps it", async () => {
     process.env.META_GRAPH_VERSION = "v20.0";
     process.env.WHATSAPP_ACCESS_TOKEN = "test_access_token";
     process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
@@ -1179,7 +1181,7 @@ describe("/api/whatsapp/webhook", () => {
     expect(confirmResponse.status).toBe(200);
     expect(confirmRequestBody.type).toBe("interactive");
     expect(confirmRequestBody.interactive.action.buttons).toEqual([
-      { type: "reply", reply: { id: "Send inquiry", title: "Send inquiry" } }
+      { type: "reply", reply: { id: "Send enquiry", title: "Send enquiry" } }
     ]);
 
     const submitResponse = await POST(
@@ -1198,7 +1200,7 @@ describe("/api/whatsapp/webhook", () => {
                         type: "interactive",
                         interactive: {
                           type: "button_reply",
-                          button_reply: { id: "Send inquiry", title: "Send inquiry" }
+                          button_reply: { id: "Send enquiry", title: "Send enquiry" }
                         }
                       }
                     ]
@@ -1226,7 +1228,7 @@ describe("/api/whatsapp/webhook", () => {
 
     expect(submitResponse.status).toBe(200);
     expect(submitRequestBody.type).toBe("text");
-    expect(submitRequestBody.text.body).toContain("I prepared BluePass inquiry");
+    expect(submitRequestBody.text.body).toContain("Your enquiry");
     expect(inquiry).toMatchObject({ status: "OPERATOR_PENDING", selectedYachtSlug: "alila-purnama" });
     // Three full webhook round-trips in one test (initial message, confirm details, button tap),
     // each its own chain of Prisma calls under this repo's connection_limit=1 - consistently ~40s in
@@ -1347,7 +1349,7 @@ describe("/api/whatsapp/webhook", () => {
     expect(requestBodyText).toContain("Alila Purnama");
     expect(requestBodyText).not.toContain("Current status");
     expect(requestBodyText).not.toContain("Operator Pending");
-    expect(requestBodyText).not.toContain("Please share your name");
+    expect(requestBodyText).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(requestBodyText).not.toContain("email");
     expect(requestBodyText).not.toContain("phone");
     expect(messages.map((message) => message.role)).toEqual(["TRAVELLER", "ASSISTANT"]);
@@ -1451,7 +1453,7 @@ describe("/api/whatsapp/webhook", () => {
     const requestBodyText = requestBody.text?.body ?? requestBody.interactive?.body?.text ?? "";
 
     expect(response.status).toBe(200);
-    expect(requestBodyText).toContain("Same price as booking direct");
+    expect(requestBodyText).toContain("the same as booking direct");
     expect(requestBodyText).not.toContain("Current status");
     expect(requestBodyText).not.toContain("Operator Pending");
   }, 20_000);
@@ -1770,7 +1772,7 @@ describe("/api/whatsapp/webhook", () => {
       where: {
         conversationId: conversation.id,
         role: "ASSISTANT",
-        content: { contains: "I sent the next operator inquiry" }
+        content: { contains: "I've sent them your enquiry" }
       },
       orderBy: { createdAt: "desc" }
     });
@@ -2079,7 +2081,7 @@ describe("/api/whatsapp/webhook", () => {
       if (String(url).includes("api.openai.com")) {
         return Response.json({
           output_text:
-            "For Calico Jack, this is Putro's Komodo / 20 July 2026 / 2 guests inquiry and the current status is operator pending. Please reply with availability, a counter-offer, payment details, or booking confirmation."
+            "For Calico Jack, Putro's Komodo trip (20 July 2026, 2 guests) is waiting on your reply. You can reply with availability, a counter-offer, payment details or a booking confirmation."
         });
       }
 
@@ -2164,8 +2166,8 @@ describe("/api/whatsapp/webhook", () => {
     });
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("api.openai.com"))).toBe(true);
     expect(whatsAppBody).toContain("Calico Jack");
-    expect(whatsAppBody).toContain("Komodo / 20 July 2026 / 2 guests");
-    expect(whatsAppBody).toContain("operator pending");
+    expect(whatsAppBody).toContain("Putro's Komodo trip (20 July 2026, 2 guests)");
+    expect(whatsAppBody).toContain("waiting on your reply");
   }, 30_000);
 
   it("uses the LLM rewrite layer for traveller WhatsApp context questions without confirming bookings", async () => {
@@ -2182,7 +2184,7 @@ describe("/api/whatsapp/webhook", () => {
       if (String(url).includes("api.openai.com")) {
         return Response.json({
           output_text:
-            "Your Calico Jack inquiry for Komodo / 21 July 2026 / 2 guests is accepted by the operator, but it is not a confirmed booking yet. BluePass is waiting for the final quote and payment instructions."
+            "Great news, Calico Jack said yes to your Komodo trip (21 July 2026, 2 guests). It's not booked yet, as the final quote and payment details come next."
         });
       }
 
@@ -2270,8 +2272,8 @@ describe("/api/whatsapp/webhook", () => {
     });
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("api.openai.com"))).toBe(true);
     expect(whatsAppBody).toContain("Calico Jack");
-    expect(whatsAppBody).toContain("Komodo / 21 July 2026 / 2 guests");
-    expect(whatsAppBody).toContain("not a confirmed booking");
+    expect(whatsAppBody).toContain("your Komodo trip (21 July 2026, 2 guests)");
+    expect(whatsAppBody).toContain("not booked yet");
   }, 30_000);
 
   it("routes a message naming an allowlisted PMS tenant's product to the generic booking engine instead of BluePass", async () => {

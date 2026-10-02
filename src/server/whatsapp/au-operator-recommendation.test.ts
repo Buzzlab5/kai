@@ -219,7 +219,7 @@ describe("buildAuOperatorRecommendationReply / resolveAuOperatorRecommendationSe
   it("does not resolve a pick against the handoff reply that follows a recommendation - only the recommendation itself", () => {
     const singleCandidate = [candidates[0]];
     const handoffReply =
-      "Connecting you with Test Real Operator now - here's their live trip lineup, pulled straight from their booking system.\n\nYou can choose from:\n1. Sunset Cruise - live availability\n2. Reef Snorkel - live availability\n\nWhich one sounds closest to what you want?";
+      "Connecting you with Test Real Operator now - here's their live trip lineup, pulled straight from their booking system.\n\nYou can choose from:\n1. Sunset Cruise - live availability\n2. Reef Snorkel - live availability\n\nWhich one sounds closest to what you're after?";
 
     expect(
       resolveAuOperatorRecommendationSelection({
@@ -326,7 +326,7 @@ describe("resolveAuOperatorRecommendationPick", () => {
     // fixed closing line) instead of the old vague "what would you like to explore?" the traveller
     // had no way to answer without already knowing the catalog. No date was given in this pick, so
     // the closing line is the undated variant that also asks for one.
-    expect(seededMessage?.content).toContain("Which one sounds closest? Tell me your date too and I'll check pricing.");
+    expect(seededMessage?.content).toContain("Which one sounds closest to what you're after? Tell me your date too and I'll check the price.");
   }, 20_000);
 
   // Regression: confirmed live that picking a real operator resumed a stale Conversation left over

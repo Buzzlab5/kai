@@ -12,7 +12,7 @@ export type BluePassDispatchTextInput = {
 
 export function buildBluePassDispatchText(input: BluePassDispatchTextInput) {
   return [
-    `BluePass inquiry ${input.inquiryId}`,
+    `BluePass enquiry ${input.inquiryId}`,
     `Trip: ${input.selectedYachtName ?? input.destination ?? "BluePass ocean trip"}`,
     `Traveller: ${input.travellerName ?? "Not provided"}`,
     `Phone: ${input.travellerPhone ?? "Not provided"}`,
@@ -20,7 +20,7 @@ export function buildBluePassDispatchText(input: BluePassDispatchTextInput) {
     `Guests: ${input.guests ?? "Not provided"}`,
     `Budget: ${input.budget ?? "Quote requested"}`,
     input.referralCode ? `Referral: ${input.referralCode}` : undefined,
-    "Please reply with accept, decline, or counter. This is an inquiry only; operator confirmation required before booking or payment."
+    "Reply accept, decline or counter. It's an enquiry only, so nothing is booked or paid until you confirm."
   ]
     .filter(Boolean)
     .join("\n");

@@ -1,3 +1,5 @@
+import { buildKaiPersonaPrompt, findKaiHouseRuleBreaches, tidyKaiReply } from "./kai-persona";
+
 export type AssistantReplySource = "DETERMINISTIC" | "LLM";
 
 export interface AssistantReplyComposerResult {
@@ -95,19 +97,23 @@ function respectsTenantProductContext(reply: string, tenantContext?: AssistantTe
 // "catalog" at all (which would also false-positive on an honest "not in our catalog, want me to note
 // your interest?" decline - that phrasing is the one we want Kai to use, not reject).
 function offersNonCatalogOperator(reply: string) {
-  return /\b(?:suggest|recommend|try|find|look\s+for|search\s+for)\b[^.!?]{0,160}\b(?:not|outside|besides|other\s+than|may\s+not\s+be)\b[^.!?]{0,60}\b(?:catalog|vetted)\b/i.test(
+  return /\b(?:suggest|recommend|try|find|look\s+for|search\s+for)\b[^.!?]{0,160}\b(?:not|outside|besides|other\s+than|may\s+not\s+be)\b[^.!?]{0,60}\b(?:catalog(?:ue)?|vetted)\b/i.test(
     reply
   );
 }
 
+// Model output only: the widget (or an earlier turn) has already said hello, so a rewrite that
+// opens with "Hey there!" or "G'day, I'm Kai" repeats itself. Scripted replies are left alone,
+// since a greeting there is deliberate.
 function removeRepeatedGreeting(reply: string) {
   return reply
     .replace(
-      /^(?:"?)(hello|hi|hey|good day|good morning|good afternoon|good evening)[,.!]\s*(i'?m\s+kai,?\s*)?(your\s+booking\s+assistant[,.]?\s*)?/i,
+      /^(?:"?)(hello|hi|hey|hiya|howdy|g'?day|good day|good morning|good afternoon|good evening)(?:\s+(?:there|mate|again))?[,.!]\s*(i'?m\s+kai,?\s*)?(your\s+booking\s+assistant[,.]?\s*)?/i,
       ""
     )
     .trim()
-    .replace(/^["'\s]+/, "");
+    .replace(/^["'\s]+/, "")
+    .replace(/^[a-z]/, (letter) => letter.toUpperCase());
 }
 
 export function buildTenantSystemPrompt(tenantContext?: AssistantTenantContext | null) {
@@ -115,26 +121,17 @@ export function buildTenantSystemPrompt(tenantContext?: AssistantTenantContext |
     return tenantContext.systemPrompt.trim();
   }
 
-  const tenantName = tenantContext?.tenantName ?? "this business";
-  const brandVoice =
-    tenantContext?.brandVoice?.trim() ||
-    "Warm, quick, straight - the sharpest guide on the dock: genuinely helpful, concrete, never salesy.";
   const pmsProvider = tenantContext?.pmsProvider ?? "the configured PMS";
   const guardrails = tenantContext?.responseGuardrails?.filter(Boolean) ?? [];
   const products = tenantContext?.productTitles?.filter(Boolean) ?? [];
   const knowledgeSummary = tenantContext?.knowledgeSummary?.trim();
 
   return [
-    `You are Kai for ${tenantName}.`,
-    `Use this tenant voice: ${brandVoice}`,
-    "Answer first, then colour: the opening sentence does the work. Concrete details beat adjectives.",
-    "No corporate filler, no exclamation stacking, no emojis. Never re-ask for a detail the user already gave.",
+    ...buildKaiPersonaPrompt({ tenantName: tenantContext?.tenantName, tenantTone: tenantContext?.brandVoice }),
+    "Never re-ask for a detail the traveller already gave.",
     `Ground answers in ${pmsProvider} data and the tenant business pack.`,
     knowledgeSummary ? knowledgeSummary : null,
     products.length > 0 ? `Known PMS products: ${products.join(" | ")}` : "Only mention products present in tenant data.",
-    "Keep responses to 2-3 sentences unless the traveller asks for detail.",
-    "Ask at most one question in each response.",
-    "Do not take card details in chat, invent availability, invent prices, or claim a booking is confirmed unless the PMS has confirmed it.",
     guardrails.length > 0 ? `Tenant guardrails: ${guardrails.join(" | ")}` : "Tenant guardrails: standard Kai booking safety."
   ]
     .filter(Boolean)
@@ -227,12 +224,12 @@ function capSentences(reply: string, latestUserMessage?: string | null) {
 function applyNaturalnessCheck(
   reply: string,
   input: Pick<ComposeAssistantReplyInput, "latestUserMessage" | "conversationHistory">,
-  options: { capSentences?: boolean } = {}
+  options: { capSentences?: boolean; fromLlm?: boolean } = {}
 ) {
   const cleaned = limitQuestions(
     removeRepeatedUserMessage(
       removeUnrequestedBullets(
-        avoidRepeatedIStart(removeRepeatedGreeting(reply), input.conversationHistory),
+        avoidRepeatedIStart(options.fromLlm ? removeRepeatedGreeting(reply) : reply, input.conversationHistory),
         input.latestUserMessage
       ),
       input.latestUserMessage
@@ -268,7 +265,7 @@ export async function composeAssistantReply(
       latestUserMessage: input.latestUserMessage ?? null,
       conversationHistory: input.conversationHistory ?? []
     });
-    rewrite = applyNaturalnessCheck(rewrite, input);
+    rewrite = tidyKaiReply(applyNaturalnessCheck(rewrite, input, { fromLlm: true }), input.tenantContext?.productTitles ?? []);
   } catch (error) {
     console.error("assistant_reply_composer.llm_call_failed", {
       tenantName: input.tenantContext?.tenantName,
@@ -285,8 +282,9 @@ export async function composeAssistantReply(
   const safeRewrite = isSafeRewrite(rewrite, requiredFacts);
   const respectsProductContext = respectsTenantProductContext(rewrite, input.tenantContext);
   const offersOffCatalog = offersNonCatalogOperator(rewrite);
+  const houseRuleBreaches = findKaiHouseRuleBreaches(rewrite, input.deterministicReply);
 
-  if (!safeRewrite || !respectsProductContext || offersOffCatalog) {
+  if (!safeRewrite || !respectsProductContext || offersOffCatalog || houseRuleBreaches.length > 0) {
     console.warn("assistant_reply_composer.llm_rewrite_rejected", {
       tenantName: input.tenantContext?.tenantName,
       requiredFacts,
@@ -294,7 +292,9 @@ export async function composeAssistantReply(
         ? "unsafe_or_missing_required_facts"
         : !respectsProductContext
           ? "product_context_mismatch"
-          : "offers_non_catalog_operator",
+          : offersOffCatalog
+            ? "offers_non_catalog_operator"
+            : `breaks_kai_house_rules: ${houseRuleBreaches.join(", ")}`,
       rewrite
     });
 

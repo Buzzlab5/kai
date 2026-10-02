@@ -347,7 +347,7 @@ describe("resolveWhatsAppTenantForMessage", () => {
       content: "i want to travel in australia"
     });
 
-    const result = await resolveWhatsAppTenantForMessage({ messageText: "Show me yachts", fromPhone: phone });
+    const result = await resolveWhatsAppTenantForMessage({ messageText: "Show me boats", fromPhone: phone });
 
     expect(result.kind).toBe("TENANT");
     expect(result.kind === "TENANT" ? result.tenant.slug : null).toBe(auTenant.slug);

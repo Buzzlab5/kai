@@ -227,7 +227,7 @@ async function notifyOperatorQuoteApproved(input: { inquiry: BluePassInquiry; qu
 
   const body = [
     `${input.inquiry.travellerName ?? "The traveller"} approved the BluePass quote for ${formatQuoteTrip(input.quote)}.`,
-    "Please hold the slot and send BluePass the payment path and final operator confirmation instructions.",
+    "Please hold the spot and send through how the guest pays, plus your final confirmation.",
     input.quote.quoteUrl ? `Quote: ${input.quote.quoteUrl}` : null
   ]
     .filter(Boolean)
@@ -281,9 +281,9 @@ async function notifyTravellerQuoteApproved(input: { inquiry: BluePassInquiry; q
   }
 
   const body = [
-    `Your BluePass quote for ${input.quote.selectedYachtName ?? input.quote.operatorName ?? "your trip"} is approved.`,
-    "BluePass is now coordinating the payment path and final operator confirmation.",
-    "This is still not a confirmed booking until payment and final operator confirmation are complete."
+    `Nice one, your quote for ${input.quote.selectedYachtName ?? input.quote.operatorName ?? "your trip"} is approved.`,
+    "I'm now sorting out how to pay and the operator's final confirmation.",
+    "It's not booked until you've paid and they've confirmed."
   ].join(" ");
 
   try {
@@ -302,7 +302,7 @@ async function notifyTravellerQuoteApproved(input: { inquiry: BluePassInquiry; q
                   travellerName: input.inquiry.travellerName ?? "BluePass traveller",
                   tripSummary: formatQuoteTrip(input.quote),
                   operatorName: input.quote.selectedYachtName ?? input.quote.operatorName ?? "BluePass operator",
-                  status: "Quote approved. BluePass is coordinating payment and final operator confirmation."
+                  status: "Quote approved. Payment and the operator's final confirmation are next."
                 }).map((text) => ({ type: "text", text }))
               }
             ]

@@ -1,3 +1,4 @@
+import { formatDatePhrase } from "./friendly-date";
 import type { BookingMemoryState } from "./booking-memory";
 
 export type BookingContactSlot = "name" | "email" | "phone";
@@ -150,22 +151,32 @@ export function evaluateBookingCapture(input: EvaluateBookingCaptureInput): Book
   };
 }
 
+const bookingSlotWords: Record<string, string> = { product: "which trip", date: "the date", guests: "how many of you" };
+const contactSlotWords: Record<string, string> = { name: "name", email: "email", phone: "phone number" };
+
+function friendlyList(words: string[]) {
+  if (words.length <= 1) return words[0] ?? "details";
+  return `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
+
 export function composeBookingCaptureReply(capture: BookingCaptureResult) {
   if (capture.missingBookingSlots.length > 0) {
-    return `I can prepare that booking request. Please share the ${capture.missingBookingSlots.join(
-      ", "
-    )} first so I can keep it accurate.`;
+    return `Happy to set that up. Just tell me ${friendlyList(
+      capture.missingBookingSlots.map((slot) => bookingSlotWords[slot])
+    )}, so I get it right.`;
   }
 
   if (capture.missingContactSlots.length > 0) {
-    return `I can prepare that booking request for ${capture.details.productTitle} on ${
+    return `Happy to set that up for ${capture.details.productTitle} ${formatDatePhrase(
       capture.details.dateText
-    } for ${capture.details.guests} guest${
+    )} for ${capture.details.guests} guest${
       capture.details.guests === 1 ? "" : "s"
-    }. Please share your ${capture.missingContactSlots.join(", ")} so the operator can follow up.`;
+    }. Just send your ${friendlyList(
+      capture.missingContactSlots.map((slot) => contactSlotWords[slot])
+    )} so the operator can get back to you.`;
   }
 
-  return `Thanks, I have the details for ${capture.details.productTitle} on ${capture.details.dateText} for ${
+  return `Thanks, I've got the details for ${capture.details.productTitle} ${formatDatePhrase(capture.details.dateText)} for ${
     capture.details.guests
-  } guest${capture.details.guests === 1 ? "" : "s"}. I will send this to the operator for confirmation.`;
+  } guest${capture.details.guests === 1 ? "" : "s"}. I'll send this to the operator to confirm, and they'll get back to you.`;
 }

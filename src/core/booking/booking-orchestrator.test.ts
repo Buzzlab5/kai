@@ -66,7 +66,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: komodoDayTripAvailabilityCheckedPatch
     });
@@ -107,7 +107,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: komodoDayTripAvailabilityCheckedPatch
     });
@@ -132,7 +132,7 @@ describe("booking orchestrator", () => {
         "1. Komodo Day Trip - live availability\n" +
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
-        "Which one sounds closest to what you want?",
+        "Which one sounds closest to what you're after?",
       replySource: "DETERMINISTIC",
       productCards: defaultProductCards
     });
@@ -151,7 +151,7 @@ describe("booking orchestrator", () => {
         "1. Komodo Day Trip - live availability\n" +
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
-        "Which one sounds closest to what you want?",
+        "Which one sounds closest to what you're after?",
       replySource: "DETERMINISTIC",
       productCards: defaultProductCards
     });
@@ -181,7 +181,7 @@ describe("booking orchestrator", () => {
         "1. Komodo Day Trip - live availability\n" +
         "2. Private Charter - operator confirmation required\n" +
         "3. Reef Day Snorkel - live availability\n\n" +
-        "Which one sounds closest to what you want?",
+        "Which one sounds closest to what you're after?",
       replySource: "DETERMINISTIC",
       productCards: defaultProductCards
     });
@@ -215,7 +215,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "PRODUCT_LINK",
       reply:
-        "Gold Coast Whale Escape is a luxury whale watching cruise. You can see the product page here: http://localhost:3107/demo/boattime#gold-coast-whale-escape. If you like it, tell me your date and group size and I can check availability.",
+        "Gold Coast Whale Escape is a luxury whale watching cruise. You can see the full details here: http://localhost:3107/demo/boattime#gold-coast-whale-escape. If it looks good, tell me your date and how many of you, and I'll check it.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -262,7 +262,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "PRODUCT_LINK",
       reply:
-        "Twilight Drift is a sunset cruise experience. You can see the product page here: http://localhost:3107/demo/boattime#twilight-drift. If you like it, tell me your date and group size and I can check availability.",
+        "Twilight Drift is a sunset cruise experience. You can see the full details here: http://localhost:3107/demo/boattime#twilight-drift. If it looks good, tell me your date and how many of you, and I'll check it.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -325,7 +325,7 @@ describe("booking orchestrator", () => {
     expect(bareNumber).toEqual({
       action: "PRODUCT_LINK",
       reply:
-        "Gold Coast Whale Escape is a luxury whale watching cruise. You can see the product page here: http://localhost:3107/demo/boattime#gold-coast-whale-escape. If you like it, tell me your date and group size and I can check availability.",
+        "Gold Coast Whale Escape is a luxury whale watching cruise. You can see the full details here: http://localhost:3107/demo/boattime#gold-coast-whale-escape. If it looks good, tell me your date and how many of you, and I'll check it.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -392,7 +392,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Gold Coast Whale Escape has availability for 2 guests tomorrow. There are 22 seats available at A$99 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Gold Coast Whale Escape has room for 2 guests tomorrow. There are 22 seats available at A$99 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -455,7 +455,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Gold Coast Whale Escape has availability for 2 guests on 2026-06-24. There are 18 seats available at A$99 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Gold Coast Whale Escape has room for 2 guests on Wednesday 24 June 2026. There are 18 seats available at A$99 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -485,7 +485,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toMatchObject({
       action: "AVAILABILITY_CHECKED",
-      reply: "Komodo Day Trip is not available for 99 guests on tomorrow according to PMS. I have not confirmed a booking.",
+      reply: "Sorry, Komodo Day Trip isn't available for 99 guests tomorrow. Want me to check another date or a different trip?",
       dateOptions: null
     });
   });
@@ -583,7 +583,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
-      reply: "Here are the open dates I found for Komodo Day Trip. Pick one and I'll check pricing.",
+      reply: "Here are the open dates for Komodo Day Trip. Pick one and I'll check the price.",
       replySource: "DETERMINISTIC",
       dateOptions: ["2026-06-24", "2026-06-27"]
     });
@@ -630,7 +630,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "I couldn't find any open dates for Komodo Day Trip for 4 guests in the next 60 days. Would you like me to pass this to the team, or check a different experience?",
+        "I couldn't find any open dates for Komodo Day Trip for 4 guests in the next 60 days. Want me to pass this to the team, or look at a different trip?",
       replySource: "DETERMINISTIC",
       dateOptions: null
     });
@@ -692,7 +692,7 @@ describe("booking orchestrator", () => {
         guests: 3
       }
     });
-    expect(result.reply).toContain("Gold Coast Whale Escape is available for 3 guests on 2026-06-28");
+    expect(result.reply).toContain("Good news, Gold Coast Whale Escape has room for 3 guests on Sunday 28 June 2026");
     expect(result.reply).toContain("1. 9:00 AM - 78 spots");
   });
 
@@ -923,14 +923,14 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_TICKET_SELECTION_REQUIRED",
       reply:
-        "Gold Coast Whale Escape is available for 3 guests tomorrow. There are 22 seats available.\n\n" +
+        "Good news, Gold Coast Whale Escape has room for 3 guests tomorrow. There are 22 seats available.\n\n" +
         "Ticket options:\n" +
         "1. 2 people - A$149\n" +
         "2. Family (2A +2C) 3-13 - A$249\n" +
         "3. Child (3-13) - A$59\n" +
         "4. Infant (under 3) - A$0\n" +
         "5. Adult (Winter Special) - A$79\n\n" +
-        "Which ticket option should I use? You can say \"option 2\" or \"1 x 2 people\". Nothing is booked yet.",
+        "Which ticket suits? Just say \"option 2\" or \"1 x 2 people\". Nothing's booked yet.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -1009,10 +1009,10 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_TIME_SELECTION_REQUIRED",
       reply:
-        "Gold Coast Whale Escape is available for 3 guests on 2026-06-27. I found these times:\n" +
+        "Good news, Gold Coast Whale Escape has room for 3 guests on Saturday 27 June 2026. Here are the available times:\n" +
         "1. 9:00 AM - 77 spots\n" +
         "2. 12:00 PM - 79 spots\n\n" +
-        "Which time works best? Nothing is booked yet.",
+        "Which time works best? Nothing's booked yet.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -1081,11 +1081,11 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_TICKET_SELECTION_REQUIRED",
       reply:
-        "Got it: Gold Coast Whale Escape on 2026-06-27 at 12:00 PM for 2 guests.\n\n" +
+        "Got it: Gold Coast Whale Escape on Saturday 27 June 2026 at 12:00 PM for 2 guests.\n\n" +
         "Ticket options:\n" +
         "1. 2 people - A$149\n" +
         "2. Adult (Winter Special) - A$79\n\n" +
-        "Which ticket option should I use? You can say \"option 2\" or \"1 x 2 people\".",
+        "Which ticket suits? Just say \"option 2\" or \"1 x 2 people\".",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -1528,7 +1528,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
       reply:
-        "Got it. I have Gold Coast Whale Escape tomorrow for 3 guests with 2 x Adult (Winter Special) and 1 x Child (3-13). Please share your name, email, and phone number so I can prepare the secure payment step.",
+        "Got it: Gold Coast Whale Escape tomorrow for 3 guests with 2 x Adult (Winter Special) and 1 x Child (3-13). Pop through your name, email and phone number and I'll set up secure payment.",
       replySource: "DETERMINISTIC",
       inquiryDraft: null,
       bookingStatePatch: {
@@ -1701,8 +1701,8 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 for 2 guests with 1 x 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.\n\n" +
-        "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
+        "Thanks, I've got everything for Gold Coast Whale Escape on Saturday 27 June 2026 for 2 guests with 1 x 2 people for $149.00 under RegaTest, regatest@gmail.com, 086554789650.\n\n" +
+        "I've passed this to the operator, and they'll be in touch to sort out payment. I never see or store your card details.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
         productExternalId: "boattime-whale-escape",
@@ -1771,7 +1771,7 @@ describe("booking orchestrator", () => {
     expect(result).toMatchObject({
       action: "BOOKING_TICKET_SELECTION_REQUIRED"
     });
-    expect(result.reply).toContain("please choose one ticket option");
+    expect(result.reply).toContain("Which would you like?");
   });
 
   it("does not use a raw Rezdy service checkout link as the secure payment handoff", async () => {
@@ -1827,7 +1827,7 @@ describe("booking orchestrator", () => {
     });
 
     expect(result.action).toBe("BOOKING_PAYMENT_REQUIRED");
-    expect(result.reply).toContain("secure payment handoff is not connected yet");
+    expect(result.reply).toContain("they'll be in touch to sort out payment");
     expect(result.paymentHandoffUrl).toBeUndefined();
   });
 
@@ -1879,7 +1879,7 @@ describe("booking orchestrator", () => {
     });
 
     expect(result.action).toBe("BOOKING_PAYMENT_REQUIRED");
-    expect(result.reply).toContain("secure payment handoff is not connected yet");
+    expect(result.reply).toContain("they'll be in touch to sort out payment");
     expect(result.reply).not.toContain("https://www.boattimeyachtcharters.com/cruise-tickets-luxury-whale-watching#book");
     expect(result.reply).not.toContain("https://boattimeyachtcharters.rezdy.com/services/431872");
   });
@@ -1948,7 +1948,7 @@ describe("booking orchestrator", () => {
     ]);
     expect(result.action).toBe("BOOKING_PAYMENT_REQUIRED");
     expect(result.paymentHandoffUrl).toBe("https://boattimeyachtcharters.rezdy.com/pay/RZ-PENDING");
-    expect(result.reply).toContain("Please complete payment on the secure Rezdy link below");
+    expect(result.reply).toContain("You can pay on the secure Rezdy payment link below");
     expect(result.bookingStatePatch).toMatchObject({
       bookingStatus: "PAYMENT_PENDING",
       externalBookingId: "RZ-PENDING",
@@ -2002,8 +2002,8 @@ describe("booking orchestrator", () => {
     });
 
     expect(result.action).toBe("BOOKING_PAYMENT_REQUIRED");
-    expect(result.reply).toContain("created Rezdy pending cart RZ-ABANDONED");
-    expect(result.reply).toContain("operator needs to send the secure payment link from Rezdy");
+    expect(result.reply).toContain("(reference RZ-ABANDONED)");
+    expect(result.reply).toContain("Thanks, I've got everything for Gold Coast Whale Escape on Monday 29 June 2026 at 9:00 AM for 3 guests with 3 x Adult (Winter Special) under Raja Test, rajatest@gmail.com, 087665349192.");
     expect(result.reply).not.toContain("may send the secure payment link by email");
     expect(result.paymentHandoffUrl).toBeUndefined();
   });
@@ -2017,7 +2017,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "MANUAL_INQUIRY_REQUIRED",
       reply:
-        "Private Charter requires operator confirmation. I can collect the details, but I will not confirm availability automatically.",
+        "The crew confirm Private Charter bookings themselves, so I can't lock it in on the spot. I can take your details and pass the request on, and nothing's booked until they confirm.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2031,7 +2031,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "NEEDS_PRODUCT_SELECTION",
       reply:
-        "For tomorrow, you can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n3. Reef Day Snorkel - live availability\n\nWhich one sounds closest to what you want?",
+        "For tomorrow, you can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n3. Reef Day Snorkel - live availability\n\nWhich one sounds closest to what you're after?",
       replySource: "DETERMINISTIC",
       productCards: defaultProductCards
     });
@@ -2045,7 +2045,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "MANUAL_INQUIRY_REQUIRED",
       reply:
-        "Private Charter requires operator confirmation. I can collect the details, but I will not confirm availability automatically.",
+        "The crew confirm Private Charter bookings themselves, so I can't lock it in on the spot. I can take your details and pass the request on, and nothing's booked until they confirm.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2060,7 +2060,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "MANUAL_INQUIRY_REQUIRED",
       reply:
-        "Private Charter requires operator confirmation. I can collect the details, but I will not confirm availability automatically.",
+        "The crew confirm Private Charter bookings themselves, so I can't lock it in on the spot. I can take your details and pass the request on, and nothing's booked until they confirm.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2080,7 +2080,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests on 2026-06-23. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests on Tuesday 23 June 2026. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2134,7 +2134,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "PRODUCT_LINK",
       reply:
-        "Of course. Here is the page for Komodo Day Trip: https://tenant.example/products/komodo-day-trip. Take a look, and if it feels right, just tell me you want to continue.",
+        "Sure thing, here's the page for Komodo Day Trip: https://tenant.example/products/komodo-day-trip. Have a look, and if it feels right, just tell me you'd like to go ahead.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2161,7 +2161,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2198,7 +2198,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 2 guests tomorrow. There are 8 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2234,7 +2234,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
       reply:
-        "I can prepare that booking request. Please share the date, guests first so I can keep it accurate.",
+        "Happy to set that up. Just tell me the date and how many of you, so I get it right.",
       replySource: "DETERMINISTIC",
       inquiryDraft: null
     });
@@ -2256,7 +2256,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
-      reply: "I have Komodo Day Trip for tomorrow. How many guests will be joining?",
+      reply: "Nice, Komodo Day Trip tomorrow. How many of you are going?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2282,7 +2282,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
-      reply: "I have Komodo Day Trip for tomorrow. How many guests will be joining?",
+      reply: "Nice, Komodo Day Trip tomorrow. How many of you are going?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2308,7 +2308,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
       reply:
-        "I have Gold Coast Whale Escape for 2026-06-26. How many guests will be joining?",
+        "Nice, Gold Coast Whale Escape on Friday 26 June 2026. How many of you are going?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2334,7 +2334,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
       reply:
-        "I don't have a calendar to browse yet - I can only check one date at a time. I have Komodo Day Trip for 2 guests. Do you have a date in mind? I'll check it right away.",
+        "I can only check one date at a time for Komodo Day Trip, so I can't show you a calendar just yet. Got a date in mind for 2 guests? I'll check it straight away.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2355,7 +2355,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "NEEDS_MORE_DETAILS",
-      reply: "I have Komodo Day Trip for 2 guests. What date works for you?",
+      reply: "Nice, Komodo Day Trip for 2 guests. What date suits you?",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2377,7 +2377,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 2 guests tomorrow. There are 8 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 2 guests tomorrow. There are 8 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2427,7 +2427,7 @@ describe("booking orchestrator", () => {
       {
         role: "assistant" as const,
         content:
-          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you want?"
+          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you're after?"
       }
     ];
 
@@ -2449,10 +2449,10 @@ describe("booking orchestrator", () => {
       {
         role: "assistant" as const,
         content:
-          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you want?"
+          "You can choose from:\n1. Komodo Day Trip - live availability\n2. Private Charter - operator confirmation required\n\nWhich one sounds closest to what you're after?"
       },
       { role: "traveller" as const, content: "none of those" },
-      { role: "assistant" as const, content: "Not yet - none of these quite fit what you're after. Want to leave your email so we can follow up once we have something that does?" }
+      { role: "assistant" as const, content: "None of these quite fit what you're after, and I'd rather not force it. Want to leave your email so the team can follow up when something does?" }
     ];
 
     const result = await handleTravellerBookingMessage({
@@ -2490,7 +2490,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "GENERAL_REPLY",
       reply:
-        "I can't take card or payment details in chat, so I didn't save that - please don't paste it here. When you're ready to pay, I'll send a secure checkout link that Kai never sees or stores.",
+        "I can't take card or payment details in chat, so I didn't save that. Best not to paste them here. When you're ready to pay, I'll send you a secure checkout link, and your card details never pass through me.",
       replySource: "DETERMINISTIC"
     });
   });
@@ -2511,7 +2511,7 @@ describe("booking orchestrator", () => {
 
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
-      reply: "I can prepare that booking request. Please share the guests first so I can keep it accurate.",
+      reply: "Happy to set that up. Just tell me how many of you, so I get it right.",
       replySource: "DETERMINISTIC",
       inquiryDraft: null
     });
@@ -2532,7 +2532,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2572,7 +2572,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2609,7 +2609,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2651,7 +2651,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "AVAILABILITY_CHECKED",
       reply:
-        "Good news, Komodo Day Trip has availability for 3 guests tomorrow. There are 7 seats available at US$185 per guest. I have not confirmed anything yet, but I can help you continue if this looks good.",
+        "Good news, Komodo Day Trip has room for 3 guests tomorrow. There are 7 seats available at US$185 per guest. Nothing's booked yet, so just say the word if it looks good.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2721,8 +2721,8 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-27 at 12:00 PM for 2 guests with 1 x 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.\n\n" +
-        "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
+        "Thanks, I've got everything for Gold Coast Whale Escape on Saturday 27 June 2026 at 12:00 PM for 2 guests with 1 x 2 people for $149.00 under Kaka, kaka@gmail.com, 086554329189.\n\n" +
+        "I've passed this to the operator, and they'll be in touch to sort out payment. I never see or store your card details.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
         productExternalId: "boattime-whale-escape",
@@ -2811,7 +2811,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
       reply:
-        "Thanks, David Samantha. I still need your email and phone number to prepare the secure payment step.",
+        "Thanks, David. I just need your email and phone number to set up secure payment.",
       replySource: "DETERMINISTIC",
       inquiryDraft: null,
       bookingStatePatch: {
@@ -2865,7 +2865,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_CONFIRMED",
       reply:
-        "Your booking is confirmed. Confirmation reference mock-booking-mock-komodo-day-trip-tomorrow-3 belongs to Komodo Day Trip on tomorrow for 3 guests. I have not collected payment in Kai.",
+        "You're booked in: Komodo Day Trip tomorrow for 3 guests, confirmation reference mock-booking-mock-komodo-day-trip-tomorrow-3. I haven't taken any payment here, so the operator will sort that with you.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "mock-komodo-day-trip",
@@ -2918,7 +2918,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_WRITE_DISABLED",
       reply:
-        "I have saved this booking request for the operator. Kai has not collected payment yet, so I will not create an unpaid confirmed booking in the PMS automatically.",
+        "I've saved your booking request for the operator. Nothing has been paid yet, so I won't lock in the booking until payment is sorted, and they'll follow up with you on that.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
         productExternalId: "mock-komodo-day-trip",
@@ -2985,12 +2985,12 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_EXTRAS_SELECTION_REQUIRED",
       reply:
-        "Got it: Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 x 2 people for $149.00.\n\n" +
+        "Got it: Gold Coast Whale Escape on Friday 26 June 2026 at 1:30 PM for 2 guests with 1 x 2 people for $149.00.\n\n" +
         "Optional extras:\n" +
         "1. Corona Bucket - A$30\n" +
         "2. Sparkling for 2 - A$40\n" +
         "3. Cheese Platter for 2 - A$10\n\n" +
-        "Would you like to add any extras? You can say \"no extras\" or \"1 x Corona Bucket\".",
+        "Want to add any? Just say \"no extras\" or \"1 x Corona Bucket\".",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -3058,7 +3058,7 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_DETAILS_REQUIRED",
       reply:
-        "No extras added. Please share your name, email, and phone number so I can prepare the secure payment step.",
+        "No extras, no worries. Pop through your name, email and phone number and I'll set up secure payment.",
       replySource: "DETERMINISTIC",
       bookingStatePatch: {
         productExternalId: "boattime-whale-escape",
@@ -3165,8 +3165,8 @@ describe("booking orchestrator", () => {
     expect(result).toEqual({
       action: "BOOKING_PAYMENT_REQUIRED",
       reply:
-        "Thanks, I have everything for Gold Coast Whale Escape on 2026-06-26 at 1:30 PM for 2 guests with 1 x 2 people for $149.00 under Test, test@gmail.com, 086775428176.\n\n" +
-        "I saved this as a lead for the operator. Kai will not ask for or store card details; secure payment handoff is not connected yet.",
+        "Thanks, I've got everything for Gold Coast Whale Escape on Friday 26 June 2026 at 1:30 PM for 2 guests with 1 x 2 people for $149.00 under Test, test@gmail.com, 086775428176.\n\n" +
+        "I've passed this to the operator, and they'll be in touch to sort out payment. I never see or store your card details.",
       replySource: "DETERMINISTIC",
       inquiryDraft: {
         productExternalId: "boattime-whale-escape",
@@ -3239,7 +3239,7 @@ describe("booking orchestrator", () => {
 
     expect(result.pmsCheckoutHold).toBeUndefined();
     expect(result.paymentHandoffUrl).toBeUndefined();
-    expect(result.reply).toContain("secure payment handoff is not connected yet");
+    expect(result.reply).toContain("they'll be in touch to sort out payment");
   });
 
   it("reserves a PMS hold and populates pmsCheckoutHold with the computed price when bluePassStripeCheckoutEnabled is true and pricing is resolvable", async () => {
@@ -3297,7 +3297,7 @@ describe("booking orchestrator", () => {
       grossAmountCents: 10000,
       currency: "AUD"
     });
-    expect(result.reply).toContain("I'm preparing your secure payment link now.");
+    expect(result.reply).toContain("I'm setting up your secure payment link now.");
   });
 
   it("falls back to the existing lead-saved reply when bluePassStripeCheckoutEnabled is true but the price cannot be resolved", async () => {
@@ -3339,7 +3339,7 @@ describe("booking orchestrator", () => {
     });
 
     expect(result.pmsCheckoutHold).toBeUndefined();
-    expect(result.reply).toContain("I saved this as a lead and created Rezdy pending cart RZ-HOLD-2");
+    expect(result.reply).toContain("I've put a hold on it with the operator (reference RZ-HOLD-2)");
   });
 
 });
@@ -3463,9 +3463,10 @@ describe("handleTravellerBookingMessage with a generic booking router client", (
     // name, AND the word "options" survives from an much earlier "what options do you have?" message
     // still in priorTravellerMessages - together these misclassify the reply as
     // PRODUCT_RECOMMENDATION, which used to loop the traveller back to product info/selection
-    // instead of asking for just the missing guest count.
+    // instead of asking for just the missing guest count. ("22july for 2 poeple" is now read as 2
+    // guests via "for 2", so the typo'd count here has no "for" to fall back on.)
     const result = await handleTravellerBookingMessage({
-      message: "22july for 2 poeple",
+      message: "22july 2 poeple",
       priorTravellerMessages: ["what options do you have?", "1"],
       now: new Date("2026-01-01T00:00:00Z"),
       bookingMemory: {
@@ -3481,8 +3482,27 @@ describe("handleTravellerBookingMessage with a generic booking router client", (
     expect(result.action).not.toBe("PRODUCT_LINK");
     expect(result.action).toBe("NEEDS_MORE_DETAILS");
     expect(result.reply).toContain("Komodo Day Trip");
-    expect(result.reply).toContain("2026-07-22");
-    expect(result.reply).toContain("guests");
+    expect(result.reply).toContain("Wednesday 22 July 2026");
+    expect(result.reply).toContain("How many of you are going?");
+  });
+
+  it("reads \"for 2\" as the group size even when the word after it is misspelt", async () => {
+    const result = await handleTravellerBookingMessage({
+      message: "22july for 2 poeple",
+      priorTravellerMessages: ["what options do you have?", "1"],
+      now: new Date("2026-01-01T00:00:00Z"),
+      bookingMemory: {
+        productExternalId: "mock-komodo-day-trip",
+        productTitle: "Komodo Day Trip",
+        dateText: null,
+        guests: null
+      },
+      pmsAdapter: new MockPmsAdapter()
+    });
+
+    expect(result.action).toBe("AVAILABILITY_CHECKED");
+    expect(result.reply).toContain("Komodo Day Trip");
+    expect(result.reply).not.toContain("How many of you are going?");
   });
 });
 

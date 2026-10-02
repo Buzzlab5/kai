@@ -1,3 +1,5 @@
+import { alertTeam } from "@/server/conversation/team-alert";
+import { isEmergencyMessage } from "@/core/conversation/emergency";
 import { NextRequest, NextResponse } from "next/server";
 import {
   captureConversationReferralAttribution,
@@ -16,7 +18,8 @@ import { runGenericBookingTurn } from "@/server/booking/generic-booking-turn";
 import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
 import { createGenericBookingRouterClient } from "@/server/llm/generic-booking-router-client";
 import { createBluePassRouterClient } from "@/server/llm/bluepass-router-client";
-import { handleBluePassMarketplaceMessage } from "@/server/bluepass/bluepass-message-flow";
+import { handleBluePassMarketplaceMessage,
+  readBluePassTeamSignals } from "@/server/bluepass/bluepass-message-flow";
 import { composeBluePassMarketplaceAssistantReply } from "@/server/bluepass/bluepass-marketplace-reply-composer";
 import { shouldPolishBluePassMarketplaceReply } from "@/server/bluepass/bluepass-marketplace-reply-gate";
 import type { BluePassCatalogSnapshotItem } from "@/core/bluepass/catalog";
@@ -149,6 +152,10 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
       content
     });
+    const priorConversationMessages = await listRecentConversationMessages({
+      tenantId: resolved.tenant.id,
+      conversationId: conversation.id
+    });
     const bluepassResult = await handleBluePassMarketplaceMessage({
       tenantId: resolved.tenant.id,
       conversationId: conversation.id,
@@ -156,11 +163,8 @@ export async function POST(request: NextRequest) {
       priorTravellerMessages,
       referral: body.referral ?? null,
       catalog: body.bluepassCatalog,
-      routerClient: createBluePassRouterClient(process.env)
-    });
-    const priorConversationMessages = await listRecentConversationMessages({
-      tenantId: resolved.tenant.id,
-      conversationId: conversation.id
+      routerClient: createBluePassRouterClient(process.env),
+      lastAssistantMessage: priorConversationMessages.filter((item) => item.role === "assistant").at(-1)?.content ?? null
     });
     const shouldPolish = shouldPolishBluePassMarketplaceReply({
       persona: bluepassResult.persona,
@@ -186,6 +190,27 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
       content: composedBluePassReply.reply
     });
+
+    // Nobody can reply into the web widget, so a person reaches them on WhatsApp: the team hears
+    // about the request now, and again with the number once the visitor leaves it.
+    const teamSignals = readBluePassTeamSignals(bluepassResult);
+    const bluePassAlertReason = teamSignals.emergency
+      ? "EMERGENCY"
+      : teamSignals.humanHandoff === "CALLBACK_NUMBER"
+        ? "CALLBACK_NUMBER"
+        : teamSignals.humanHandoff === "REQUESTED"
+          ? "PERSON_REQUESTED"
+          : null;
+    if (bluePassAlertReason) {
+      await alertTeam({
+        tenantId: resolved.tenant.id,
+        conversationId: conversation.id,
+        reason: bluePassAlertReason,
+        channel: "web",
+        callbackNumber: teamSignals.callbackNumber ?? null,
+        latestMessage: content
+      });
+    }
 
     return NextResponse.json({
       message: {
@@ -464,6 +489,24 @@ export async function POST(request: NextRequest) {
     conversationId: conversation.id,
     content: assistantContent
   });
+
+  const genericAlertReason = isEmergencyMessage(content)
+    ? "EMERGENCY"
+    : bookingResult?.callbackNumber
+      ? "CALLBACK_NUMBER"
+      : bookingResult?.action === "HUMAN_HANDOFF"
+        ? "PERSON_REQUESTED"
+        : null;
+  if (genericAlertReason) {
+    await alertTeam({
+      tenantId: resolved.tenant.id,
+      conversationId: conversation.id,
+      reason: genericAlertReason,
+      channel: "web",
+      callbackNumber: bookingResult?.callbackNumber ?? null,
+      latestMessage: content
+    });
+  }
 
   return NextResponse.json({
     message: {

@@ -24,7 +24,7 @@ const tenants = [
       logoUrl: null,
       primaryColor: "#0f766e",
       widgetTitle: "Kai",
-      welcomeMessage: "Hi, I am Kai. How can I help with your booking?",
+      welcomeMessage: "Hey, I'm Kai. Tell me what you'd like to book and I'll check what's free.",
       brandVoice: "Warm, concise, practical, and grounded in tenant data."
     },
     config: {
@@ -49,7 +49,7 @@ const tenants = [
       logoUrl: null,
       primaryColor: "#0b4f6c",
       widgetTitle: "Kai",
-      welcomeMessage: "Hi, I am Kai. How can I help with your yacht charter?",
+      welcomeMessage: "Hey, I'm Kai. Tell me about your charter and I'll check what's free.",
       brandVoice: "Polished, calm, premium, helpful, and grounded in Boattime yacht charter options."
     },
     config: {
@@ -124,7 +124,7 @@ const tenants = [
       logoUrl: null,
       primaryColor: "#0f766e",
       widgetTitle: "Kai",
-      welcomeMessage: "Tell me where you want to go, and I will help shape the right ocean trip.",
+      welcomeMessage: "Hey, I'm Kai. Tell me where you're thinking of heading and I'll help you find the right trip.",
       brandVoice: "Trustworthy, concierge-like, ocean-travel fluent, and grounded in verified BluePass marketplace data."
     },
     config: {
@@ -157,7 +157,7 @@ const tenants = [
     // wired through the per-tenant TenantIntegration path rather than the shared global env vars, so
     // onboarding a real distinct AU operator later is a credentials-only change.
     slug: "bluepass-au",
-    name: "BluePass Australia (Rezdy pilot)",
+    name: "BluePass Australia",
     widgetPublicKey: "pk_test_bluepass_au",
     // localhost:3107 for the /embed/kai iframe pattern; bluepass.co for the server-to-server
     // proxy pattern (bluepass-app's homepage widget), which sends an explicit origin header.
@@ -172,8 +172,8 @@ const tenants = [
       logoUrl: null,
       primaryColor: "#0f766e",
       widgetTitle: "Kai",
-      welcomeMessage: "Ask me about Gold Coast charter trips - I can check live availability and book instantly.",
-      brandVoice: "Trustworthy, concierge-like BluePass voice, proving instant Gold Coast charter booking ahead of a full Australia operator rollout."
+      welcomeMessage: "Hey, I'm Kai. Ask me about Gold Coast charters and I'll check live times and book you in.",
+      brandVoice: "Trustworthy, relaxed and quick to get people on the water."
     },
     config: {
       supportedChannels: ["WEB_WIDGET"],

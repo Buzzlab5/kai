@@ -56,7 +56,7 @@ describe("BluePass country/region gate (WhatsApp only)", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("are you in Australia or Indonesia");
+    expect(sentBody).toContain("are you looking at Australia or Indonesia");
   }, 20_000);
 
   it("asks which region once the country is known", async () => {
@@ -116,7 +116,7 @@ describe("BluePass country/region gate (WhatsApp only)", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).not.toContain("are you in Australia or Indonesia");
+    expect(sentBody).not.toContain("are you looking at Australia or Indonesia");
     expect(sentBody).not.toContain("Which stretch of coast");
   }, 20_000);
 
@@ -156,7 +156,7 @@ describe("BluePass country/region gate (WhatsApp only)", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).not.toContain("are you in Australia or Indonesia");
+    expect(sentBody).not.toContain("are you looking at Australia or Indonesia");
     expect(sentBody).not.toContain("Which stretch of coast");
   }, 20_000);
 
@@ -199,7 +199,7 @@ describe("BluePass country/region gate (WhatsApp only)", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).not.toContain("are you in Australia or Indonesia");
+    expect(sentBody).not.toContain("are you looking at Australia or Indonesia");
   }, 20_000);
 });
 
@@ -245,9 +245,10 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
     expect(sentBody).toContain("operator");
-    expect(sentBody).toContain("80%");
+    expect(sentBody).toContain("same as booking direct");
+    expect(sentBody).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
     expect(sentBody).not.toContain("latest BluePass inquiry");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 20_000);
 
   it("keeps a registered WhatsApp operator in operator mode for commission questions", async () => {
@@ -290,11 +291,11 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("80%");
-    expect(sentBody).toContain("5% conservation");
-    expect(sentBody).toContain("7% platform");
+    expect(sentBody).toContain("5% of every booking goes to conservation");
+    expect(sentBody).toContain("same as booking direct");
+    expect(sentBody).not.toMatch(/\b(?:80|20|18|82|7|3)\s*%/);
     expect(sentBody).not.toContain("partner commission");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 20_000);
 
   it("uses a registered partner phone as partner identity for partner questions", async () => {
@@ -342,7 +343,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(sentBody).toContain("capped commission");
     expect(sentBody).toContain("client");
     expect(sentBody).not.toContain("80%");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 20_000);
 
   it("does not force operator small talk into the latest inquiry context", async () => {
@@ -368,7 +369,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("80%");
+    expect(sentBody).toContain("same as booking direct");
     expect(sentBody).not.toContain("Current status");
     expect(sentBody).not.toContain("You can reply with availability");
     expect(contextEvent).toBeNull();
@@ -475,7 +476,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
 
     expect(result.handled).toBe(true);
     expect(result.sent).toBe(true);
-    expect(sentBody).toContain("Same price as booking direct");
+    expect(sentBody).toContain("the same as booking direct");
     expect(sentBody).toContain("Every operator is vetted");
     expect(sentBody).not.toContain("latest BluePass inquiry");
     expect(sentBody).not.toContain("Current status");
@@ -510,7 +511,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(sentBody).toContain("Komodo");
     expect(sentBody).toContain("Calico Jack");
     expect(sentBody).toContain("Alila Purnama");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
     expect(sentBody).not.toContain("email so I can prepare");
     expect(sentBody).not.toContain("phone so I can prepare");
   }, 20_000);
@@ -568,7 +569,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(sentBody).toContain("Raja Ampat");
     expect(sentBody).toMatch(/different|better|simpler|remote/i);
     expect(sentBody).not.toContain("Anne Bonny is");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 20_000);
 
   it("uses the WhatsApp sender phone when a traveller completes a booking request", async () => {
@@ -605,7 +606,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(sentBody).toContain("Inov");
     expect(sentBody).toContain("inoveka@gmail.com");
     expect(sentBody).toContain("6285156246329");
-    expect(sentBody).toContain("Before I send this to the operator");
+    expect(sentBody).toContain("Want me to send it now?");
     expect(sentBody).not.toContain("Contact details: com");
     expect(sentBody).not.toContain("WhatsApp number");
   }, 30_000);
@@ -641,7 +642,7 @@ describe("handleBluePassWhatsAppInboundMessage", () => {
     expect(sentBody).toContain("besides Calico Jack");
     expect(sentBody).toContain("Alila Purnama");
     expect(sentBody).not.toContain("Calico Jack is a");
-    expect(sentBody).not.toContain("Please share your name");
+    expect(sentBody).not.toMatch(/\byour (?:name|email|phone number|WhatsApp number)\b/i);
   }, 30_000);
 });
 
@@ -753,6 +754,94 @@ async function seedTravellerContext() {
     inquiryId: inquiry.id
   };
 }
+
+describe("getting a person into the chat on WhatsApp", () => {
+  async function createBluePassTenant(adminWhatsAppPhone: string) {
+    const tenantSlug = `bluepass-whatsapp-handoff-${randomUUID()}`;
+    process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = tenantSlug;
+    return prisma.tenant.create({
+      data: {
+        slug: tenantSlug,
+        name: "BluePass",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE",
+        config: {
+          create: {
+            supportedChannels: ["whatsapp"],
+            enabledFeatures: ["bluepass_marketplace"],
+            requiredSlots: [],
+            bookingMode: "MANUAL_INQUIRY",
+            escalationRules: [],
+            responseGuardrails: [],
+            adminWhatsAppPhone
+          }
+        }
+      }
+    });
+  }
+
+  function sentTexts(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }) {
+    return fetchMock.mock.calls
+      .filter((call) => String(call[0]).includes("graph.facebook.com"))
+      .map((call) => JSON.parse(String((call[1] as RequestInit).body)))
+      .filter((payload) => payload.type === "text");
+  }
+
+  it("promises a person, hands the chat over, alerts the team, then stays quiet until it's handed back", async () => {
+    const tenant = await createBluePassTenant("61400999888");
+    const travellerPhone = `6281${String(Date.now()).slice(-8)}`;
+    const fetchMock = stubWhatsAppSend("wamid.handoff.reply");
+
+    const handoff = await handleBluePassWhatsAppInboundMessage({
+      from: travellerPhone,
+      providerMessageId: "wamid.handoff",
+      body: "can I talk to a real person?"
+    });
+
+    // No "Australia or Indonesia?" first, and no asking for a number the team already has.
+    expect(handoff.reply).toBe("Of course, I'll get a person from the BluePass team to jump into this chat as soon as possible.");
+    const conversation = await prisma.conversation.findFirstOrThrow({ where: { tenantId: tenant.id, whatsappPhone: travellerPhone } });
+    expect(conversation.controlMode).toBe("HUMAN");
+    const alert = sentTexts(fetchMock).find((payload) => payload.to === "61400999888");
+    expect(alert?.text.body).toContain("asked for a person");
+
+    const sendsBefore = sentTexts(fetchMock).length;
+    const quiet = await handleBluePassWhatsAppInboundMessage({
+      from: travellerPhone,
+      providerMessageId: "wamid.handoff.followup",
+      body: "hello? anyone there?"
+    });
+    expect(quiet).toEqual({ handled: true, sent: false, reply: null });
+    expect(sentTexts(fetchMock).length).toBe(sendsBefore);
+    const stored = await prisma.message.findFirst({ where: { conversationId: conversation.id, content: "hello? anyone there?" } });
+    expect(stored?.role).toBe("TRAVELLER");
+
+    await prisma.conversation.update({ where: { id: conversation.id }, data: { controlMode: "AI" } });
+    const backWithKai = await handleBluePassWhatsAppInboundMessage({
+      from: travellerPhone,
+      providerMessageId: "wamid.handoff.back",
+      body: "thanks, what's the best time to go to Komodo?"
+    });
+    expect(backWithKai.sent).toBe(true);
+  }, 30_000);
+
+  it("answers an emergency first, never with the country question, and alerts the team", async () => {
+    await createBluePassTenant("61400999777");
+    const fetchMock = stubWhatsAppSend("wamid.emergency.reply");
+
+    const result = await handleBluePassWhatsAppInboundMessage({
+      from: `6282${String(Date.now()).slice(-8)}`,
+      providerMessageId: "wamid.emergency",
+      body: "there's been an accident and my friend is injured"
+    });
+
+    expect(result.reply).toContain("call 000 in Australia or 112 in Indonesia right now");
+    expect(result.reply).not.toContain("Australia or Indonesia?");
+    const alert = sentTexts(fetchMock).find((payload) => payload.to === "61400999777");
+    expect(alert?.text.body.startsWith("Kai URGENT:")).toBe(true);
+  }, 30_000);
+});
 
 function stubWhatsAppSend(
   providerMessageId: string,

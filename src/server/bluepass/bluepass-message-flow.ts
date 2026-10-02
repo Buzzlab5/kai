@@ -1,3 +1,10 @@
+import { buildEmergencyReply, isEmergencyMessage } from "@/core/conversation/emergency";
+import {
+  buildCallbackNumberThanksReply,
+  buildHumanHandoffReply,
+  givesCallbackNumber,
+  shouldHandOffToPerson
+} from "@/core/conversation/human-handoff";
 import {
   findBluePassAlternativeYachts,
   resolveBluePassCatalog,
@@ -21,6 +28,8 @@ import {
   type BluePassRequiredInquiryField
 } from "@/core/bluepass/intent";
 import { classifyBluePassMarket, type BluePassMarket } from "@/core/bluepass/market";
+import { findTravellerFaqAnswer } from "@/core/bluepass/traveller-faq";
+import { findDestinationNote, findMentionedDestinations } from "@/core/bluepass/destination-notes";
 import { extractBluePassPersonaLead } from "@/core/bluepass/persona-lead";
 import type { BluePassRouterAction, BluePassRouterLlmClient } from "@/core/llm/bluepass-router";
 import {
@@ -35,6 +44,7 @@ import {
   buildBluePassPriceObjectionReply,
   buildBluePassRecommendationReply,
   buildBluePassSeasonReply,
+  buildBluePassEnquiryReminder,
   buildBluePassSmallTalkReply,
   buildBluePassValueReply,
   buildBluePassYachtComparisonReply,
@@ -57,6 +67,7 @@ import {
   createOrReuseBluePassInquiry,
   dispatchBluePassOperatorWhatsApp,
   getActiveBluePassInquiryStatus,
+  hasBluePassInquiryInConversation,
   getLatestBluePassInquiryStatus,
   syncBluePassReferralLedgerEstimate,
   upsertBluePassPersonaLead,
@@ -74,13 +85,86 @@ export type BluePassMarketplaceMessageInput = {
   identityPersona?: BluePassPersona | null;
   identityName?: string | null;
   routerClient?: BluePassRouterLlmClient | null;
+  /** Kai's previous reply in this chat, so a reminder it just gave isn't repeated word for word. */
+  lastAssistantMessage?: string | null;
 };
+
+/**
+ * What the caller has to act on after a turn: hand the chat to a person, pass on a web visitor's
+ * WhatsApp number, or tell the team someone may be hurt.
+ */
+export function readBluePassTeamSignals(result: Awaited<ReturnType<typeof handleBluePassMarketplaceMessage>>) {
+  return {
+    humanHandoff: "humanHandoff" in result ? result.humanHandoff : undefined,
+    callbackNumber: "callbackNumber" in result ? result.callbackNumber : undefined,
+    emergency: "emergency" in result && result.emergency === true
+  };
+}
 
 export async function handleBluePassMarketplaceMessage(input: BluePassMarketplaceMessageInput) {
   // kai-conversation-flow-notes.md finding #16 (compliance): checked before persona/market
   // classification or any LLM call, so card-shaped input never has a chance to reach any of those.
   if (containsCardShapedInput(input.content)) {
     return buildConciergeResponse("TRAVELLER", buildCardDeclineReply());
+  }
+
+  // Someone hurt or in danger comes before anything else, for travellers, operators and partners
+  // alike. ACTION mode keeps the AI from rewriting it.
+  if (isEmergencyMessage(input.content)) {
+    return {
+      replyMode: "ACTION" as const,
+      persona: classifyBluePassPersona([...input.priorTravellerMessages, input.content]),
+      assistantContent: buildEmergencyReply(resolveBluePassMarket([...input.priorTravellerMessages, input.content]) ?? "UNKNOWN"),
+      emergency: true as const,
+      bluepassMatches: [],
+      bluepassInquiry: null,
+      bluepassLedger: [],
+      bluepassDispatch: null,
+      paymentRequest: null,
+      contactRequest: null,
+      suggestedReplies: null
+    };
+  }
+
+  // A web visitor answering Kai's "what's the best WhatsApp number?" after asking for a person.
+  const callbackNumber = givesCallbackNumber(input.content, input.lastAssistantMessage);
+  if (callbackNumber) {
+    return {
+      replyMode: "ACTION" as const,
+      persona: classifyBluePassPersona([...input.priorTravellerMessages, input.content]),
+      assistantContent: buildCallbackNumberThanksReply(callbackNumber, "the BluePass team"),
+      humanHandoff: "CALLBACK_NUMBER" as const,
+      callbackNumber,
+      bluepassMatches: [],
+      bluepassInquiry: null,
+      bluepassLedger: [],
+      bluepassDispatch: null,
+      paymentRequest: null,
+      contactRequest: null,
+      suggestedReplies: null
+    };
+  }
+
+  // Asking for a person (or saying yes when Kai offered one) gets one: a person from the BluePass
+  // team jumps into the chat as soon as possible. On WhatsApp the team already has their number.
+  // The caller hands the chat over and alerts the team.
+  if (shouldHandOffToPerson(input.content, input.lastAssistantMessage)) {
+    return {
+      replyMode: "ACTION" as const,
+      persona: classifyBluePassPersona([...input.priorTravellerMessages, input.content]),
+      assistantContent: buildHumanHandoffReply({
+        channel: input.travellerPhone ? "whatsapp" : "web",
+        team: "the BluePass team"
+      }),
+      humanHandoff: "REQUESTED" as const,
+      bluepassMatches: [],
+      bluepassInquiry: null,
+      bluepassLedger: [],
+      bluepassDispatch: null,
+      paymentRequest: null,
+      contactRequest: null,
+      suggestedReplies: null
+    };
   }
 
   // Oldest-first: classifyBluePassPersona/classifyBluePassMarket are sticky, first-signal-wins
@@ -266,7 +350,7 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     if (!status) {
       return buildConciergeResponse(
         persona,
-        "I do not see an active BluePass inquiry in this chat yet. I can help shortlist options first, then prepare an operator inquiry once you share the trip details."
+        "I can't see an enquiry in this chat yet. Tell me where and when you're thinking of going and I'll line up some options."
       );
     }
 
@@ -288,10 +372,81 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
   }
 
   const regexMissingFields = getMissingBluePassInquiryFields(regexIntent);
+
+  if (isBluePassServiceRequest(input.content)) {
+    return buildConciergeResponse(
+      persona,
+      "Sorry to hear that. Changes and refunds are sorted by the operator and the BluePass team, not me. The team can see this chat, so leave your name, best email and your enquiry reference, and they can get back to you."
+    );
+  }
+
+  if (isBluePassServiceRequest(input.content)) {
+    return buildConciergeResponse(
+      persona,
+      "Sorry to hear that. Changes and refunds are sorted by the operator and the BluePass team, not me. The team can see this chat, so leave your name, best email and your enquiry reference, and they can get back to you."
+    );
+  }
+
+  // Mid-enquiry, a side question ("will I get seasick?") gets its answer and then where the enquiry
+  // is up to, so the traveller never has to scroll back to find the next step.
+  const enquiryInProgress =
+    Boolean(contactRequestYacht) &&
+    input.priorTravellerMessages.some(
+      (message) => hasBluePassBookingLanguage(message) || isBluePassInquirySubmissionRequest(message)
+    );
+  // The boat being enquired on settles the destination, even on a turn that doesn't name it.
+  const enquiryMissingFields = getMissingBluePassInquiryFields({
+    ...regexIntent,
+    destination: regexIntent.destination ?? contactRequestYacht?.region
+  });
+  // With everything in, the enquiry is either waiting on a yes or already sent, and only the
+  // database knows which. No database (a local probe), no reminder.
+  const readyToSend =
+    enquiryInProgress && enquiryMissingFields.length === 0
+      ? await hasBluePassInquiryInConversation({ tenantId: input.tenantId, conversationId: input.conversationId }).then(
+          (exists) => !exists,
+          () => false
+        )
+      : false;
+  const enquiryReminder =
+    enquiryInProgress && contactRequestYacht
+      ? buildBluePassEnquiryReminder({ yachtName: contactRequestYacht.name, missingFields: enquiryMissingFields, readyToSend })
+      : null;
+  const reminderJustSaid = Boolean(enquiryReminder && input.lastAssistantMessage?.includes(enquiryReminder));
+  const withEnquiryThread = (reply: string) => (enquiryReminder && !reminderJustSaid ? `${reply} ${enquiryReminder}` : reply);
+
+  // Everyday practical questions (dive certification, kids, seasickness, stingers...) get Kai's own
+  // grounded answer before the keyword cascade, which would otherwise read "boat" or "family" in
+  // them as a request for a boat list. "Does it have wifi?" is about the boat being enquired on.
+  const faqBoat =
+    latestMentionedYachts[0] ??
+    selectedYacht ??
+    (enquiryInProgress ? contactRequestYacht : null) ??
+    (historyMentionedYachts.length === 1 ? historyMentionedYachts[0] : null);
+  const faq = findTravellerFaqAnswer({
+    message: input.content,
+    market: market ?? "UNKNOWN",
+    boatName: faqBoat?.name ?? null
+  });
+  if (faq) {
+    return buildConciergeResponse(
+      persona,
+      faq.topic === "AI_OR_HUMAN" ? faq.answer : withEnquiryThread(faq.answer),
+      [],
+      showYachtsSuggestedReplies,
+      regexMissingFields,
+      contactRequestYacht
+    );
+  }
   const overviewYacht =
     latestMentionedYachts[0] ??
     (isBluePassYachtFollowUpInformationRequest(input.content) ? historyMentionedYachts[0] ?? null : null);
-  const regexSeasonDestination = resolveSeasonDestination(input.content, knownRegions);
+  // "What's the best time to go?" after browsing Komodo is about Komodo.
+  const conversationDestination =
+    findMentionedDestinations(input.priorTravellerMessages.join("\n"), knownRegions).at(-1) ??
+    contactRequestYacht?.region ??
+    null;
+  const regexSeasonDestination = resolveSeasonDestination(input.content, knownRegions, conversationDestination);
 
   const fallbackAction = resolveFallbackBluePassRouterAction({
     content: input.content,
@@ -376,7 +531,8 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     latestMentionedYachts,
     overviewYacht,
     seasonDestination,
-    missingFields
+    missingFields,
+    knownRegions
   });
 
   switch (action) {
@@ -385,7 +541,9 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
       // answer; the general "why book through you" question gets the shorter value-prop line.
       return buildConciergeResponse(
         persona,
-        isBluePassConservationQuestion(input.content) ? buildBluePassConservationReply() : buildBluePassValueReply(),
+        withEnquiryThread(
+          isBluePassConservationQuestion(input.content) ? buildBluePassConservationReply() : buildBluePassValueReply()
+        ),
         [],
         showYachtsSuggestedReplies,
         missingFields,
@@ -395,7 +553,7 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     case "COMMISSION_QUESTION":
       return buildConciergeResponse(
         persona,
-        buildBluePassCommissionReply(market),
+        withEnquiryThread(buildBluePassCommissionReply(market)),
         [],
         showYachtsSuggestedReplies,
         missingFields,
@@ -407,7 +565,13 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
 
       return buildConciergeResponse(
         persona,
-        buildBluePassSmallTalkReply({ gratitude }),
+        buildBluePassSmallTalkReply({
+          gratitude,
+          latestMessage: input.content,
+          destination: intent.destination,
+          enquiryReminder: reminderJustSaid ? null : enquiryReminder,
+          midEnquiry: Boolean(enquiryReminder)
+        }),
         [],
         gratitude ? null : showYachtsSuggestedReplies,
         missingFields,
@@ -418,7 +582,11 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     case "SEASON_QUESTION":
       return buildConciergeResponse(
         persona,
-        buildBluePassSeasonReply(seasonDestination as string),
+        withEnquiryThread(
+          buildBluePassSeasonReply(seasonDestination as string, {
+            inCatalogue: isDestinationInCatalogue(seasonDestination as string, knownRegions)
+          })
+        ),
         [],
         null,
         missingFields,
@@ -426,12 +594,14 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
       );
 
     case "DESTINATION_COMPARISON": {
-      const comparedRegions = knownRegions.filter((region) => isRegionMentioned(input.content, region));
+      const comparedRegions = findMentionedDestinations(input.content, knownRegions);
+      // Chips only for places BluePass actually has trips in, so a tap leads somewhere.
+      const bookableRegions = comparedRegions.filter((region) => knownRegions.includes(region));
       return buildConciergeResponse(
         persona,
-        buildBluePassDestinationComparisonReply(comparedRegions.length >= 2 ? comparedRegions : knownRegions),
+        buildBluePassDestinationComparisonReply(comparedRegions.length >= 2 ? comparedRegions : knownRegions.slice(0, 3)),
         [],
-        knownRegions,
+        bookableRegions.length > 0 ? bookableRegions : showYachtsSuggestedReplies,
         missingFields,
         contactRequestYacht
       );
@@ -508,7 +678,7 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
       if (!objectionBudget) {
         return buildConciergeResponse(
           persona,
-          "Understood - what's your budget so I can find something that actually fits?",
+          "Fair enough. What sort of budget are you working with, so I can find something that actually fits?",
           [],
           showYachtsSuggestedReplies,
           missingFields,
@@ -581,7 +751,16 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
     case "GENERAL_QUESTION":
       return buildConciergeResponse(
         persona,
-        buildBluePassOpenQuestionReply(),
+        // Mid-enquiry, the boat's already chosen, so the honest answer points at the operator's reply
+        // instead of asking where they're heading.
+        withEnquiryThread(enquiryReminder && !findOffCatalogDestination(input.content, knownRegions)
+          ? "Good question. I don't want to give you a dud answer on that one, so I won't guess. It's a good one to ask the operator when they reply to your enquiry."
+          : buildBluePassOpenQuestionReply({
+          offCatalogPlace: findOffCatalogDestination(input.content, knownRegions),
+          destination: intent.destination,
+          // The off-catalogue place list is Indonesian, so the regions worth offering are too.
+          nearbyRegions: knownRegions.filter((region) => classifyBluePassMarket([region]) === "INDONESIA").slice(0, 3)
+        })),
         [],
         showYachtsSuggestedReplies,
         missingFields,
@@ -613,7 +792,10 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         assistantContent: buildBluePassMissingFieldsReply({
           destination: intent.destination,
           selectedYacht,
-          missingFields: promptMissingFields
+          missingFields: promptMissingFields,
+          yachtAlreadyIntroduced: Boolean(
+            selectedYacht && historyMentionedYachts.some((yacht) => yacht.slug === selectedYacht.slug)
+          )
         }),
         bluepassMatches: [],
         bluepassInquiry: null,
@@ -648,7 +830,7 @@ export async function handleBluePassMarketplaceMessage(input: BluePassMarketplac
         bluepassLedger: [],
         bluepassDispatch: null,
         paymentRequest: null,
-        suggestedReplies: ["Send inquiry"]
+        suggestedReplies: ["Send enquiry"]
       };
 
     case "SUBMIT_INQUIRY":
@@ -768,7 +950,7 @@ function levenshteinDistance(a: string, b: string) {
   return previous[b.length];
 }
 
-const showYachtsSuggestedReplies = ["Show me yachts"];
+const showYachtsSuggestedReplies = ["Show me boats"];
 
 function buildBrowsingSuggestedReplies(matches: BluePassYachtCard[]) {
   if (matches.length === 0) return null;
@@ -855,6 +1037,7 @@ function resolveFinalBluePassRouterAction(input: {
   overviewYacht: BluePassYachtCatalogItem | null;
   seasonDestination: string | null;
   missingFields: BluePassRequiredInquiryField[];
+  knownRegions?: string[];
 }): BluePassRouterAction {
   const { llmAction } = input;
 
@@ -874,7 +1057,13 @@ function resolveFinalBluePassRouterAction(input: {
       (isBluePassConservationQuestion(input.content) || isBluePassValuePropQuestion(input.content)) &&
       llmAction !== "VALUE_QUESTION" &&
       llmAction !== "COMMISSION_QUESTION";
+    // A place BluePass doesn't cover ("any boats in Sulawesi?") must get the honest "not somewhere
+    // we have vetted trips" answer, never a boat list from a different region.
+    const listsBoatsForOffCatalogPlace =
+      (llmAction === "RECOMMENDATION" || llmAction === "BROWSE_OPTIONS" || llmAction === "TRAVEL_INSPIRATION") &&
+      mentionsOffCatalogDestination(input.content, input.knownRegions);
     const hasHardPreconditionFailure =
+      listsBoatsForOffCatalogPlace ||
       (llmAction === "YACHT_COMPARISON" && input.latestMentionedYachts.length < 2) ||
       (llmAction === "YACHT_INFO" && !input.overviewYacht) ||
       (llmAction === "SEASON_QUESTION" && !input.seasonDestination) ||
@@ -914,6 +1103,9 @@ function resolveFallbackBluePassRouterAction(input: {
   if (isBluePassDestinationComparisonRequest(content, knownRegions)) return "DESTINATION_COMPARISON";
   if (isBluePassYachtComparisonRequest(content) && input.latestMentionedYachts.length >= 2) return "YACHT_COMPARISON";
   if (isBluePassPriceObjection(content)) return "PRICE_OBJECTION";
+  // Checked before RECOMMENDATION/TRAVEL_INSPIRATION: "any boats in Sulawesi?" names a place
+  // BluePass doesn't cover, so it gets the honest answer rather than another region's boat list.
+  if (mentionsOffCatalogDestination(content, knownRegions)) return "GENERAL_QUESTION";
   if (isBluePassRecommendationRequest(content) && !isBluePassInquirySubmissionRequest(content)) return "RECOMMENDATION";
   if (isBluePassTravelInspirationRequest(content) && !isBluePassInquirySubmissionRequest(content)) {
     return "TRAVEL_INSPIRATION";
@@ -1091,7 +1283,7 @@ function getPromptMissingFields(missingFields: BluePassRequiredInquiryField[]) {
 }
 
 function hasBluePassBookingLanguage(content: string) {
-  return /\b(?:order|book|booking|reserve|hold|quote|operator|inquiry|inquiries|availability|send|submit|create|prepare|proceed|confirm|confirmed)\b/.test(
+  return /\b(?:order|book|booking|reserve|hold|quote|operator|[ei]nquiry|[ei]nquiries|availability|send|submit|create|prepare|proceed|confirm|confirmed)\b/.test(
     content.toLowerCase()
   );
 }
@@ -1102,9 +1294,12 @@ function isBluePassOpenGeneralQuestion(input: {
   selectedYacht: BluePassYachtCatalogItem | null;
   knownRegions?: string[];
 }) {
-  if (input.selectedYacht) return false;
   if (hasBluePassBookingLanguage(input.content)) return false;
   if (mentionsOffCatalogDestination(input.content, input.knownRegions)) return true;
+  // A real question about something other than the trip ("can I bring my dog?") gets an honest
+  // answer, even mid-enquiry, instead of the boat list or the enquiry prompt again.
+  if (isOffTripQuestion(input.content, input.knownRegions)) return true;
+  if (input.selectedYacht) return false;
 
   const hasAnyTripSignal = Boolean(
     input.intent.destination ||
@@ -1120,6 +1315,41 @@ function isBluePassOpenGeneralQuestion(input: {
   return !hasAnyTripSignal;
 }
 
+const tripWordsPattern =
+  /\b(?:boats?|yachts?|liveaboards?|charters?|trips?|tours?|options?|cruises?|phinisi|else|show|recommend|suggest|available|availability|cheaper|price|prices|cost|costs|dates?|cabins?|dive|diving|snorkel\w*|book|booking|when|season|weather)\b/;
+
+function isOffTripQuestion(content: string, knownRegions: string[] = ["Komodo", "Raja Ampat"]) {
+  const normalized = content.toLowerCase().trim();
+  const questionShaped =
+    normalized.includes("?") || /^(?:can|could|do|does|is|are|will|would|should|what|whats|what's|how|where|who|why)\b/.test(normalized);
+  if (!questionShaped || tripWordsPattern.test(normalized)) return false;
+
+  const messageIntent = extractBluePassInquiryIntent([content], knownRegions);
+  return !(
+    messageIntent.destination ||
+    messageIntent.dateWindow ||
+    messageIntent.guests ||
+    messageIntent.travellerName ||
+    messageIntent.travellerEmail ||
+    messageIntent.travellerPhone ||
+    messageIntent.budget ||
+    messageIntent.selectedYachtSlug ||
+    (messageIntent.interests && messageIntent.interests.length > 0)
+  );
+}
+
+// "I want a refund", "I need to cancel my booking": things only people can sort, so Kai says who
+// does and what to leave, rather than answering with a boat list. Questions about the policy itself
+// ("can I get a refund if it rains?") go to the cancellation answer instead.
+function isBluePassServiceRequest(content: string) {
+  const normalized = content.toLowerCase();
+  if (/\bif\b|\bpolic(?:y|ies)\b/.test(normalized)) return false;
+
+  return /\b(?:i (?:want|need|would like|'d like) (?:a |my )?(?:refund|money back)|refund (?:me|please|my)|get (?:a|my) (?:refund|money back)|cancel my (?:booking|enquiry|inquiry|trip)|(?:want|need) to cancel|make a complaint|like to complain|complain about|problem with my (?:booking|trip|enquiry|inquiry)|change my (?:booking|dates|enquiry|inquiry))\b/.test(
+    normalized
+  );
+}
+
 // Once a destination like Komodo is locked in from earlier turns, `hasAnyTripSignal` above stays
 // true for the rest of the conversation, which used to swallow later off-topic destination
 // questions into the same stale Komodo/Raja Ampat catalog dump. This catches messages that name a
@@ -1128,10 +1358,17 @@ const offCatalogDestinationPattern =
   /\b(?:bali|lombok|sulawesi|sumatra|jakarta|bandung|yogyakarta|jogja|bunaken|wakatobi|gili|sumba|nusa\s+penida|banda|alor|derawan|belitung|bromo|ubud|manado|makassar|bintan|batam|karimunjawa)\b/;
 
 function mentionsOffCatalogDestination(content: string, knownRegions: string[] = ["Komodo", "Raja Ampat"]) {
-  const normalized = content.toLowerCase();
-  if (knownRegions.some((region) => isRegionMentioned(normalized, region))) return false;
+  return findOffCatalogDestination(content, knownRegions) !== null;
+}
 
-  return offCatalogDestinationPattern.test(normalized);
+// The off-catalog place the traveller named, title-cased for a reply ("nusa penida" -> "Nusa Penida"),
+// or null when none is named or the message also names a region BluePass does serve.
+function findOffCatalogDestination(content: string, knownRegions: string[] = ["Komodo", "Raja Ampat"]) {
+  const normalized = content.toLowerCase();
+  if (knownRegions.some((region) => isRegionMentioned(normalized, region))) return null;
+
+  const match = normalized.match(offCatalogDestinationPattern);
+  return match ? match[0].replace(/\s+/g, " ").replace(/\b[a-z]/g, (letter) => letter.toUpperCase()) : null;
 }
 
 // Commission/fee-structure questions are real, public numbers (see buildBluePassCommissionReply)
@@ -1149,7 +1386,7 @@ export function isBluePassCommissionQuestion(content: string) {
 function isBluePassSmallTalkRequest(content: string) {
   const normalized = content.toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
   const hasCommercialIntent =
-    /\b(?:order|book|booking|reserve|hold|inquiry|operator|quote|availability|liveaboards?|yachts?|boats?|komodo|raja\s+ampat)\b/.test(
+    /\b(?:order|book|booking|reserve|hold|[ei]nquiry|operator|quote|availability|liveaboards?|yachts?|boats?|komodo|raja\s+ampat)\b/.test(
       normalized
     );
 
@@ -1174,17 +1411,30 @@ function isBluePassInquiryStatusQuestion(content: string) {
   return /\b(?:status|update|operator replied|operator response|confirmed yet|any news|what happened)\b/i.test(content);
 }
 
-function resolveSeasonDestination(content: string, knownRegions: string[] = ["Komodo", "Raja Ampat"]) {
+function resolveSeasonDestination(
+  content: string,
+  knownRegions: string[] = ["Komodo", "Raja Ampat"],
+  conversationDestination: string | null = null
+) {
   const normalized = content.toLowerCase();
   const asksTiming =
-    /\b(?:best|good|ideal|recommended)\s+(?:time|season|month)\b/.test(normalized) ||
-    /\bwhen\s+(?:is\s+)?(?:the\s+)?best\b/.test(normalized);
+    /\b(?:best|good|ideal|recommended|right)\s+(?:time|season|months?)\b/.test(normalized) ||
+    /\bwhen\s+(?:is\s+)?(?:the\s+)?best\b/.test(normalized) ||
+    /\bwhen\s+(?:should|do|can|would)\s+(?:i|we)\s+go\b/.test(normalized) ||
+    /\bwhen\s+to\s+go\b/.test(normalized) ||
+    /\b(?:what|which)\s+(?:time\s+of\s+(?:the\s+)?year|months?|season)\b/.test(normalized) ||
+    /\b(?:whale|whale\s+shark|manta)\s+season\b/.test(normalized);
 
   if (!asksTiming) return null;
-  if (/\b(?:raja\s+ampat|misool|sorong|wayag)\b/.test(normalized)) return "Raja Ampat";
-  if (/\b(?:komodo|labuan\s+bajo|flores)\b/.test(normalized)) return "Komodo";
 
-  return extractKnownDestination(content, knownRegions.filter((region) => region !== "Komodo" && region !== "Raja Ampat")) ?? null;
+  // Any place Kai has notes on counts, not just catalogue regions: knowing when to go to Ningaloo
+  // doesn't depend on BluePass listing boats there yet.
+  return findMentionedDestinations(content, knownRegions)[0] ?? conversationDestination;
+}
+
+function isDestinationInCatalogue(destination: string, knownRegions: string[]) {
+  const note = findDestinationNote(destination);
+  return knownRegions.some((region) => region === destination || (note !== null && findDestinationNote(region)?.name === note.name));
 }
 
 function isBluePassYachtComparisonRequest(content: string) {
@@ -1193,7 +1443,7 @@ function isBluePassYachtComparisonRequest(content: string) {
 
 function isBluePassDestinationComparisonRequest(content: string, knownRegions: string[] = ["Komodo", "Raja Ampat"]) {
   const normalized = content.toLowerCase();
-  const mentionedRegions = knownRegions.filter((region) => isRegionMentioned(normalized, region));
+  const mentionedRegions = findMentionedDestinations(normalized, knownRegions);
   const asksComparison =
     /\b(?:compare|versus|vs\.?|difference|which is better|what'?s better|whats better|better)\b/.test(normalized) ||
     (mentionedRegions.length >= 2 && /\b(?:or|and)\b/.test(normalized));
@@ -1207,7 +1457,7 @@ function isBluePassYachtInformationRequest(content: string) {
     /\b(?:tell me about|what is|what's|explain|describe|info about|learn about|details about)\b/.test(normalized) ||
     isBluePassYachtFollowUpInformationRequest(content);
   const asksForCommercialAction =
-    /\b(?:send|create|prepare|make|start|submit)\s+(?:an?\s+)?inquir(?:y|ies)\b/.test(normalized) ||
+    /\b(?:send|create|prepare|make|start|submit)\s+(?:an?\s+)?[ei]nquir(?:y|ies)\b/.test(normalized) ||
     /\b(?:check|confirm)\s+(?:live\s+)?availability\b/.test(normalized) ||
     /\b(?:order|book|booking|reserve|hold|quote|operator|whatsapp|proceed)\b/.test(normalized);
 
@@ -1247,7 +1497,7 @@ function isBluePassRecommendationRequest(content: string) {
     );
   const explicitBookingIntent =
     /\b(?:order|book|booking|reserve|hold)\b/.test(normalized) ||
-    /\b(?:send|submit|create|prepare)\s+(?:this\s+|the\s+|an?\s+)?(?:operator\s+)?inquir(?:y|ies)\b/.test(
+    /\b(?:send|submit|create|prepare)\s+(?:this\s+|the\s+|an?\s+)?(?:operator\s+)?[ei]nquir(?:y|ies)\b/.test(
       normalized
     );
 
@@ -1299,7 +1549,7 @@ function shouldCarryBluePassHistoryYacht(input: {
   }
 
   const hasBookingLanguage =
-    /\b(?:order|book|booking|reserve|hold|quote|operator|inquiry|availability|send|submit|create|prepare|proceed|confirm)\b/.test(
+    /\b(?:order|book|booking|reserve|hold|quote|operator|[ei]nquiry|availability|send|submit|create|prepare|proceed|confirm)\b/.test(
       normalized
     );
   const hasTripOrContactDetails = Boolean(
@@ -1310,7 +1560,7 @@ function shouldCarryBluePassHistoryYacht(input: {
       input.messageIntent.travellerPhone ||
       input.messageIntent.budget
   );
-  const priorHasBookingLanguage = /\b(?:order|book|booking|reserve|hold|quote|operator|inquiry|availability)\b/.test(
+  const priorHasBookingLanguage = /\b(?:order|book|booking|reserve|hold|quote|operator|[ei]nquiry|availability)\b/.test(
     input.priorTravellerMessages.join("\n").toLowerCase()
   );
 
@@ -1407,11 +1657,11 @@ function isBluePassInquirySubmissionRequest(content: string) {
 
   return (
     affirmativeOnly.test(normalized.trim()) ||
-    /\b(?:send|submit|create|prepare)\s+(?:this\s+|the\s+|an?\s+)?(?:operator\s+)?inquir(?:y|ies)\b/.test(
+    /\b(?:send|submit|create|prepare)\s+(?:this\s+|the\s+|an?\s+)?(?:operator\s+)?[ei]nquir(?:y|ies)\b/.test(
       normalized
     ) ||
     /\b(?:send|submit)\s+(?:this|it|that)\s+(?:to\s+the\s+)?operator\b/.test(normalized) ||
-    /\b(?:yes|yep|yeah|ok|okay|sure|confirm|confirmed|go ahead|proceed)\b.*\b(?:send|submit|inquiry|operator|it|this)\b/.test(
+    /\b(?:yes|yep|yeah|ok|okay|sure|confirm|confirmed|go ahead|proceed)\b.*\b(?:send|submit|[ei]nquiry|operator|it|this)\b/.test(
       normalized
     )
   );

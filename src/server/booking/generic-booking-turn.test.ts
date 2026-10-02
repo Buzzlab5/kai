@@ -119,7 +119,7 @@ describe("runGenericBookingTurn - BluePass Stripe PMS checkout", () => {
     );
     expect(result.paymentRequest?.checkoutUrl).toBe("https://checkout.stripe.com/c/pay/cs_test_real");
     expect(result.assistantContent).toContain("https://checkout.stripe.com/c/pay/cs_test_real");
-    expect(result.assistantContent).toContain("never sees or stores your card details");
+    expect(result.assistantContent).toContain("never see or store your card details");
     // No operator-specific tiers were mocked, so this is the platform default - proves the
     // disclosure is present at all before the next test proves it reflects a real operator's tiers.
     expect(result.assistantContent).toContain(
@@ -191,7 +191,7 @@ describe("runGenericBookingTurn - BluePass Stripe PMS checkout", () => {
     });
 
     expect(result.paymentRequest?.checkoutUrl).toBeNull();
-    expect(result.assistantContent).toContain("could not prepare the secure payment link");
+    expect(result.assistantContent).toContain("I couldn't set up the secure payment link just now");
     // Same guard as the cancellation disclosure - nothing is actually payable here, so neither
     // disclosure should fire.
     expect(result.assistantContent).not.toContain("funds ocean and reef conservation");
