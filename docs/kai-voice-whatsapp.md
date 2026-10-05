@@ -65,6 +65,16 @@ through the same rewrite as text, and without them Kai falls back to its scripte
 - If Kai's brain fails mid-call, the caller hears "Sorry, I've hit a snag on my end..." rather than
   the call dropping.
 
+## The team hears about it too
+
+A call is no different from a chat when someone is hurt or asks for a person: Kai says "call 000" or "I'll get a person onto this", so the team has to be told or that promise is empty. The voice turn sends the same team alert as the chat flows (`src/server/conversation/team-alert.ts`), marked as a phone call, with the caller's number when the agent passes it (`number unknown` when it doesn't):
+
+- **Someone may be hurt**: an urgent alert asking the team to call them back now.
+- **Asks for a person**: an alert asking the team to call or message them as soon as they can.
+- **Leaves a WhatsApp number** (an unknown caller is asked for one): an alert with the number.
+
+It goes to the tenant's admin WhatsApp number, or `KAI_TEAM_ALERT_WHATSAPP` / `KAI_TEAM_ALERT_WEBHOOK_URL` if those are set. If none is set up, the alert is only logged, so set one before turning voice on. Unlike WhatsApp, a call doesn't put the chat into "person has it" mode: the call carries on with Kai until it ends, and the person follows up by phone or message.
+
 ## Limits worth knowing
 
 - WhatsApp Flows aren't sent, and video messages don't reach the agent.

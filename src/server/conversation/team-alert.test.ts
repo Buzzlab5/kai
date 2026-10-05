@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { alertTeam, buildTeamAlertBody } from "./team-alert";
+import { alertTeam, buildTeamAlertBody, teamAlertReasonFor } from "./team-alert";
 import { findKaiStyleBreaches } from "@/core/llm/kai-persona";
 
 const originalEnv = { ...process.env };
@@ -121,5 +121,43 @@ describe("team alert voice", () => {
   it("passes Kai's style lint apart from quoting the traveller", () => {
     const body = buildTeamAlertBody({ reason: "CALLBACK_NUMBER", channel: "web", tenantName: "BluePass", callbackNumber: "+61 400 111 222", latestMessage: "" });
     expect(findKaiStyleBreaches(body)).toEqual([]);
+  });
+});
+
+describe("team alerts for phone calls", () => {
+  const base = { tenantName: "BluePass", latestMessage: "my friend is badly hurt", travellerPhone: "+61 400 111 222" };
+
+  it("tells the team to call back now when a caller may be hurt", () => {
+    const body = buildTeamAlertBody({ ...base, reason: "EMERGENCY", channel: "voice" });
+
+    expect(body).toContain("Kai URGENT");
+    expect(body).toContain("a caller (+61 400 111 222)");
+    expect(body).toContain("call 000");
+    expect(body).toContain("Please call them back now.");
+    expect(findKaiStyleBreaches(body)).toEqual([]);
+  });
+
+  it("says when a caller's number is unknown, and asks the team to call or message them", () => {
+    const body = buildTeamAlertBody({ ...base, travellerPhone: null, reason: "PERSON_REQUESTED", channel: "voice" });
+
+    expect(body).toContain("a caller (number unknown)");
+    expect(body).toContain("asked for a person");
+    expect(body).toContain("call or message them");
+    expect(findKaiStyleBreaches(body)).toEqual([]);
+  });
+
+  it("passes on the WhatsApp number a caller leaves", () => {
+    const body = buildTeamAlertBody({ ...base, callbackNumber: "+61 400 999 000", reason: "CALLBACK_NUMBER", channel: "voice" });
+
+    expect(body).toContain("+61 400 999 000");
+    expect(body).toContain("message them as soon as possible");
+  });
+
+  it("maps a reply's team signals to the right alert, and to none for an ordinary reply", () => {
+    expect(teamAlertReasonFor({ emergency: true, humanHandoff: "REQUESTED" })).toBe("EMERGENCY");
+    expect(teamAlertReasonFor({ humanHandoff: "CALLBACK_NUMBER" })).toBe("CALLBACK_NUMBER");
+    expect(teamAlertReasonFor({ humanHandoff: "REQUESTED" })).toBe("PERSON_REQUESTED");
+    expect(teamAlertReasonFor({})).toBeNull();
+    expect(teamAlertReasonFor({ emergency: false })).toBeNull();
   });
 });

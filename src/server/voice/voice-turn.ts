@@ -12,7 +12,8 @@ import { createBluePassRouterClient } from "@/server/llm/bluepass-router-client"
 import { normalizeLocalPhone } from "@/server/phone/normalize-local-phone";
 import { composeBluePassMarketplaceAssistantReply } from "@/server/bluepass/bluepass-marketplace-reply-composer";
 import { shouldPolishBluePassMarketplaceReply } from "@/server/bluepass/bluepass-marketplace-reply-gate";
-import { handleBluePassMarketplaceMessage } from "@/server/bluepass/bluepass-message-flow";
+import { handleBluePassMarketplaceMessage, readBluePassTeamSignals } from "@/server/bluepass/bluepass-message-flow";
+import { alertTeam, teamAlertReasonFor } from "@/server/conversation/team-alert";
 
 /**
  * One turn of a voice call with Kai. The voice itself (listening and speaking) belongs to the phone
@@ -73,6 +74,23 @@ export async function runKaiVoiceTurn(input: {
     routerClient: createBluePassRouterClient(process.env)
   });
 
+  // Kai tells the caller someone is on the way, or to call 000: the team has to hear about it too, or
+  // that promise is empty. Started now so it runs while the reply is being polished, and awaited
+  // below so a serverless function doesn't end before the alert is out.
+  const teamSignals = readBluePassTeamSignals(result);
+  const alertReason = teamAlertReasonFor(teamSignals);
+  const alert = alertReason
+    ? alertTeam({
+        tenantId: tenant.id,
+        conversationId: conversation?.id ?? null,
+        reason: alertReason,
+        channel: "voice",
+        travellerPhone: callerPhone,
+        callbackNumber: teamSignals.callbackNumber ?? null,
+        latestMessage
+      })
+    : null;
+
   const shouldPolish = shouldPolishBluePassMarketplaceReply({ persona: result.persona, replyMode: result.replyMode });
   const history = conversation
     ? await listRecentConversationMessages({ tenantId: tenant.id, conversationId: conversation.id })
@@ -91,6 +109,8 @@ export async function runKaiVoiceTurn(input: {
   if (conversation) {
     await createAssistantMessage({ tenantId: tenant.id, conversationId: conversation.id, content: composed.reply });
   }
+
+  await alert;
 
   return { reply: composed.reply, spoken: toSpokenReply(composed.reply), conversationId: conversation?.id ?? null };
 }

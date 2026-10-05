@@ -3,6 +3,14 @@ import { sendWhatsAppText } from "@/server/whatsapp/client";
 
 export type TeamAlertReason = "PERSON_REQUESTED" | "CALLBACK_NUMBER" | "EMERGENCY";
 
+/** The alert a reply's team signals call for, if any. Shared so every channel reads them the same way. */
+export function teamAlertReasonFor(signals: { emergency?: boolean; humanHandoff?: string }): TeamAlertReason | null {
+  if (signals.emergency) return "EMERGENCY";
+  if (signals.humanHandoff === "CALLBACK_NUMBER") return "CALLBACK_NUMBER";
+  if (signals.humanHandoff === "REQUESTED") return "PERSON_REQUESTED";
+  return null;
+}
+
 /**
  * Tells the team a chat needs a person: someone asked for one, left a WhatsApp number for one, or
  * may be hurt. Same channel as the other Kai alerts (a WhatsApp from the ops number to the tenant's
@@ -12,9 +20,10 @@ export type TeamAlertReason = "PERSON_REQUESTED" | "CALLBACK_NUMBER" | "EMERGENC
 export async function alertTeam(
   input: {
     tenantId: string;
-    conversationId: string;
+    /** Null for a caller Kai doesn't know by number: there is no chat to link to. */
+    conversationId: string | null;
     reason: TeamAlertReason;
-    channel: "whatsapp" | "web";
+    channel: "whatsapp" | "web" | "voice";
     travellerPhone?: string | null;
     callbackNumber?: string | null;
     latestMessage: string;
@@ -29,7 +38,7 @@ export async function alertTeam(
     });
     if (!tenant) return { sent: false };
 
-    const body = buildTeamAlertBody({ ...input, tenantName: tenant.name, transcriptUrl: transcriptUrl(env, tenant.slug, input.conversationId) });
+    const body = buildTeamAlertBody({ ...input, tenantName: tenant.name, transcriptUrl: input.conversationId ? transcriptUrl(env, tenant.slug, input.conversationId) : null });
     const adminPhone = tenant.config?.adminWhatsAppPhone?.trim() || env.KAI_TEAM_ALERT_WHATSAPP?.trim();
     const webhookUrl = env.KAI_TEAM_ALERT_WEBHOOK_URL?.trim();
     let sent = false;
@@ -69,7 +78,7 @@ export async function alertTeam(
 
 export function buildTeamAlertBody(input: {
   reason: TeamAlertReason;
-  channel: "whatsapp" | "web";
+  channel: "whatsapp" | "web" | "voice";
   tenantName: string;
   travellerPhone?: string | null;
   callbackNumber?: string | null;
@@ -78,6 +87,21 @@ export function buildTeamAlertBody(input: {
 }) {
   const quoted = `"${input.latestMessage.trim().slice(0, 280)}"`;
   const transcript = input.transcriptUrl ? ` Transcript: ${input.transcriptUrl}` : "";
+
+  if (input.channel === "voice") {
+    // A live call: the person is waiting on the line, so the ask is to call or message them now.
+    const caller = `a caller (${input.travellerPhone ?? "number unknown"})`;
+
+    if (input.reason === "EMERGENCY") {
+      return `Kai URGENT: ${caller} on the ${input.tenantName} line may be hurt or in danger: ${quoted}. Kai told them to call 000 (112 in Indonesia). Please call them back now.${transcript}`;
+    }
+
+    if (input.reason === "CALLBACK_NUMBER") {
+      return `Kai alert: a caller on the ${input.tenantName} line who asked for a person left their WhatsApp: ${input.callbackNumber}. Please message them as soon as possible.${transcript}`;
+    }
+
+    return `Kai alert: ${caller} on the ${input.tenantName} line asked for a person: ${quoted}. Kai told them someone from the team would jump in, so please call or message them as soon as you can.${transcript}`;
+  }
 
   if (input.reason === "EMERGENCY") {
     const who = input.channel === "whatsapp" && input.travellerPhone ? `on WhatsApp (${input.travellerPhone})` : "on the web chat";
