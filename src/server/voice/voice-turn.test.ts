@@ -129,4 +129,40 @@ describe("runKaiVoiceTurn", () => {
 
     expect(alertTeam).not.toHaveBeenCalled();
   }, 30_000);
+  // First ElevenLabs test call, 2026-10-05: Kai asked "what's the best WhatsApp number?", the caller
+  // read it out, and Kai answered with the boat list again because the voice turn never told the flow
+  // what Kai's last message was.
+  it("takes the WhatsApp number an unknown caller reads out, and tells the team", async () => {
+    await createBluePassTenant();
+    const ask = "Of course, I'll get a person from the BluePass team onto this as soon as possible. What's the best WhatsApp number for them to reach you on?";
+
+    const turn = await runKaiVoiceTurn({
+      messages: [
+        { role: "user", content: "can I talk to a real person?" },
+        { role: "assistant", content: ask },
+        { role: "user", content: "It's 085-337-210-180." }
+      ]
+    });
+
+    expect(turn.spoken).toContain("085-337-210-180");
+    expect(turn.spoken.toLowerCase()).toContain("message you on whatsapp");
+    expect(turn.spoken).not.toContain("Alila Purnama");
+    expect(alertTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "CALLBACK_NUMBER", channel: "voice", callbackNumber: "085-337-210-180" })
+    );
+  }, 30_000);
+
+  it("takes a yes to Kai's offer of a person as a request for one", async () => {
+    await createBluePassTenant();
+
+    await runKaiVoiceTurn({
+      messages: [
+        { role: "user", content: "are you a bot?" },
+        { role: "assistant", content: "I'm Kai, BluePass's AI concierge, so not a person, but I'll always be straight with you. Want me to get a person from the team to jump in?" },
+        { role: "user", content: "yes please" }
+      ]
+    });
+
+    expect(alertTeam).toHaveBeenCalledWith(expect.objectContaining({ reason: "PERSON_REQUESTED", channel: "voice" }));
+  }, 30_000);
 });

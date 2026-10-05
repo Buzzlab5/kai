@@ -65,11 +65,24 @@ export async function runKaiVoiceTurn(input: {
     await createTravellerMessage({ tenantId: tenant.id, conversationId: conversation.id, content: latestMessage });
   }
 
+  const history = conversation
+    ? await listRecentConversationMessages({ tenantId: tenant.id, conversationId: conversation.id })
+    : input.messages.map((message) => ({
+        role: message.role === "assistant" ? ("assistant" as const) : ("traveller" as const),
+        content: message.content
+      }));
+  // The flow recognises a WhatsApp number, or a "yes" to Kai's offer of a person, only as an answer to
+  // Kai's own last message, so it has to be told what that was. The chat routes pass it; the voice
+  // turn didn't, so a caller who gave their number was answered with the boat list again (seen in
+  // the first ElevenLabs test call, 2026-10-05).
+  const lastAssistantMessage = [...history].reverse().find((message) => message.role === "assistant")?.content ?? null;
+
   const result = await handleBluePassMarketplaceMessage({
     tenantId: tenant.id,
     conversationId: conversation?.id ?? `voice-${tenant.id}`,
     content: latestMessage,
     priorTravellerMessages,
+    lastAssistantMessage,
     travellerPhone: callerPhone,
     routerClient: createBluePassRouterClient(process.env)
   });
@@ -92,12 +105,6 @@ export async function runKaiVoiceTurn(input: {
     : null;
 
   const shouldPolish = shouldPolishBluePassMarketplaceReply({ persona: result.persona, replyMode: result.replyMode });
-  const history = conversation
-    ? await listRecentConversationMessages({ tenantId: tenant.id, conversationId: conversation.id })
-    : input.messages.map((message) => ({
-        role: message.role === "assistant" ? ("assistant" as const) : ("traveller" as const),
-        content: message.content
-      }));
   const composed = await composeBluePassMarketplaceAssistantReply({
     deterministicReply: result.assistantContent,
     latestMessage,
