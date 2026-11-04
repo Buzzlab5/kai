@@ -14,6 +14,7 @@ import {
   extractWhatsAppMessageStatusesFromWebhook
 } from "@/server/whatsapp/webhook";
 import { sendWhatsAppTypingIndicator } from "@/server/whatsapp/client";
+import { authorizeWhatsAppWebhook } from "@/server/whatsapp/webhook-auth";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -29,7 +30,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => null);
+  const rawBody = await request.text();
+  const auth = authorizeWhatsAppWebhook({
+    rawBody,
+    signatureHeader: request.headers.get("x-hub-signature-256"),
+    authorizationHeader: request.headers.get("authorization")
+  });
+  if (!auth.ok) {
+    console.warn("whatsapp.webhook.rejected", { reason: auth.reason });
+    return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
+  }
+
+  let payload: unknown = null;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    payload = null;
+  }
   const inboundMessages = extractWhatsAppInboundTextMessagesFromWebhook(payload);
 
   // An operator answering a paid native booking ("ACCEPT <ref>" / "DECLINE <ref>") is settled first
