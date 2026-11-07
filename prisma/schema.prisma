@@ -767,3 +767,19 @@ model NativeBooking {
   @@index([tenantId, status])
   @@index([status, operatorDeadlineAt])
 }
+
+// One row per inbound WhatsApp provider message id Meta (or the redesign forwarder) has delivered
+// to the webhook. Meta retries deliveries, so the webhook claims the id before handling anything:
+// a redelivery of the same id is acknowledged without re-running operator responses, traveller
+// notifications or quote creation.
+model WhatsAppInboundMessageReceipt {
+  id                String    @id @default(cuid())
+  providerMessageId String    @unique
+  fromPhone         String?
+  outcome           String?
+  bluePassInquiryId String?
+  claimToken        String?
+  heartbeatAt       DateTime?
+  receivedAt        DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}

@@ -1814,11 +1814,18 @@ describe("handleBluePassMarketplaceMessage", () => {
       selectedYachtSlug: "calico-jack"
     });
 
+    // The operator reply must come from the phone the inquiry was actually dispatched to
+    // (sender-ownership check in handleBluePassOperatorResponse).
+    const firstDispatch = await prisma.bluePassOperatorDispatch.findFirstOrThrow({
+      where: { bluePassInquiryId: firstInquiry.bluepassInquiry!.id },
+      orderBy: { createdAt: "desc" }
+    });
     await import("./bluepass-inquiry-repository").then(({ handleBluePassOperatorResponse }) =>
       handleBluePassOperatorResponse({
         inquiryId: firstInquiry.bluepassInquiry!.id,
         action: "decline",
-        providerMessageId: "wamid.calico.decline"
+        providerMessageId: "wamid.calico.decline",
+        operatorPhone: firstDispatch.operatorPhone
       })
     );
 

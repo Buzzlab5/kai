@@ -1,4 +1,5 @@
 import type { BluePassOperatorResponseAction } from "@/server/bluepass/bluepass-inquiry-repository";
+import { phoneDigitVariantsForMatch } from "@/server/phone/normalize-local-phone";
 
 export type BluePassOperatorWebhookResponse = {
   inquiryId: string | null;
@@ -88,12 +89,48 @@ const operatorTextActionMap: Record<string, BluePassOperatorResponseAction> = {
   "booking_confirmed": "booking_confirmed"
 };
 
-export function extractBluePassOperatorResponsesFromWhatsAppWebhook(payload: unknown): BluePassOperatorWebhookResponse[] {
+export type BluePassOperatorResponseExtractionOptions = {
+  /**
+   * Phones (any format) that currently hold a BluePass operator dispatch. Free-text and
+   * bare-word operator replies ("accept", availability/price details, ...) are only honored
+   * from these senders; the same words from anyone else stay ordinary conversation. Explicit
+   * `action:inquiryId` commands are always extracted - the inquiry repository re-checks sender
+   * ownership and inquiry status before applying them.
+   *
+   * When omitted entirely, every sender is treated as a potential operator (legacy behavior,
+   * kept for the pure parser tests). Callers handling live webhooks should always pass the set.
+   */
+  knownOperatorPhones?: Iterable<string>;
+};
+
+export function extractBluePassOperatorResponsesFromWhatsAppWebhook(
+  payload: unknown,
+  options?: BluePassOperatorResponseExtractionOptions
+): BluePassOperatorWebhookResponse[] {
   const messages = extractWhatsAppMessages(payload);
+  const knownOperatorDigits = new Set<string>();
+  if (options?.knownOperatorPhones) {
+    for (const phone of options.knownOperatorPhones) {
+      for (const variant of phoneDigitVariantsForMatch(phone)) {
+        knownOperatorDigits.add(variant);
+      }
+    }
+  }
+  const restrictToKnownOperators = Boolean(options?.knownOperatorPhones);
 
   return messages
-    .map((message) => parseBluePassOperatorResponse(message))
+    .map((message) =>
+      parseBluePassOperatorResponse(message, {
+        allowInformalReply:
+          !restrictToKnownOperators || phoneMatchesKnownDigits(message.from, knownOperatorDigits)
+      })
+    )
     .filter((response): response is BluePassOperatorWebhookResponse => Boolean(response));
+}
+
+function phoneMatchesKnownDigits(from: string | undefined, knownOperatorDigits: ReadonlySet<string>) {
+  if (!from) return false;
+  return phoneDigitVariantsForMatch(from).some((variant) => knownOperatorDigits.has(variant));
 }
 
 export function extractWhatsAppMessageStatusesFromWebhook(payload: unknown): WhatsAppWebhookMessageStatus[] {
@@ -138,12 +175,19 @@ function extractWhatsAppStatuses(payload: unknown): WhatsAppWebhookStatus[] {
   );
 }
 
-function parseBluePassOperatorResponse(message: WhatsAppWebhookMessage): BluePassOperatorWebhookResponse | null {
+function parseBluePassOperatorResponse(
+  message: WhatsAppWebhookMessage,
+  options: { allowInformalReply: boolean } = { allowInformalReply: true }
+): BluePassOperatorWebhookResponse | null {
   const payload = message.interactive?.button_reply?.id ?? message.button?.payload ?? message.button?.text ?? message.text?.body;
   if (!payload) return null;
 
   const match = payload.trim().match(operatorResponsePattern);
   if (!match) {
+    // Informal replies (bare "accept"/"decline", free-text availability/price details) are only
+    // operator commands when the sender is a known operator; otherwise they are conversation.
+    if (!options.allowInformalReply) return null;
+
     const trimmedPayload = payload.trim();
     const action = operatorTextActionMap[trimmedPayload.toLowerCase()];
     if (!action) {

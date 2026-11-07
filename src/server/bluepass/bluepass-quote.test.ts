@@ -44,6 +44,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Original 4 July is unavailable. Available 6 July, price USD 3,900 per cabin/night for 2 guests, includes full board meals, dives, crew, tanks, and weights. Excludes flights, park fees, alcohol, tips, and transfers. Condition: 30% deposit to hold."
@@ -93,6 +94,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Available 18 July 2026. Final price USD 3,900 per cabin/night for 4 guests. Includes full board meals, daily dives, crew, tanks, weights, and airport transfers. Excludes flights, park fees, alcohol, tips, and personal expenses. Condition: 30% deposit to hold, balance due 30 days before departure."
@@ -133,6 +135,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "accept"
     });
 
@@ -186,6 +189,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Available 22 July 2026. Final price USD 3,900 per cabin/night for 2 guests. Includes full board meals, daily dives, crew, tanks, weights, and airport transfers. Excludes flights, park fees, alcohol, tips, and personal expenses. Condition: 30% deposit to hold, balance due 30 days before departure."
@@ -259,6 +263,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Available 22 July 2026. Final price USD 3,900 per cabin/night for 2 guests. Includes full board meals. Excludes flights. Condition: 30% deposit to hold."
@@ -347,6 +352,7 @@ describe("bluepass quote", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210181",
       action: "counter",
       counterText: "Available 22 July 2026. Final price USD 4,100 per cabin\night for 2 guests."
     });

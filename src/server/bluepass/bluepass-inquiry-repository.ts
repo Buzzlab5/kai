@@ -12,7 +12,11 @@ import {
   listRecentConversationMessages
 } from "@/server/conversation/conversation-repository";
 import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
-import { internationalToLocalPhone, normalizeLocalPhone } from "@/server/phone/normalize-local-phone";
+import {
+  internationalToLocalPhone,
+  normalizeLocalPhone,
+  phoneDigitVariantsForMatch
+} from "@/server/phone/normalize-local-phone";
 import { sendTemplateMessage, sendWhatsAppText } from "@/server/whatsapp/client";
 import { resolveBluePassOperatorDirectoryPhone } from "./bluepass-operator-directory";
 import { createBluePassQuoteDraftForOperatorResponse, getBluePassQuote } from "./bluepass-quote";
@@ -62,6 +66,29 @@ export type CreateOrReuseBluePassInquiryInput = {
 };
 
 export type BluePassOperatorResponseAction = "accept" | "decline" | "counter" | "payment_ready" | "booking_confirmed";
+
+export type BluePassOperatorResponseResult = {
+  inquiry: BluePassInquiry;
+  travellerNotification: {
+    channel: string;
+    sent: boolean;
+    providerMessageId?: string | null;
+    skippedReason?: string;
+    whatsappDeliveryFailed?: boolean;
+  } | null;
+  notificationRecovery?: {
+    state: "sent" | "already_sent" | "exhausted" | "no_anchor";
+    uncertainPrior: boolean;
+  };
+  operatorFollowUp: {
+    requested: boolean;
+    channel?: string;
+    sent?: boolean;
+    providerMessageId?: string | null;
+    prompt?: string;
+    skippedReason?: string;
+  } | null;
+};
 
 export type HandleBluePassOperatorResponseInput = {
   inquiryId: string;
@@ -591,12 +618,280 @@ export async function getLatestBluePassInquiryStatus(input: { tenantId: string; 
     : null;
 }
 
-export async function handleBluePassOperatorResponse(input: HandleBluePassOperatorResponseInput) {
+const bluePassOperatorActionAnchorEventTypes: Record<BluePassOperatorResponseAction, string> = {
+  accept: "OPERATOR_ACCEPTED",
+  decline: "OPERATOR_DECLINED",
+  counter: "OPERATOR_COUNTER_OFFERED",
+  payment_ready: "OPERATOR_PAYMENT_READY",
+  booking_confirmed: "OPERATOR_BOOKING_CONFIRMED"
+};
+
+const TRAVELLER_NOTIFICATION_CLAIM_EVENT_TYPE = "TRAVELLER_WHATSAPP_NOTIFICATION_CLAIM";
+const TRAVELLER_NOTIFICATION_ATTEMPT_EVENT_TYPE = "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT";
+const TRAVELLER_NOTIFICATION_MAX_SEND_CLAIMS = 3;
+
+type TravellerNotificationClaimDecision =
+  | { state: "no_anchor" | "already_sent" | "exhausted" }
+  | {
+      state: "send";
+      uncertainPrior: boolean;
+      notification: BluePassOperatorResponseResult["travellerNotification"];
+    };
+
+/**
+ * Fenced, capped delivery of the traveller notification behind an operator action.
+ *
+ * Why this exists: the action transition commits before the notification is sent, so a crash
+ * (or a plain provider failure) between the two leaves the traveller hanging - the state
+ * moved, no notification went out, and a redelivery of the same operator reply no-ops on the
+ * status guard. Every path that can reach the notification (first attempt, concurrent-delivery
+ * loser, redelivery no-op, terminal repeat) funnels through here:
+ *
+ * - Exactly one sender: an advisory lock serializes candidates per inquiry; whoever finds no
+ *   SENT/SKIPPED event after the action's anchor event writes a CLAIM marker (capped) and wins
+ *   the right to send. Losers observe the recorded outcome and stop.
+ * - Bounded recovery: a failed send records a FAILED event; the next redelivery re-enters here
+ *   and claims another attempt, up to TRAVELLER_NOTIFICATION_MAX_SEND_CLAIMS per anchor. At the
+ *   cap the failure stays durable (FAILED events + CLAIM markers + an unresolved receipt
+ *   outcome) for an operator to act on instead of looping forever.
+ * - Honest uncertainty: the send writes an ATTEMPT event before calling the provider and a
+ *   SENT/FAILED event after. A crash between provider accept and the SENT write leaves an
+ *   unresolved ATTEMPT; re-drives flag that (priorAttemptUncertain) because the traveller may
+ *   already have received the first send. Exactly-once is NOT guaranteed - Meta provides no
+ *   idempotency key - so this chooses bounded at-least-once (the traveller is never silently
+ *   abandoned) with the possible duplicate explicitly marked.
+ */
+async function ensureBluePassTravellerNotifiedForOperatorAction(input: {
+  inquiry: BluePassInquiry;
+  action: BluePassOperatorResponseAction;
+  counterText?: string | null;
+  paymentText?: string | null;
+  confirmationText?: string | null;
+  quoteUrl?: string | null;
+}): Promise<{
+  state: "sent" | "already_sent" | "exhausted" | "no_anchor";
+  uncertainPrior: boolean;
+  notification: BluePassOperatorResponseResult["travellerNotification"];
+}> {
+  const anchorType = bluePassOperatorActionAnchorEventTypes[input.action];
+  const isCompletedEvent = (type: string) =>
+    type === "TRAVELLER_WHATSAPP_NOTIFICATION_SENT" || type === "TRAVELLER_WHATSAPP_NOTIFICATION_SKIPPED";
+
+  // Pre-read (unlocked) for content building only; the locked section re-verifies everything.
+  const initialEvents = await prisma.bluePassInquiryEvent.findMany({
+    where: { bluePassInquiryId: input.inquiry.id },
+    orderBy: { createdAt: "asc" }
+  });
+  const initialAnchor = [...initialEvents].reverse().find((event) => event.type === anchorType);
+  if (!initialAnchor) {
+    return { state: "no_anchor", uncertainPrior: false, notification: null };
+  }
+
+  // Rebuild the traveller-facing content, preferring this call's own details and falling back
+  // to the anchor event's metadata (the redrive-of-a-crash case).
+  const initialMetadata =
+    initialAnchor.metadata && typeof initialAnchor.metadata === "object" && !Array.isArray(initialAnchor.metadata)
+      ? (initialAnchor.metadata as Record<string, unknown>)
+      : {};
+  const anchorText = (key: string) => {
+    const value = initialMetadata[key];
+    return typeof value === "string" && value.trim() ? value : null;
+  };
+
+  let content: string | null = null;
+  if (input.action === "payment_ready") {
+    const paymentText = input.paymentText?.trim() || anchorText("paymentText");
+    if (paymentText) {
+      content = buildPaymentReadyTravellerNotification({ inquiry: input.inquiry, paymentText });
+    }
+  } else if (input.action === "booking_confirmed") {
+    const confirmationText = input.confirmationText?.trim() || anchorText("confirmationText");
+    if (confirmationText) {
+      content = buildBookingConfirmedTravellerNotification({ inquiry: input.inquiry, confirmationText });
+    }
+  } else {
+    const quoteUrl =
+      input.quoteUrl ?? (await getBluePassQuote({ quoteId: input.inquiry.id }))?.quoteUrl ?? null;
+    content = buildOperatorResponseTravellerNotification({
+      inquiry: input.inquiry,
+      action: input.action,
+      counterText: input.counterText?.trim() || anchorText("counterText"),
+      quoteUrl
+    });
+  }
+  if (!content) {
+    return { state: "no_anchor", uncertainPrior: false, notification: null };
+  }
+  const notificationContent = content;
+
+  const decision = await prisma.$transaction(
+    async (tx): Promise<TravellerNotificationClaimDecision> => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.inquiry.id}, 0))`;
+      const events = await tx.bluePassInquiryEvent.findMany({
+        where: { bluePassInquiryId: input.inquiry.id },
+        orderBy: { createdAt: "asc" }
+      });
+      const anchor = [...events].reverse().find((event) => event.type === anchorType);
+      if (!anchor) return { state: "no_anchor" };
+      const afterAnchor = events.filter((event) => event.createdAt >= anchor.createdAt && event.id !== anchor.id);
+      if (afterAnchor.some((event) => isCompletedEvent(event.type))) {
+        return { state: "already_sent" };
+      }
+      // The cap counts ATTEMPT events (one per provider send, written before the call), so it
+      // bounds real sends even if a CLAIM marker is rolled back by a transaction abort.
+      const sendAttempts = afterAnchor.filter((event) => event.type === TRAVELLER_NOTIFICATION_ATTEMPT_EVENT_TYPE);
+      if (sendAttempts.length >= TRAVELLER_NOTIFICATION_MAX_SEND_CLAIMS) {
+        // Bounded retry is exhausted; this is NOT a delivered guarantee. Record a durable,
+        // actionable audit event (once) so an operator can see the traveller was never
+        // notified and intervene manually, instead of the failure fading into a quiet outcome.
+        const exhaustionAlreadyRecorded = afterAnchor.some(
+          (event) => event.type === "TRAVELLER_WHATSAPP_NOTIFICATION_RECOVERY_EXHAUSTED"
+        );
+        if (!exhaustionAlreadyRecorded) {
+          await tx.bluePassInquiryEvent.create({
+            data: {
+              tenantId: input.inquiry.tenantId,
+              conversationId: input.inquiry.conversationId,
+              bluePassInquiryId: input.inquiry.id,
+              type: "TRAVELLER_WHATSAPP_NOTIFICATION_RECOVERY_EXHAUSTED",
+              fromStatus: input.inquiry.status,
+              toStatus: input.inquiry.status,
+              metadata: {
+                anchorEventId: anchor.id,
+                anchorType,
+                attempts: sendAttempts.length,
+                actionRequired:
+                  "Traveller was never notified of the operator's reply after bounded retries; contact the traveller manually."
+              }
+            }
+          });
+        }
+        return { state: "exhausted" };
+      }
+      const claims = afterAnchor.filter((event) => event.type === TRAVELLER_NOTIFICATION_CLAIM_EVENT_TYPE);
+      const lastAttempt = [...sendAttempts].reverse()[0];
+      const uncertainPrior = Boolean(
+        lastAttempt &&
+          !afterAnchor.some(
+            (event) =>
+              event.createdAt >= lastAttempt.createdAt &&
+              (event.type === "TRAVELLER_WHATSAPP_NOTIFICATION_SENT" ||
+                event.type === "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED" ||
+                event.type === "TRAVELLER_WHATSAPP_NOTIFICATION_SKIPPED")
+          )
+      );
+      await tx.bluePassInquiryEvent.create({
+        data: {
+          tenantId: input.inquiry.tenantId,
+          conversationId: input.inquiry.conversationId,
+          bluePassInquiryId: input.inquiry.id,
+          type: TRAVELLER_NOTIFICATION_CLAIM_EVENT_TYPE,
+          fromStatus: input.inquiry.status,
+          toStatus: input.inquiry.status,
+          metadata: {
+            anchorEventId: anchor.id,
+            anchorType,
+            attempt: claims.length + 1,
+            priorAttemptUncertain: uncertainPrior
+          }
+        }
+      });
+
+      // Hold the advisory lock THROUGH the provider send: a concurrent candidate blocks on the
+      // lock until this attempt's outcome (SENT / FAILED / SKIPPED) is recorded, then observes
+      // it and stops - so the notification goes out once per claim, never twice from a race.
+      // ATTEMPT/SENT/FAILED are written on the default connection (outside this transaction),
+      // so a crash or abort here still leaves the durable uncertainty record behind.
+
+      // If a previous attempt crashed after writing the assistant message but before the send,
+      // the content is already in the conversation; reuse it instead of double-posting.
+      const recentMessages = await listRecentConversationMessages({
+        tenantId: input.inquiry.tenantId,
+        conversationId: input.inquiry.conversationId,
+        take: 4
+      });
+      const lastAssistant = [...recentMessages].reverse().find((message) => message.role === "assistant");
+      if (lastAssistant?.content !== notificationContent) {
+        await createAssistantMessage({
+          tenantId: input.inquiry.tenantId,
+          conversationId: input.inquiry.conversationId,
+          content: notificationContent
+        });
+      }
+
+      const notification = await sendTravellerWhatsAppNotification({
+        inquiry: input.inquiry,
+        content: notificationContent
+      });
+      return { state: "send", uncertainPrior, notification };
+    },
+    { maxWait: 30_000, timeout: 60_000 }
+  );
+
+  if (decision.state !== "send") {
+    return { state: decision.state, uncertainPrior: false, notification: null };
+  }
+  return { state: "sent", uncertainPrior: decision.uncertainPrior, notification: decision.notification };
+}
+
+export async function handleBluePassOperatorResponse(
+  input: HandleBluePassOperatorResponseInput
+): Promise<BluePassOperatorResponseResult> {
   const inquiry = await prisma.bluePassInquiry.findUnique({
-    where: { id: input.inquiryId }
+    where: { id: input.inquiryId },
+    include: {
+      dispatches: {
+        select: { operatorPhone: true }
+      }
+    }
   });
   if (!inquiry) {
     throw new Error(`BluePass inquiry ${input.inquiryId} was not found for operator response.`);
+  }
+
+  // Sender ownership: an operator response only applies to the inquiry that operator was
+  // actually dispatched (or named on). Without this, anyone who learns an inquiry id - or any
+  // traveller whose text is misread as a command - could move someone else's inquiry.
+  const ownership = verifyBluePassOperatorResponseOwnership(inquiry, input.operatorPhone);
+  if (!ownership.ok) {
+    await recordRejectedBluePassOperatorResponse({
+      inquiry,
+      input,
+      reason: ownership.reason
+    });
+    throw new Error(
+      `Rejected ${input.action} for BluePass inquiry ${inquiry.id}: ${ownership.reason}`
+    );
+  }
+
+  // Status guard: terminal inquiries never move again, actions only apply from statuses where
+  // they make sense, and repeating the action that produced the current status is an idempotent
+  // no-op instead of a duplicate traveller notification.
+  const statusGuard = checkBluePassOperatorResponseStatus(inquiry.status, input.action);
+  if (statusGuard.kind === "reject") {
+    await recordRejectedBluePassOperatorResponse({
+      inquiry,
+      input,
+      reason: statusGuard.reason
+    });
+    throw new Error(
+      `Rejected ${input.action} for BluePass inquiry ${inquiry.id}: ${statusGuard.reason}`
+    );
+  }
+  if (statusGuard.kind === "noop") {
+    const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
+      inquiry,
+      action: input.action
+    });
+    return {
+      inquiry,
+      travellerNotification: notificationDelivery.notification,
+      operatorFollowUp: null,
+      notificationRecovery: {
+        state: notificationDelivery.state,
+        uncertainPrior: notificationDelivery.uncertainPrior
+      }
+    };
   }
 
   if (input.action === "counter" && !input.counterText?.trim()) {
@@ -633,11 +928,20 @@ export async function handleBluePassOperatorResponse(input: HandleBluePassOperat
 
   const nextStatus = resolveOperatorResponseStatus(input.action);
   const eventType = resolveOperatorResponseEventType(input.action);
-  const updated = await prisma.bluePassInquiry.update({
-    where: { id: inquiry.id },
+  // Compare-and-set: concurrent operator replies (different message ids, e.g. Meta delivering
+  // two webhooks at once) both pass the read-side status guard, but only one can move the
+  // inquiry. The loser re-reads and re-applies the guard instead of double-notifying.
+  const transition = await prisma.bluePassInquiry.updateMany({
+    where: { id: inquiry.id, status: inquiry.status },
     data: {
       status: nextStatus
     }
+  });
+  if (transition.count === 0) {
+    return handleConcurrentBluePassOperatorResponse({ inquiryId: inquiry.id, input });
+  }
+  const updated = await prisma.bluePassInquiry.findUniqueOrThrow({
+    where: { id: inquiry.id }
   });
 
   await createBluePassInquiryEvent({
@@ -669,22 +973,11 @@ export async function handleBluePassOperatorResponse(input: HandleBluePassOperat
     needsAcceptPriceFollowUp = input.action === "accept" && quote?.status === "NEEDS_FINAL_PRICE";
   }
 
-  const notificationContent = buildOperatorResponseTravellerNotification({
+  const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
     inquiry: updated,
     action: input.action,
     counterText: input.counterText,
     quoteUrl
-  });
-
-  await createAssistantMessage({
-    tenantId: updated.tenantId,
-    conversationId: updated.conversationId,
-    content: notificationContent
-  });
-
-  const whatsappNotification = await sendTravellerWhatsAppNotification({
-    inquiry: updated,
-    content: notificationContent
   });
 
   const operatorFollowUp = needsAcceptPriceFollowUp
@@ -697,8 +990,12 @@ export async function handleBluePassOperatorResponse(input: HandleBluePassOperat
 
   return {
     inquiry: updated,
-    travellerNotification: whatsappNotification,
-    operatorFollowUp
+    travellerNotification: notificationDelivery.notification,
+    operatorFollowUp,
+    notificationRecovery: {
+      state: notificationDelivery.state,
+      uncertainPrior: notificationDelivery.uncertainPrior
+    }
   };
 }
 
@@ -1039,6 +1336,186 @@ function buildOperatorPhoneCandidates(value?: string | null) {
 
   const digits = raw.replace(/\D/g, "");
   return Array.from(new Set([raw, digits, digits ? `+${digits}` : ""])).filter(Boolean);
+}
+
+type BluePassInquiryWithDispatchPhones = BluePassInquiry & {
+  dispatches: Array<{ operatorPhone: string }>;
+};
+
+function collectStoredOperatorPhoneDigitVariants(inquiry: BluePassInquiryWithDispatchPhones) {
+  const variants = new Set<string>();
+  const storedPhones = [...inquiry.dispatches.map((dispatch) => dispatch.operatorPhone), inquiry.operatorPhone];
+  for (const phone of storedPhones) {
+    for (const variant of phoneDigitVariantsForMatch(phone)) {
+      variants.add(variant);
+    }
+  }
+  return variants;
+}
+
+function verifyBluePassOperatorResponseOwnership(
+  inquiry: BluePassInquiryWithDispatchPhones,
+  operatorPhone?: string | null
+): { ok: true } | { ok: false; reason: string } {
+  const senderVariants = phoneDigitVariantsForMatch(operatorPhone);
+  if (senderVariants.length === 0) {
+    return { ok: false, reason: "sender phone missing, ownership cannot be verified" };
+  }
+
+  const storedVariants = collectStoredOperatorPhoneDigitVariants(inquiry);
+  if (storedVariants.size === 0) {
+    return { ok: false, reason: "inquiry has no dispatched or recorded operator phone" };
+  }
+
+  return senderVariants.some((variant) => storedVariants.has(variant))
+    ? { ok: true }
+    : { ok: false, reason: "sender is not the operator this inquiry was dispatched to" };
+}
+
+const bluePassOperatorResponseAllowedStatuses: Record<BluePassOperatorResponseAction, readonly string[]> = {
+  accept: ["READY_TO_DISPATCH", "OPERATOR_PENDING", "OPERATOR_ACCEPTED", "COUNTER_OFFERED"],
+  decline: ["READY_TO_DISPATCH", "OPERATOR_PENDING", "OPERATOR_ACCEPTED", "COUNTER_OFFERED"],
+  counter: ["READY_TO_DISPATCH", "OPERATOR_PENDING", "OPERATOR_ACCEPTED", "COUNTER_OFFERED"],
+  payment_ready: ["OPERATOR_ACCEPTED", "COUNTER_OFFERED"],
+  booking_confirmed: ["OPERATOR_ACCEPTED", "COUNTER_OFFERED"]
+};
+
+const bluePassOperatorResponseTerminalStatuses = new Set(["DECLINED", "CLOSED"]);
+
+function checkBluePassOperatorResponseStatus(
+  status: BluePassInquiry["status"],
+  action: BluePassOperatorResponseAction
+): { kind: "apply" } | { kind: "noop" } | { kind: "reject"; reason: string } {
+  if (bluePassOperatorResponseTerminalStatuses.has(status)) {
+    // Repeating the reply that produced the terminal state is an idempotent no-op, so a
+    // redelivery can recover a traveller notification lost after the transition committed.
+    // A conflicting action on a terminal inquiry stays rejected.
+    const repeatsTerminalOutcome =
+      (action === "decline" && status === "DECLINED") ||
+      (action === "booking_confirmed" && status === "CLOSED");
+    if (repeatsTerminalOutcome) {
+      return { kind: "noop" };
+    }
+    return { kind: "reject", reason: `inquiry is already ${status.toLowerCase().replace(/_/g, " ")}` };
+  }
+
+  if (!bluePassOperatorResponseAllowedStatuses[action].includes(status)) {
+    return {
+      kind: "reject",
+      reason: `a ${action.replace(/_/g, " ")} reply does not apply while the inquiry is ${status
+        .toLowerCase()
+        .replace(/_/g, " ")}`
+    };
+  }
+
+  // Repeating the reply that produced the current status changes nothing; acknowledge it without
+  // re-sending the traveller notification or re-drafting the quote.
+  const repeatsCurrentStatus =
+    (action === "accept" && status === "OPERATOR_ACCEPTED") ||
+    (action === "counter" && status === "COUNTER_OFFERED");
+  return repeatsCurrentStatus ? { kind: "noop" } : { kind: "apply" };
+}
+
+async function recordRejectedBluePassOperatorResponse(input: {
+  inquiry: BluePassInquiry;
+  input: HandleBluePassOperatorResponseInput;
+  reason: string;
+}) {
+  try {
+    await createBluePassInquiryEvent({
+      inquiry: input.inquiry,
+      type: "OPERATOR_RESPONSE_REJECTED",
+      fromStatus: input.inquiry.status,
+      toStatus: input.inquiry.status,
+      metadata: {
+        reason: input.reason,
+        action: input.input.action,
+        providerMessageId: input.input.providerMessageId ?? null,
+        operatorPhone: input.input.operatorPhone ?? null,
+        counterText: input.input.counterText ?? null
+      }
+    });
+  } catch {
+    // Rejection audit must never mask the rejection itself.
+  }
+}
+
+/**
+ * The losing side of a concurrent status transition: re-read the inquiry and re-apply the
+ * status guard. A repeat of the action that won the race is an idempotent no-op; anything
+ * else is judged against the status the inquiry actually has now.
+ */
+async function handleConcurrentBluePassOperatorResponse(input: {
+  inquiryId: string;
+  input: HandleBluePassOperatorResponseInput;
+}): Promise<BluePassOperatorResponseResult> {
+  const current = await prisma.bluePassInquiry.findUniqueOrThrow({
+    where: { id: input.inquiryId }
+  });
+  const statusGuard = checkBluePassOperatorResponseStatus(current.status, input.input.action);
+  if (statusGuard.kind === "noop") {
+    const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
+      inquiry: current,
+      action: input.input.action
+    });
+    return {
+      inquiry: current,
+      travellerNotification: notificationDelivery.notification,
+      operatorFollowUp: null,
+      notificationRecovery: {
+        state: notificationDelivery.state,
+        uncertainPrior: notificationDelivery.uncertainPrior
+      }
+    };
+  }
+  if (statusGuard.kind === "apply") {
+    // The winning transition moved the inquiry to a status this action is still allowed from
+    // (e.g. decline after a concurrent accept): apply it against the current row.
+    return handleBluePassOperatorResponse(input.input);
+  }
+  await recordRejectedBluePassOperatorResponse({
+    inquiry: current,
+    input: input.input,
+    reason: statusGuard.reason
+  });
+  throw new Error(
+    `Rejected ${input.input.action} for BluePass inquiry ${input.inquiryId}: ${statusGuard.reason}`
+  );
+}
+
+/**
+ * Phones holding any BluePass operator dispatch whose stored number matches one of the given
+ * senders (in any stored format). The webhook route uses this to decide whose free-text replies
+ * may be parsed as operator commands - everyone else's words stay ordinary conversation.
+ *
+ * Deliberate scope: ANY historical dispatch counts, of any age or outcome. There is no global
+ * retention policy for dispatch rows today and this function does not invent one; while an
+ * operator keeps the same phone, their informal replies keep parsing as operator commands.
+ * Sender ownership for actually APPLYING a reply is enforced per inquiry inside
+ * handleBluePassOperatorResponse, so a stale "known operator" can never move an inquiry that
+ * was not dispatched to them - the worst case of the broad parse gate is an informal reply
+ * being rejected (audited) instead of treated as conversation.
+ */
+export async function findDispatchedBluePassOperatorPhones(fromPhones: Array<string | null | undefined>) {
+  const candidates = new Set<string>();
+  for (const phone of fromPhones) {
+    for (const candidate of buildOperatorPhoneCandidates(phone)) {
+      candidates.add(candidate);
+    }
+    for (const variant of phoneDigitVariantsForMatch(phone)) {
+      candidates.add(variant);
+      candidates.add(`+${variant}`);
+    }
+  }
+  if (candidates.size === 0) return [];
+
+  const dispatches = await prisma.bluePassOperatorDispatch.findMany({
+    where: { operatorPhone: { in: Array.from(candidates) } },
+    select: { operatorPhone: true },
+    distinct: ["operatorPhone"]
+  });
+
+  return dispatches.map((dispatch) => dispatch.operatorPhone);
 }
 
 function buildParticipantPhoneCandidates(value?: string | null) {
@@ -1499,6 +1976,42 @@ async function findTravellerWhatsAppSentEvent(providerMessageId: string) {
   );
 }
 
+/**
+ * True when an inbound traveller message id already has a context-handling event recorded
+ * (received / reply sent / reply failed). The webhook route uses this to skip re-running a
+ * reclaimed conversational message whose first attempt actually completed, because a
+ * conversational reply is not safe to send twice and the handler has no CAS equivalent.
+ */
+export async function hasBluePassContextMessageBeenProcessed(providerMessageId: string, tenantId: string) {
+  // Exact durable identity match scoped to the tenant that owns the conversation: neither a
+  // bounded tail scan (a record must never age out of a recency window) nor a global match
+  // (global uniqueness of provider message ids is an external claim we do not rely on - the
+  // same id under another tenant must NOT read as processed here). Fail-closed without a
+  // tenant scope: an unscoped query would silently drop the tenant filter and read as global.
+  if (!tenantId) return false;
+  // WHATSAPP_CONTEXT_MESSAGE_RECEIVED records the inbound id as providerMessageId; the reply
+  // events record it as inboundProviderMessageId (their providerMessageId is the outbound id).
+  const received = await prisma.bluePassInquiryEvent.findFirst({
+    where: {
+      tenantId,
+      type: "WHATSAPP_CONTEXT_MESSAGE_RECEIVED",
+      metadata: { path: ["providerMessageId"], equals: providerMessageId }
+    },
+    select: { id: true }
+  });
+  if (received) return true;
+
+  const replied = await prisma.bluePassInquiryEvent.findFirst({
+    where: {
+      tenantId,
+      type: { in: ["WHATSAPP_CONTEXT_REPLY_SENT", "WHATSAPP_CONTEXT_REPLY_FAILED"] },
+      metadata: { path: ["inboundProviderMessageId"], equals: providerMessageId }
+    },
+    select: { id: true }
+  });
+  return Boolean(replied);
+}
+
 export async function createBluePassInquiryEvent(input: {
   inquiry: BluePassInquiry;
   type: string;
@@ -1625,8 +2138,13 @@ async function handleBluePassPaymentReadyOperatorResponse(input: {
     };
   }
 
-  await createBluePassInquiryEvent({
-    inquiry: input.inquiry,
+  // Once-only per inquiry: concurrent payment-ready replies (different message ids) would both
+  // pass the read-side checks, so the event insert is serialized per inquiry with an advisory
+  // lock and the loser is acknowledged without re-sending the traveller the payment details.
+  const paymentReadyEvent = {
+    tenantId: input.inquiry.tenantId,
+    conversationId: input.inquiry.conversationId,
+    bluePassInquiryId: input.inquiry.id,
     type: "OPERATOR_PAYMENT_READY",
     fromStatus: input.inquiry.status,
     toStatus: input.inquiry.status,
@@ -1636,28 +2154,46 @@ async function handleBluePassPaymentReadyOperatorResponse(input: {
       paymentText,
       quoteId: quote.id
     }
+  };
+  const wonPaymentReady = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.inquiry.id}, 0))`;
+    const existing = await tx.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: input.inquiry.id, type: "OPERATOR_PAYMENT_READY" }
+    });
+    if (existing) return false;
+    await tx.bluePassInquiryEvent.create({ data: paymentReadyEvent });
+    return true;
   });
+  if (!wonPaymentReady) {
+    const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
+      inquiry: input.inquiry,
+      action: "payment_ready"
+    });
+    return {
+      inquiry: input.inquiry,
+      travellerNotification: notificationDelivery.notification,
+      operatorFollowUp: null,
+      notificationRecovery: {
+        state: notificationDelivery.state,
+        uncertainPrior: notificationDelivery.uncertainPrior
+      }
+    };
+  }
 
-  const notificationContent = buildPaymentReadyTravellerNotification({
+  const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
     inquiry: input.inquiry,
+    action: "payment_ready",
     paymentText
-  });
-
-  await createAssistantMessage({
-    tenantId: input.inquiry.tenantId,
-    conversationId: input.inquiry.conversationId,
-    content: notificationContent
-  });
-
-  const whatsappNotification = await sendTravellerWhatsAppNotification({
-    inquiry: input.inquiry,
-    content: notificationContent
   });
 
   return {
     inquiry: input.inquiry,
-    travellerNotification: whatsappNotification,
-    operatorFollowUp: null
+    travellerNotification: notificationDelivery.notification,
+    operatorFollowUp: null,
+    notificationRecovery: {
+      state: notificationDelivery.state,
+      uncertainPrior: notificationDelivery.uncertainPrior
+    }
   };
 }
 
@@ -1689,9 +2225,49 @@ async function handleBluePassBookingConfirmedOperatorResponse(input: {
     };
   }
 
-  const updated = await prisma.bluePassInquiry.update({
-    where: { id: input.inquiry.id },
+  // Compare-and-set for the same concurrent-delivery reason as the main response path.
+  const transition = await prisma.bluePassInquiry.updateMany({
+    where: { id: input.inquiry.id, status: input.inquiry.status },
     data: { status: "CLOSED" }
+  });
+  if (transition.count === 0) {
+    const current = await prisma.bluePassInquiry.findUniqueOrThrow({
+      where: { id: input.inquiry.id }
+    });
+    if (current.status === "CLOSED") {
+      // A concurrent confirmation already closed it; acknowledge without duplicate effects,
+      // but recover the traveller notification if the winner died before sending it.
+      const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
+        inquiry: current,
+        action: "booking_confirmed"
+      });
+      return {
+        inquiry: current,
+        travellerNotification: notificationDelivery.notification,
+        operatorFollowUp: null,
+        notificationRecovery: {
+          state: notificationDelivery.state,
+          uncertainPrior: notificationDelivery.uncertainPrior
+        }
+      };
+    }
+    await recordRejectedBluePassOperatorResponse({
+      inquiry: current,
+      input: {
+        inquiryId: input.inquiry.id,
+        action: "booking_confirmed",
+        counterText: input.confirmationText,
+        providerMessageId: input.providerMessageId,
+        operatorPhone: input.operatorPhone
+      },
+      reason: `a concurrent operator reply moved the inquiry to ${current.status.toLowerCase().replace(/_/g, " ")}`
+    });
+    throw new Error(
+      `Rejected booking confirmed for BluePass inquiry ${input.inquiry.id}: a concurrent operator reply moved the inquiry.`
+    );
+  }
+  const updated = await prisma.bluePassInquiry.findUniqueOrThrow({
+    where: { id: input.inquiry.id }
   });
 
   await createBluePassInquiryEvent({
@@ -1708,26 +2284,20 @@ async function handleBluePassBookingConfirmedOperatorResponse(input: {
 
   await finalizeBluePassLedgerForConfirmedBooking(updated);
 
-  const notificationContent = buildBookingConfirmedTravellerNotification({
+  const notificationDelivery = await ensureBluePassTravellerNotifiedForOperatorAction({
     inquiry: updated,
+    action: "booking_confirmed",
     confirmationText
-  });
-
-  await createAssistantMessage({
-    tenantId: updated.tenantId,
-    conversationId: updated.conversationId,
-    content: notificationContent
-  });
-
-  const whatsappNotification = await sendTravellerWhatsAppNotification({
-    inquiry: updated,
-    content: notificationContent
   });
 
   return {
     inquiry: updated,
-    travellerNotification: whatsappNotification,
-    operatorFollowUp: null
+    travellerNotification: notificationDelivery.notification,
+    operatorFollowUp: null,
+    notificationRecovery: {
+      state: notificationDelivery.state,
+      uncertainPrior: notificationDelivery.uncertainPrior
+    }
   };
 }
 
@@ -1820,9 +2390,155 @@ async function sendTravellerWhatsAppNotification(input: { inquiry: BluePassInqui
     };
   }
 
+  // Bookkeeping writes (ATTEMPT / SENT / FAILED events) are deliberately separated from the
+  // provider call: a bookkeeping failure must never be misclassified as a provider failure.
+  // Misclassification would erase the durable uncertainty record AND, via the webhook's 500 /
+  // redrive path, duplicate a send the provider already accepted.
   try {
-    const result = await sendTravellerWhatsAppNotificationByMode(input, mode);
+    // Mark the attempt BEFORE calling the provider: if the process dies between provider
+    // accept and the SENT write below, this unresolved ATTEMPT is the durable record that
+    // the send's outcome is uncertain (the traveller may already have received it).
+    await createBluePassInquiryEvent({
+      inquiry: input.inquiry,
+      type: "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT",
+      fromStatus: input.inquiry.status,
+      toStatus: input.inquiry.status,
+      metadata: {
+        messageType: mode,
+        templateName: mode === "template" ? resolveTravellerUpdateTemplateName() : null
+      }
+    });
+  } catch {
+    // Fail closed: without durable pre-send intent the provider call must not happen. An
+    // unrecorded send would defeat the bounded-retry cap (counted on ATTEMPT rows) and erase
+    // uncertainty tracking. The webhook answers 500 and Meta redelivers; the retry sends once
+    // bookkeeping is healthy. The conversation copy already exists, so the traveller is not
+    // silently abandoned while the database is down.
+    return {
+      channel: "conversation" as const,
+      sent: true,
+      providerMessageId: null,
+      skippedReason: "traveller notification bookkeeping unavailable",
+      whatsappDeliveryFailed: true as const
+    };
+  }
 
+  let result: { providerMessageId: string | null };
+  try {
+    result = await sendTravellerWhatsAppNotificationByMode(input, mode);
+  } catch (providerError) {
+    const reason = providerError instanceof Error ? providerError.message : "Traveller WhatsApp notification failed.";
+
+    if (mode === "text" && isWhatsAppReEngagementError(providerError)) {
+      try {
+        await createBluePassInquiryEvent({
+          inquiry: input.inquiry,
+          type: "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT",
+          fromStatus: input.inquiry.status,
+          toStatus: input.inquiry.status,
+          metadata: {
+            messageType: "template",
+            templateName: resolveTravellerUpdateTemplateName(),
+            fallbackFrom: "text",
+            fallbackReason: reason
+          }
+        });
+      } catch {
+        // Fail closed, as above: no durable pre-send intent, no provider call.
+        return {
+          channel: "conversation" as const,
+          sent: true,
+          providerMessageId: null,
+          skippedReason: "traveller notification bookkeeping unavailable",
+          whatsappDeliveryFailed: true as const
+        };
+      }
+      try {
+        const fallbackResult = await sendTravellerWhatsAppNotificationByMode(input, "template");
+        try {
+          await createBluePassInquiryEvent({
+            inquiry: input.inquiry,
+            type: "TRAVELLER_WHATSAPP_NOTIFICATION_SENT",
+            fromStatus: input.inquiry.status,
+            toStatus: input.inquiry.status,
+            metadata: {
+              providerMessageId: fallbackResult.providerMessageId,
+              messageType: "template",
+              templateName: resolveTravellerUpdateTemplateName(),
+              fallbackFrom: "text",
+              fallbackReason: reason
+            }
+          });
+        } catch {
+          // Provider accepted; the unresolved ATTEMPT row keeps the uncertainty durable.
+        }
+
+        return {
+          channel: "whatsapp" as const,
+          sent: true,
+          providerMessageId: fallbackResult.providerMessageId
+        };
+      } catch (fallbackProviderError) {
+        const fallbackReason =
+          fallbackProviderError instanceof Error ? fallbackProviderError.message : "Traveller WhatsApp template fallback failed.";
+
+        try {
+          await createBluePassInquiryEvent({
+            inquiry: input.inquiry,
+            type: "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED",
+            fromStatus: input.inquiry.status,
+            toStatus: input.inquiry.status,
+            metadata: {
+              reason: fallbackReason,
+              fallbackFrom: "text",
+              fallbackReasonText: reason
+            }
+          });
+        } catch {
+          // Best-effort bookkeeping, as above.
+        }
+
+        return {
+          channel: "conversation" as const,
+          sent: true,
+          providerMessageId: null,
+          skippedReason: fallbackReason,
+          // The conversation copy exists, but the WhatsApp delivery failed - callers must
+          // not read this as the traveller being reached on WhatsApp.
+          whatsappDeliveryFailed: true as const
+        };
+      }
+    }
+
+    try {
+      await createBluePassInquiryEvent({
+        inquiry: input.inquiry,
+        type: "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED",
+        fromStatus: input.inquiry.status,
+        toStatus: input.inquiry.status,
+        metadata: {
+          reason
+        }
+      });
+    } catch {
+      // Best-effort bookkeeping, as above.
+    }
+
+    return {
+      channel: "conversation" as const,
+      sent: true,
+      providerMessageId: null,
+      skippedReason: reason,
+      // The conversation copy exists, but the WhatsApp delivery failed - callers must not
+      // read this as the traveller being reached on WhatsApp.
+      whatsappDeliveryFailed: true as const
+    };
+  }
+
+  // The provider accepted the send. Record SENT; if THIS write fails, the ATTEMPT row stays
+  // unresolved - the truthful "provider accepted, bookkeeping incomplete" state, so a later
+  // re-drive is flagged priorAttemptUncertain instead of the send being mislabeled FAILED.
+  try {
     await createBluePassInquiryEvent({
       inquiry: input.inquiry,
       type: "TRAVELLER_WHATSAPP_NOTIFICATION_SENT",
@@ -1834,80 +2550,15 @@ async function sendTravellerWhatsAppNotification(input: { inquiry: BluePassInqui
         templateName: mode === "template" ? resolveTravellerUpdateTemplateName() : null
       }
     });
-
-    return {
-      channel: "whatsapp" as const,
-      sent: true,
-      providerMessageId: result.providerMessageId
-    };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "Traveller WhatsApp notification failed.";
-
-    if (mode === "text" && isWhatsAppReEngagementError(error)) {
-      try {
-        const result = await sendTravellerWhatsAppNotificationByMode(input, "template");
-
-        await createBluePassInquiryEvent({
-          inquiry: input.inquiry,
-          type: "TRAVELLER_WHATSAPP_NOTIFICATION_SENT",
-          fromStatus: input.inquiry.status,
-          toStatus: input.inquiry.status,
-          metadata: {
-            providerMessageId: result.providerMessageId,
-            messageType: "template",
-            templateName: resolveTravellerUpdateTemplateName(),
-            fallbackFrom: "text",
-            fallbackReason: reason
-          }
-        });
-
-        return {
-          channel: "whatsapp" as const,
-          sent: true,
-          providerMessageId: result.providerMessageId
-        };
-      } catch (fallbackError) {
-        const fallbackReason =
-          fallbackError instanceof Error ? fallbackError.message : "Traveller WhatsApp template fallback failed.";
-
-        await createBluePassInquiryEvent({
-          inquiry: input.inquiry,
-          type: "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED",
-          fromStatus: input.inquiry.status,
-          toStatus: input.inquiry.status,
-          metadata: {
-            reason: fallbackReason,
-            fallbackFrom: "text",
-            fallbackReason: reason
-          }
-        });
-
-        return {
-          channel: "conversation" as const,
-          sent: true,
-          providerMessageId: null,
-          skippedReason: fallbackReason
-        };
-      }
-    }
-
-    await createBluePassInquiryEvent({
-      inquiry: input.inquiry,
-      type: "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED",
-      fromStatus: input.inquiry.status,
-      toStatus: input.inquiry.status,
-      metadata: {
-        reason
-      }
-    });
-
-    return {
-      channel: "conversation" as const,
-      sent: true,
-      providerMessageId: null,
-      skippedReason: reason
-    };
+  } catch {
+    // Deliberate: see above.
   }
+
+  return {
+    channel: "whatsapp" as const,
+    sent: true,
+    providerMessageId: result.providerMessageId
+  };
 }
 
 function sendTravellerWhatsAppNotificationByMode(

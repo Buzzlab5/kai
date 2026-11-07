@@ -92,12 +92,14 @@ async function createPaymentReadyInquiry(label: string) {
 
   await handleBluePassOperatorResponse({
     inquiryId: created.inquiry.id,
+    operatorPhone: "6281234567199",
     action: "counter",
     counterText: "Available 22 July 2026. Final price USD 5000. Includes full board. Excludes flights."
   });
   await approveBluePassQuote({ quoteId: created.inquiry.id });
   await handleBluePassOperatorResponse({
     inquiryId: created.inquiry.id,
+    operatorPhone: "6281234567199",
     action: "payment_ready",
     counterText: "Payment link: https://pay.example/stripe-test."
   });
@@ -154,6 +156,7 @@ describe("BluePass Stripe payment collection", () => {
     // yet - this is the actual "not ready for payment" scenario, distinct from "no quote exists".
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6281234567299",
       action: "counter",
       counterText: "Available 20 July 2026. Final price USD 3000."
     });

@@ -937,6 +937,7 @@ describe("bluepass inquiry repository", () => {
 
     const result = await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "+6281234567004",
       action: "decline",
       providerMessageId: "wamid.button.decline"
     });
@@ -999,6 +1000,7 @@ describe("bluepass inquiry repository", () => {
 
     const result = await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "+6281234567004",
       action: "counter",
       counterText: "Available 21 July instead at USD 48,000 private charter.",
       providerMessageId: "wamid.button.counter"
@@ -1153,6 +1155,7 @@ describe("bluepass inquiry repository", () => {
 
     const result = await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "+6281234567004",
       action: "accept",
       providerMessageId: "wamid.button.accept"
     });
@@ -1234,6 +1237,7 @@ describe("bluepass inquiry repository", () => {
 
     const result = await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "+6281234567004",
       action: "accept",
       providerMessageId: "wamid.button.accept"
     });
@@ -1330,6 +1334,7 @@ describe("bluepass inquiry repository", () => {
 
     const result = await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "+6281234567004",
       action: "decline",
       providerMessageId: "wamid.button.decline"
     });
@@ -1424,6 +1429,7 @@ describe("bluepass inquiry repository", () => {
     await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Available 22 July 2026. Final price USD 3,900 per cabin/night for 2 guests. Includes full board meals. Excludes flights. Condition: 30% deposit to hold."
@@ -1520,6 +1526,7 @@ describe("bluepass inquiry repository", () => {
     await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "counter",
       counterText:
         "Available 22 July 2026. Final price USD 3,900 per cabin/night for 2 guests. Includes full board meals. Excludes flights. Condition: 30% deposit to hold."
@@ -1527,6 +1534,7 @@ describe("bluepass inquiry repository", () => {
     await approveBluePassQuote({ quoteId: created.inquiry.id });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "payment_ready",
       counterText:
         "Slot held for 22 July. Payment link: https://pay.example/cj-22. Deposit 30% due today. Booking reference CJ-2207."
@@ -1656,6 +1664,7 @@ describe("bluepass inquiry repository", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: older.inquiry.id,
+      operatorPhone: "6285337210180",
       action: "accept",
       providerMessageId: "manual.old.accept"
     });
@@ -1712,17 +1721,20 @@ describe("bluepass inquiry repository", () => {
 
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6281234567099",
       action: "counter",
       counterText: "Available 20 July 2026. Final price USD 5000. Includes full board. Excludes flights."
     });
     await approveBluePassQuote({ quoteId: created.inquiry.id });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6281234567099",
       action: "payment_ready",
       counterText: "Payment link: https://pay.example/finalize-test."
     });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6281234567099",
       action: "booking_confirmed",
       counterText: "Payment received. Booking confirmed for 20 July."
     });
@@ -1795,6 +1807,7 @@ describe("bluepass inquiry repository", () => {
     await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
     await handleBluePassOperatorResponse({
       inquiryId: created.inquiry.id,
+      operatorPhone: "6281234567098",
       action: "decline",
       providerMessageId: "wamid.void.test.decline"
     });
@@ -1852,5 +1865,139 @@ describe("bluepass inquiry repository", () => {
       where: { bluePassInquiryId: created.inquiry.id, status: "VOIDED" }
     });
     expect(voided.every((entry) => entry.voidReason === "manual test adjustment")).toBe(true);
+  }, 20_000);
+});
+
+describe("bluepass operator response concurrency", () => {
+  it("applies only one of two concurrent payment-ready replies for the same inquiry", async () => {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `bluepass-payment-ready-race-${randomUUID()}`,
+        name: "BluePass Payment Ready Race Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET" }
+    });
+    const created = await createOrReuseBluePassInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      travellerMessage: "Calico Jack in Komodo for 2 guests on 20 July",
+      intent: {
+        destination: "Komodo",
+        dateWindow: "20 July",
+        guests: 2,
+        travellerName: "Putro",
+        travellerEmail: "putro@example.com",
+        travellerPhone: "085156246329"
+      },
+      selectedYacht: {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        operatorId: "operator_calico_jack",
+        operatorName: "Calico Jack",
+        operatorPhone: "6285337210180"
+      }
+    });
+    await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
+    await handleBluePassOperatorResponse({
+      inquiryId: created.inquiry.id,
+      operatorPhone: "6285337210180",
+      action: "counter",
+      counterText:
+        "Available 22 July 2026. Final price USD 3,900 per cabin/night for 2 guests. Includes full board meals. Excludes flights. Condition: 30% deposit to hold."
+    });
+    await approveBluePassQuote({ quoteId: created.inquiry.id });
+
+    const paymentText =
+      "Slot held for 22 July. Payment link: https://pay.example/cj-22. Deposit 30% due today. Booking reference CJ-2207.";
+    const [first, second] = await Promise.all([
+      handleBluePassOperatorResponse({
+        inquiryId: created.inquiry.id,
+        action: "payment_ready",
+        counterText: paymentText,
+        providerMessageId: "wamid.operator.payment_ready.a",
+        operatorPhone: "6285337210180"
+      }),
+      handleBluePassOperatorResponse({
+        inquiryId: created.inquiry.id,
+        action: "payment_ready",
+        counterText: paymentText,
+        providerMessageId: "wamid.operator.payment_ready.b",
+        operatorPhone: "6285337210180"
+      })
+    ]);
+
+    const paymentReadyEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_PAYMENT_READY" }
+    });
+    const notifications = [first.travellerNotification, second.travellerNotification].filter(Boolean);
+
+    expect(paymentReadyEvents).toHaveLength(1);
+    expect(notifications).toHaveLength(1);
+  }, 20_000);
+
+  it("applies only one of two concurrent accepts for the same inquiry at the repository level", async () => {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `bluepass-accept-race-${randomUUID()}`,
+        name: "BluePass Accept Race Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET" }
+    });
+    const created = await createOrReuseBluePassInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      travellerMessage: "Calico Jack in Komodo for 2 guests on 20 July",
+      intent: {
+        destination: "Komodo",
+        dateWindow: "20 July",
+        guests: 2,
+        travellerName: "Putro",
+        travellerEmail: "putro@example.com",
+        travellerPhone: "085156246329"
+      },
+      selectedYacht: {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        operatorId: "operator_calico_jack",
+        operatorName: "Calico Jack",
+        operatorPhone: "6285337210180"
+      }
+    });
+    await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
+
+    await Promise.all([
+      handleBluePassOperatorResponse({
+        inquiryId: created.inquiry.id,
+        action: "accept",
+        providerMessageId: "wamid.repo.race.a",
+        operatorPhone: "6285337210180"
+      }),
+      handleBluePassOperatorResponse({
+        inquiryId: created.inquiry.id,
+        action: "accept",
+        providerMessageId: "wamid.repo.race.b",
+        operatorPhone: "6285337210180"
+      })
+    ]);
+
+    const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+    });
+    const assistantMessages = await prisma.message.findMany({
+      where: { conversationId: conversation.id, role: "ASSISTANT" }
+    });
+
+    expect(acceptedEvents).toHaveLength(1);
+    expect(assistantMessages).toHaveLength(1);
   }, 20_000);
 });

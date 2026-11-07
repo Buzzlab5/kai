@@ -670,3 +670,79 @@ describe("extractWhatsAppMessageStatusesFromWebhook", () => {
     ]);
   });
 });
+
+describe("strict known-operator parsing", () => {
+  const availabilityPriceText = {
+    from: "6285156246329",
+    id: "wamid.traveller.availability_price",
+    type: "text",
+    text: { body: "Is the boat available on 20 July and what is the price?" }
+  };
+  const payloadWith = (message: unknown) => ({
+    entry: [{ changes: [{ value: { messages: [message] } }] }]
+  });
+
+  it("leaves traveller availability/price questions out of operator replies when the sender is not a known operator", () => {
+    const responses = extractBluePassOperatorResponsesFromWhatsAppWebhook(payloadWith(availabilityPriceText), {
+      knownOperatorPhones: ["+6285337210180"]
+    });
+
+    expect(responses).toEqual([]);
+  });
+
+  it("parses the same availability/price text as an operator counter when the sender holds a dispatch", () => {
+    const responses = extractBluePassOperatorResponsesFromWhatsAppWebhook(
+      payloadWith({ ...availabilityPriceText, from: "6285337210180", text: { body: "Available 20 July. Price USD 3,900." } }),
+      { knownOperatorPhones: ["+6285337210180"] }
+    );
+
+    expect(responses).toEqual([
+      {
+        inquiryId: null,
+        action: "counter",
+        providerMessageId: "wamid.traveller.availability_price",
+        operatorPhone: "6285337210180",
+        counterText: "Available 20 July. Price USD 3,900."
+      }
+    ]);
+  });
+
+  it("matches known operators across stored phone formats", () => {
+    const responses = extractBluePassOperatorResponsesFromWhatsAppWebhook(
+      payloadWith({ from: "+6285337210180", id: "wamid.operator.fmt", type: "text", text: { body: "accept" } }),
+      { knownOperatorPhones: ["085337210180"] }
+    );
+
+    expect(responses).toHaveLength(1);
+    expect(responses[0]?.action).toBe("accept");
+  });
+
+  it("still extracts explicit action:inquiryId commands from unknown senders so ownership can reject them downstream", () => {
+    const responses = extractBluePassOperatorResponsesFromWhatsAppWebhook(
+      payloadWith({
+        from: "6285156246329",
+        id: "wamid.stranger.accept",
+        type: "text",
+        text: { body: "accept:inq_123" }
+      }),
+      { knownOperatorPhones: [] }
+    );
+
+    expect(responses).toEqual([
+      {
+        inquiryId: "inq_123",
+        action: "accept",
+        providerMessageId: "wamid.stranger.accept",
+        operatorPhone: "6285156246329",
+        counterText: null
+      }
+    ]);
+  });
+
+  it("keeps legacy ungated parsing when no known-operator set is supplied", () => {
+    const responses = extractBluePassOperatorResponsesFromWhatsAppWebhook(payloadWith(availabilityPriceText));
+
+    expect(responses).toHaveLength(1);
+    expect(responses[0]?.action).toBe("counter");
+  });
+});

@@ -26,3 +26,21 @@ export function normalizeLocalPhone(value: string, defaultCountryCode = "62"): s
 export function internationalToLocalPhone(digits: string, countryCode = "62"): string | null {
   return digits.startsWith(countryCode) ? `0${digits.slice(countryCode.length)}` : null;
 }
+
+/**
+ * Digit-only variants of a phone number for equality matching across the formats the same number
+ * shows up in (international "62812...", local "0812...", "+62812..."). Expand both sides of a
+ * comparison with this and check for any shared variant.
+ */
+export function phoneDigitVariantsForMatch(value?: string | null, defaultCountryCode = "62"): string[] {
+  const digits = value?.trim().replace(/[^\d]/g, "") ?? "";
+  if (!digits) return [];
+
+  const variants = new Set<string>([digits, normalizeLocalPhone(digits, defaultCountryCode)]);
+  const local =
+    internationalToLocalPhone(digits, defaultCountryCode) ??
+    internationalToLocalPhone(normalizeLocalPhone(digits, defaultCountryCode), defaultCountryCode);
+  if (local) variants.add(local);
+
+  return Array.from(variants).filter(Boolean);
+}

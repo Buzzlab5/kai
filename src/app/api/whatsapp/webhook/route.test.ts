@@ -3,7 +3,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import {
   createOrReuseBluePassInquiry,
   dispatchBluePassOperatorWhatsApp,
-  handleBluePassOperatorResponse
+  handleBluePassOperatorResponse,
+  hasBluePassContextMessageBeenProcessed
 } from "@/server/bluepass/bluepass-inquiry-repository";
 import { approveBluePassQuote } from "@/server/bluepass/bluepass-quote";
 import { WHATSAPP_GENERIC_ELIGIBLE_FEATURE } from "@/core/tenant/feature-flags";
@@ -47,6 +48,7 @@ afterAll(() => {
   tenantFindManySpy.mockRestore();
 });
 
+const suiteStartedAt = new Date();
 const originalEnv = { ...process.env };
 const isolatedWhatsAppEnvKeys = [
   "BLUEPASS_TEST_OPERATOR_PHONE",
@@ -60,6 +62,10 @@ const isolatedWhatsAppEnvKeys = [
   "WHATSAPP_PHONE_ID_OPS",
   "WHATSAPP_ACCESS_TOKEN",
   "WHATSAPP_BLUEPASS_TENANT_SLUG",
+  "WHATSAPP_INBOUND_CLAIM_GRACE_MS",
+  "WHATSAPP_INBOUND_STALE_CLAIM_MS",
+  "WHATSAPP_INBOUND_HEARTBEAT_STALE_MS",
+  "WHATSAPP_INBOUND_HEARTBEAT_INTERVAL_MS",
   "ENABLE_LLM",
   "LLM_PROVIDER",
   "OPENAI_API_KEY",
@@ -87,6 +93,10 @@ afterEach(async () => {
   await prisma.tenant.deleteMany({
     where: { OR: genericEligibleTestTenantSlugPrefixes.map((prefix) => ({ slug: { startsWith: prefix } })) }
   });
+  // Inbound-message receipts persist by design (they are the dedupe record); tests reuse fixture
+  // wamids, so each test starts with an empty receipt log instead of inheriting "duplicates".
+  // Scoped to this run: the suite shares the database with production, where receipts are real dedupe records.
+  await prisma.whatsAppInboundMessageReceipt.deleteMany({ where: { receivedAt: { gte: suiteStartedAt } } });
 });
 
 function getWhatsAppTextBodies(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }) {
@@ -1728,7 +1738,8 @@ describe("/api/whatsapp/webhook", () => {
     await handleBluePassOperatorResponse({
       inquiryId: first.inquiry.id,
       action: "decline",
-      providerMessageId: "wamid.calico.decline"
+      providerMessageId: "wamid.calico.decline",
+      operatorPhone: "+6281234567004"
     });
 
     const response = await POST(
@@ -1862,7 +1873,8 @@ describe("/api/whatsapp/webhook", () => {
     await handleBluePassOperatorResponse({
       inquiryId: first.inquiry.id,
       action: "decline",
-      providerMessageId: "wamid.calico.yes.decline"
+      providerMessageId: "wamid.calico.yes.decline",
+      operatorPhone: "+6281234567004"
     });
 
     const response = await POST(
@@ -2615,4 +2627,964 @@ describe("/api/whatsapp/webhook", () => {
       "ASSISTANT"
     ]);
   }, 30_000);
+});
+
+describe("/api/whatsapp/webhook operator reply hardening", () => {
+  async function createDispatchedInquiry(input: { operatorPhone: string; travellerPhone: string; slugPrefix: string }) {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `${input.slugPrefix}-${randomUUID()}`,
+        name: "BluePass Webhook Hardening Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET" }
+    });
+    const created = await createOrReuseBluePassInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      travellerMessage: "Calico Jack in Komodo for 2 guests on 20 July",
+      intent: {
+        destination: "Komodo",
+        dateWindow: "20 July",
+        guests: 2,
+        travellerName: "Sana",
+        travellerEmail: "sana@example.com",
+        travellerPhone: input.travellerPhone
+      },
+      selectedYacht: {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        operatorId: "operator_calico_jack",
+        operatorName: "Calico Jack",
+        operatorPhone: input.operatorPhone
+      }
+    });
+    await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
+
+    return { tenant, conversation, created };
+  }
+
+  function webhookPost(messages: unknown[]) {
+    return POST(
+      new Request("http://localhost/api/whatsapp/webhook", {
+        method: "POST",
+        body: JSON.stringify({
+          entry: [{ changes: [{ value: { messages } }] }]
+        })
+      })
+    );
+  }
+
+  it("treats a traveller availability/price question as conversation, not an operator counter", async () => {
+    process.env.META_GRAPH_VERSION = "v20.0";
+    process.env.WHATSAPP_ACCESS_TOKEN = "test_access_token";
+    process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: "wamid.context.send" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211190";
+    const travellerPhone = "6281998877090";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877090",
+      slugPrefix: "bluepass-webhook-traveller-words"
+    });
+
+    const response = await webhookPost([
+      {
+        from: travellerPhone,
+        id: "wamid.traveller.availability_question",
+        type: "text",
+        text: { body: "Is it available on 20 July and what is the price?" }
+      }
+    ]);
+    const body = await response.json();
+    const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+    const operatorEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: {
+        bluePassInquiryId: created.inquiry.id,
+        type: { in: ["OPERATOR_ACCEPTED", "OPERATOR_COUNTER_OFFERED", "OPERATOR_DECLINED", "OPERATOR_RESPONSE_REJECTED"] }
+      }
+    });
+    // Before strict parsing this same text was extracted as an operator "counter" and the
+    // webhook recorded a failure ("No pending BluePass inquiry matched this operator response")
+    // while the traveller heard nothing. Now it is not an operator response and not a failure;
+    // whether the concierge answers is the conversation engine's call, not the webhook's.
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 0, failed: 0, contextFailed: 0 });
+    expect(inquiry.status).toBe("OPERATOR_PENDING");
+    expect(operatorEvents).toEqual([]);
+  }, 20_000);
+
+  it("acknowledges a redelivered operator accept without re-running it", async () => {
+    const operatorPhone = "6285337211191";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877091",
+      slugPrefix: "bluepass-webhook-dedupe"
+    });
+    const payload = [
+      {
+        from: operatorPhone,
+        id: "wamid.operator.accept.dedupe",
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `accept:${created.inquiry.id}`, title: "Accept" } }
+      }
+    ];
+
+    const first = await (await webhookPost(payload)).json();
+    const second = await (await webhookPost(payload)).json();
+    const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+    });
+
+    expect(first).toMatchObject({ ok: true, handled: 1, duplicates: 0 });
+    expect(second).toMatchObject({ ok: true, handled: 0, failed: 0, duplicates: 1 });
+    expect(acceptedEvents).toHaveLength(1);
+  }, 20_000);
+
+  it("rejects an explicit accept command from a phone the inquiry was not dispatched to", async () => {
+    const operatorPhone = "6285337211192";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877092",
+      slugPrefix: "bluepass-webhook-ownership"
+    });
+
+    const response = await webhookPost([
+      {
+        from: "6280000000099",
+        id: "wamid.stranger.accept",
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `accept:${created.inquiry.id}`, title: "Accept" } }
+      }
+    ]);
+    const body = await response.json();
+    const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+    const rejected = await prisma.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_RESPONSE_REJECTED" }
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 0, failed: 1 });
+    expect(inquiry.status).toBe("OPERATOR_PENDING");
+    expect(rejected?.metadata).toMatchObject({
+      action: "accept",
+      operatorPhone: "6280000000099",
+      reason: "sender is not the operator this inquiry was dispatched to"
+    });
+  }, 20_000);
+
+  it("no-ops a repeated decline on a terminal inquiry but still rejects a conflicting action", async () => {
+    const operatorPhone = "6285337211193";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877093",
+      slugPrefix: "bluepass-webhook-terminal"
+    });
+    const declinePayload = (id: string) => [
+      {
+        from: operatorPhone,
+        id,
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `decline:${created.inquiry.id}`, title: "Decline" } }
+      }
+    ];
+
+    const first = await (await webhookPost(declinePayload("wamid.operator.decline.first"))).json();
+    // A redelivery of the decline that closed the inquiry is an idempotent no-op (it also gives
+    // the notification recovery path a chance to run), not a hard rejection.
+    const second = await (await webhookPost(declinePayload("wamid.operator.decline.second"))).json();
+    // A conflicting action on the terminal inquiry is still rejected.
+    const conflicting = await (await webhookPost([
+      {
+        from: operatorPhone,
+        id: "wamid.operator.accept.afterdecline",
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `accept:${created.inquiry.id}`, title: "Accept" } }
+      }
+    ])).json();
+    const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+    const rejected = await prisma.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_RESPONSE_REJECTED" }
+    });
+    const declinedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_DECLINED" }
+    });
+
+    expect(first).toMatchObject({ ok: true, handled: 1 });
+    expect(second).toMatchObject({ ok: true, handled: 1, failed: 0 });
+    expect(conflicting).toMatchObject({ ok: true, handled: 0, failed: 1 });
+    expect(inquiry.status).toBe("DECLINED");
+    expect(declinedEvents).toHaveLength(1);
+    expect(rejected?.metadata).toMatchObject({ action: "accept", reason: "inquiry is already declined" });
+  }, 20_000);
+
+  it("handles a batch mixing an operator response and a traveller question instead of dropping the traveller", async () => {
+    process.env.META_GRAPH_VERSION = "v20.0";
+    process.env.WHATSAPP_ACCESS_TOKEN = "test_access_token";
+    process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: "wamid.context.send" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211194";
+    const travellerPhone = "6281998877094";
+    const { tenant, conversation, created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877094",
+      slugPrefix: "bluepass-webhook-batch"
+    });
+    await prisma.bluePassInquiry.update({
+      where: { id: created.inquiry.id },
+      data: { status: "COUNTER_OFFERED" }
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "OPERATOR_PAYMENT_READY",
+        fromStatus: "COUNTER_OFFERED",
+        toStatus: "COUNTER_OFFERED",
+        metadata: { paymentText: "Slot held for 22 July. Payment link: https://pay.example/cj-22." }
+      }
+    });
+
+    const response = await webhookPost([
+      {
+        from: operatorPhone,
+        id: "wamid.operator.batch.accept",
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `accept:${created.inquiry.id}`, title: "Accept" } }
+      },
+      {
+        from: travellerPhone,
+        id: "wamid.traveller.batch.status",
+        type: "text",
+        text: { body: "what is my booking status?" }
+      }
+    ]);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 1, failed: 0, contextHandled: 1, contextFailed: 0 });
+  }, 20_000);
+
+  it("treats a repeated accept with a fresh message id as an idempotent no-op", async () => {
+    const operatorPhone = "6285337211195";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877095",
+      slugPrefix: "bluepass-webhook-idempotent"
+    });
+    const acceptPayload = (id: string) => [
+      {
+        from: operatorPhone,
+        id,
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: `accept:${created.inquiry.id}`, title: "Accept" } }
+      }
+    ];
+
+    const first = await (await webhookPost(acceptPayload("wamid.operator.accept.once"))).json();
+    const second = await (await webhookPost(acceptPayload("wamid.operator.accept.twice"))).json();
+    const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+    });
+
+    expect(first).toMatchObject({ ok: true, handled: 1 });
+    expect(second).toMatchObject({ ok: true, handled: 1, failed: 0, duplicates: 0 });
+    expect(acceptedEvents).toHaveLength(1);
+  }, 20_000);
+});
+
+describe("/api/whatsapp/webhook claim recovery and concurrency", () => {
+  async function createDispatchedInquiry(input: { operatorPhone: string; slugPrefix: string }) {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `${input.slugPrefix}-${randomUUID()}`,
+        name: "BluePass Webhook Concurrency Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET" }
+    });
+    const created = await createOrReuseBluePassInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      travellerMessage: "Calico Jack in Komodo for 2 guests on 20 July",
+      intent: {
+        destination: "Komodo",
+        dateWindow: "20 July",
+        guests: 2,
+        travellerName: "Sana",
+        travellerEmail: "sana@example.com",
+        travellerPhone: "081998877095"
+      },
+      selectedYacht: {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        operatorId: "operator_calico_jack",
+        operatorName: "Calico Jack",
+        operatorPhone: input.operatorPhone
+      }
+    });
+    await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
+    return { created };
+  }
+
+  function webhookPost(messages: unknown[]) {
+    return POST(
+      new Request("http://localhost/api/whatsapp/webhook", {
+        method: "POST",
+        body: JSON.stringify({ entry: [{ changes: [{ value: { messages } }] }] })
+      })
+    );
+  }
+
+  function acceptButton(inquiryId: string, id: string, from: string) {
+    return {
+      from,
+      id,
+      type: "interactive",
+      interactive: { type: "button_reply", button_reply: { id: `accept:${inquiryId}`, title: "Accept" } }
+    };
+  }
+
+  it("reprocesses a redelivered message whose first attempt crashed after claiming (no outcome recorded)", async () => {
+    process.env.WHATSAPP_INBOUND_CLAIM_GRACE_MS = "100";
+    const operatorPhone = "6285337211210";
+    const { created } = await createDispatchedInquiry({ operatorPhone, slugPrefix: "bluepass-webhook-crash" });
+
+    // Simulate the crashed first attempt: the id was claimed but no outcome was ever recorded.
+    await prisma.whatsAppInboundMessageReceipt.create({
+      data: { providerMessageId: "wamid.operator.crashed", fromPhone: operatorPhone }
+    });
+
+    const response = await webhookPost([acceptButton(created.inquiry.id, "wamid.operator.crashed", operatorPhone)]);
+    const body = await response.json();
+    const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+    const receipt = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: "wamid.operator.crashed" }
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 1, failed: 0, duplicates: 0, reclaimed: 1 });
+    expect(inquiry.status).toBe("OPERATOR_ACCEPTED");
+    expect(receipt.outcome).toBe("operator_response_reclaimed");
+    expect(receipt.bluePassInquiryId).toBe(created.inquiry.id);
+  }, 20_000);
+
+  it("skips a redelivery while the first attempt is still in flight (outcome appears within the grace window)", async () => {
+    process.env.WHATSAPP_INBOUND_CLAIM_GRACE_MS = "3000";
+    const operatorPhone = "6285337211211";
+    const { created } = await createDispatchedInquiry({ operatorPhone, slugPrefix: "bluepass-webhook-inflight" });
+    const payload = [acceptButton(created.inquiry.id, "wamid.operator.inflight", operatorPhone)];
+
+    const [firstResponse, secondResponse] = await Promise.all([webhookPost(payload), webhookPost(payload)]);
+    const [first, second] = await Promise.all([firstResponse.json(), secondResponse.json()]);
+    const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+    });
+
+    expect(first.ok && second.ok).toBe(true);
+    expect(first.handled + second.handled).toBe(1);
+    expect(acceptedEvents).toHaveLength(1);
+  }, 20_000);
+
+  it("applies only one of two concurrent accept replies with different message ids", async () => {
+    process.env.WHATSAPP_INBOUND_CLAIM_GRACE_MS = "100";
+    for (let round = 0; round < 3; round += 1) {
+      const operatorPhone = `628533721122${round}`;
+      const { created } = await createDispatchedInquiry({
+        operatorPhone,
+        slugPrefix: `bluepass-webhook-race-${round}`
+      });
+      const [r1, r2] = await Promise.all([
+        webhookPost([acceptButton(created.inquiry.id, `wamid.race.${round}.a`, operatorPhone)]),
+        webhookPost([acceptButton(created.inquiry.id, `wamid.race.${round}.b`, operatorPhone)])
+      ]);
+      const [b1, b2] = await Promise.all([r1.json(), r2.json()]);
+      const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+        where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+      });
+      const assistantMessages = await prisma.message.findMany({
+        where: { conversationId: created.inquiry.conversationId, role: "ASSISTANT" }
+      });
+      const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+
+      expect(b1.ok && b2.ok).toBe(true);
+      expect(acceptedEvents).toHaveLength(1);
+      expect(assistantMessages).toHaveLength(1);
+      expect(inquiry.status).toBe("OPERATOR_ACCEPTED");
+    }
+  }, 30_000);
+
+  it("settles a concurrent accept and decline into one consistent final state", async () => {
+    process.env.WHATSAPP_INBOUND_CLAIM_GRACE_MS = "100";
+    const operatorPhone = "6285337211230";
+    const { created } = await createDispatchedInquiry({ operatorPhone, slugPrefix: "bluepass-webhook-acceptdecline" });
+    const declineButton = {
+      from: operatorPhone,
+      id: "wamid.race.decline",
+      type: "interactive",
+      interactive: { type: "button_reply", button_reply: { id: `decline:${created.inquiry.id}`, title: "Decline" } }
+    };
+
+    const [r1, r2] = await Promise.all([
+      webhookPost([acceptButton(created.inquiry.id, "wamid.race.accept", operatorPhone)]),
+      webhookPost([declineButton])
+    ]);
+    const [b1, b2] = await Promise.all([r1.json(), r2.json()]);
+    const inquiry = await prisma.bluePassInquiry.findUniqueOrThrow({ where: { id: created.inquiry.id } });
+    const acceptedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_ACCEPTED" }
+    });
+    const declinedEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "OPERATOR_DECLINED" }
+    });
+
+    expect(b1.ok && b2.ok).toBe(true);
+    // Whichever reply lands second wins; a terminal decline always ends the inquiry exactly once.
+    expect(inquiry.status).toBe("DECLINED");
+    expect(declinedEvents).toHaveLength(1);
+    expect(acceptedEvents.length).toBeLessThanOrEqual(1);
+  }, 30_000);
+});
+
+describe("/api/whatsapp/webhook notification recovery and heartbeat fencing", () => {
+  async function createDispatchedInquiry(input: { operatorPhone: string; travellerPhone: string; slugPrefix: string }) {
+    const tenant = await prisma.tenant.create({
+      data: {
+        slug: `${input.slugPrefix}-${randomUUID()}`,
+        name: "BluePass Webhook Recovery Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+    const conversation = await prisma.conversation.create({
+      data: { tenantId: tenant.id, channel: "WEB_WIDGET" }
+    });
+    const created = await createOrReuseBluePassInquiry({
+      tenantId: tenant.id,
+      conversationId: conversation.id,
+      travellerMessage: "Calico Jack in Komodo for 2 guests on 20 July",
+      intent: {
+        destination: "Komodo",
+        dateWindow: "20 July",
+        guests: 2,
+        travellerName: "Sana",
+        travellerEmail: "sana@example.com",
+        travellerPhone: input.travellerPhone
+      },
+      selectedYacht: {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        operatorId: "operator_calico_jack",
+        operatorName: "Calico Jack",
+        operatorPhone: input.operatorPhone
+      }
+    });
+    await dispatchBluePassOperatorWhatsApp({ inquiryId: created.inquiry.id });
+    return { tenant, conversation, created };
+  }
+
+  function webhookPost(messages: unknown[]) {
+    return POST(
+      new Request("http://localhost/api/whatsapp/webhook", {
+        method: "POST",
+        body: JSON.stringify({ entry: [{ changes: [{ value: { messages } }] }] })
+      })
+    );
+  }
+
+  function acceptButton(inquiryId: string, id: string, from: string) {
+    return {
+      from,
+      id,
+      type: "interactive",
+      interactive: { type: "button_reply", button_reply: { id: `accept:${inquiryId}`, title: "Accept" } }
+    };
+  }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function sendsTo(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }, phone: string) {
+    return fetchMock.mock.calls.filter((call) => {
+      const body = String((call[1] as RequestInit | undefined)?.body ?? "");
+      return body.includes(`"to":"${phone}"`) && body.includes('"type":"text"');
+    });
+  }
+
+  function enableTravellerWhatsApp() {
+    process.env.META_GRAPH_VERSION = "v20.0";
+    process.env.WHATSAPP_ACCESS_TOKEN = "test_access_token";
+    process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
+    process.env.WHATSAPP_INBOUND_CLAIM_GRACE_MS = "50";
+  }
+
+  it("fences a redelivery while the first attempt is still processing (no duplicate conversational handling)", async () => {
+    enableTravellerWhatsApp();
+    let blockFirstOutbound = false;
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      if (blockFirstOutbound) {
+        blockFirstOutbound = false;
+        await sleep(600);
+      }
+      return Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const travellerPhone = "6281998877110";
+    const { tenant, created } = await createDispatchedInquiry({
+      operatorPhone: "6285337211310",
+      travellerPhone: "081998877110",
+      slugPrefix: "bluepass-webhook-fence"
+    });
+    process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = tenant.slug;
+    const payload = [{ from: travellerPhone, id: "wamid.fence.context", type: "text", text: { body: "start over" } }];
+    blockFirstOutbound = true; // the first attempt stalls inside its first outbound call
+
+    const firstPromise = webhookPost(payload);
+    await sleep(50);
+    const secondResponse = await webhookPost(payload); // Meta redelivery of the same id
+    const second = await secondResponse.json();
+    const first = await (await firstPromise).json();
+
+    // The fenced redelivery never ran the handler: exactly one handled pass and one send.
+    expect(secondResponse.status).toBe(500);
+    expect(second).toMatchObject({ ok: true, inFlight: 1, handled: 0, contextHandled: 0 });
+    expect(first).toMatchObject({ ok: true, contextHandled: 1 });
+    expect(first.contextHandled + second.contextHandled).toBe(1);
+    expect(sendsTo(fetchMock, travellerPhone).length).toBe(1);
+  }, 30_000);
+
+  it("re-drives a traveller notification lost to a failed send after the operator accept committed", async () => {
+    enableTravellerWhatsApp();
+    let outage = false;
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      if (outage) throw new Error("WhatsApp API outage");
+      return Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211311";
+    const travellerPhone = "6281998877111";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877111",
+      slugPrefix: "bluepass-webhook-redrive"
+    });
+    const wamid = "wamid.operator.accept.redrive";
+    const payload = [acceptButton(created.inquiry.id, wamid, operatorPhone)];
+    fetchMock.mockClear();
+
+    // First attempt: the accept commits, then the traveller notification fails. The webhook
+    // answers 500 and deliberately leaves the receipt unresolved so Meta redelivers.
+    outage = true;
+    const firstResponse = await webhookPost(payload);
+    const first = await firstResponse.json();
+    expect(firstResponse.status).toBe(500);
+    expect(first).toMatchObject({ ok: true, handled: 1, notificationFailed: 1 });
+    const receiptAfterFirst = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: wamid }
+    });
+    expect(receiptAfterFirst.outcome).toBeNull();
+
+    // Redelivery: the accept no-ops on the status guard, but the fenced recovery re-drives
+    // the lost notification exactly once.
+    outage = false;
+    const secondResponse = await webhookPost(payload);
+    const second = await secondResponse.json();
+    expect(secondResponse.status).toBe(200);
+    expect(second).toMatchObject({ ok: true, handled: 1, reclaimed: 1, notificationFailed: 0 });
+
+    const events = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id },
+      select: { type: true }
+    });
+    const counts = events.reduce<Record<string, number>>((acc, event) => {
+      acc[event.type] = (acc[event.type] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(counts["OPERATOR_ACCEPTED"]).toBe(1);
+    expect(counts["TRAVELLER_WHATSAPP_NOTIFICATION_CLAIM"]).toBe(2);
+    expect(counts["TRAVELLER_WHATSAPP_NOTIFICATION_FAILED"]).toBe(1);
+    expect(counts["TRAVELLER_WHATSAPP_NOTIFICATION_SENT"]).toBe(1);
+    expect(sendsTo(fetchMock, travellerPhone).length).toBe(2); // one failed attempt + one re-drive
+    const receipt = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: wamid }
+    });
+    expect(receipt.outcome).toBe("operator_response_reclaimed");
+  }, 30_000);
+
+  it("stops re-driving at the recovery cap with a durable actionable failure state", async () => {
+    enableTravellerWhatsApp();
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211312";
+    const travellerPhone = "6281998877112";
+    const { tenant, conversation, created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877112",
+      slugPrefix: "bluepass-webhook-exhausted"
+    });
+    // Simulate: the accept committed, then all bounded send claims failed (provider outage).
+    await prisma.bluePassInquiry.update({
+      where: { id: created.inquiry.id },
+      data: { status: "OPERATOR_ACCEPTED" }
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "OPERATOR_ACCEPTED",
+        fromStatus: "OPERATOR_PENDING",
+        toStatus: "OPERATOR_ACCEPTED",
+        metadata: {}
+      }
+    });
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await prisma.bluePassInquiryEvent.create({
+        data: {
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          bluePassInquiryId: created.inquiry.id,
+          type: "TRAVELLER_WHATSAPP_NOTIFICATION_CLAIM",
+          metadata: { anchorType: "OPERATOR_ACCEPTED", attempt, priorAttemptUncertain: false }
+        }
+      });
+      await prisma.bluePassInquiryEvent.create({
+        data: {
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          bluePassInquiryId: created.inquiry.id,
+          type: "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT",
+          metadata: { messageType: "text" }
+        }
+      });
+      await prisma.bluePassInquiryEvent.create({
+        data: {
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          bluePassInquiryId: created.inquiry.id,
+          type: "TRAVELLER_WHATSAPP_NOTIFICATION_FAILED",
+          metadata: { reason: "WhatsApp API outage" }
+        }
+      });
+    }
+    await prisma.whatsAppInboundMessageReceipt.create({
+      data: {
+        providerMessageId: "wamid.operator.accept.exhausted",
+        fromPhone: operatorPhone,
+        claimToken: "stale-token",
+        heartbeatAt: new Date(Date.now() - 120_000)
+      }
+    });
+    fetchMock.mockClear();
+
+    const response = await webhookPost([acceptButton(created.inquiry.id, "wamid.operator.accept.exhausted", operatorPhone)]);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 1, reclaimed: 1, notificationFailed: 0 });
+    expect(body.notificationRecoveryExhausted).toHaveLength(1);
+    // No further provider send once the cap is reached.
+    expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(0);
+    const exhausted = await prisma.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: created.inquiry.id, type: "TRAVELLER_WHATSAPP_NOTIFICATION_RECOVERY_EXHAUSTED" }
+    });
+    expect(exhausted?.metadata).toMatchObject({ attempts: 3 });
+    const receipt = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: "wamid.operator.accept.exhausted" }
+    });
+    expect(receipt.outcome).toBe("operator_response_notification_failed");
+  }, 20_000);
+
+  it("flags a re-drive as uncertain when the first attempt may have reached the provider before crashing", async () => {
+    enableTravellerWhatsApp();
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211313";
+    const { tenant, conversation, created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877113",
+      slugPrefix: "bluepass-webhook-uncertain"
+    });
+    // Simulate: the accept committed and a notification ATTEMPT was recorded, but the process
+    // died before the SENT/FAILED write - the provider may have accepted that send.
+    await prisma.bluePassInquiry.update({
+      where: { id: created.inquiry.id },
+      data: { status: "OPERATOR_ACCEPTED" }
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "OPERATOR_ACCEPTED",
+        fromStatus: "OPERATOR_PENDING",
+        toStatus: "OPERATOR_ACCEPTED",
+        metadata: {}
+      }
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT",
+        metadata: { messageType: "text" }
+      }
+    });
+    await prisma.whatsAppInboundMessageReceipt.create({
+      data: {
+        providerMessageId: "wamid.operator.accept.uncertain",
+        fromPhone: operatorPhone,
+        claimToken: "stale-token",
+        heartbeatAt: new Date(Date.now() - 120_000)
+      }
+    });
+    fetchMock.mockClear();
+
+    const response = await webhookPost([acceptButton(created.inquiry.id, "wamid.operator.accept.uncertain", operatorPhone)]);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, handled: 1, reclaimed: 1, notificationFailed: 0 });
+    const claim = await prisma.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: created.inquiry.id, type: "TRAVELLER_WHATSAPP_NOTIFICATION_CLAIM" }
+    });
+    expect(claim?.metadata).toMatchObject({ attempt: 1, priorAttemptUncertain: true });
+    const sent = await prisma.bluePassInquiryEvent.findFirst({
+      where: { bluePassInquiryId: created.inquiry.id, type: "TRAVELLER_WHATSAPP_NOTIFICATION_SENT" }
+    });
+    expect(sent).not.toBeNull();
+    const receipt = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: "wamid.operator.accept.uncertain" }
+    });
+    expect(receipt.outcome).toBe("operator_response_notification_uncertain_recovered");
+  }, 20_000);
+
+  it("does not mislabel a bookkeeping failure after a provider-accepted send as a provider failure", async () => {
+    enableTravellerWhatsApp();
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211315";
+    const travellerPhone = "6281998877115";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877115",
+      slugPrefix: "bluepass-webhook-bookkeeping"
+    });
+    // Sabotage ONLY the first SENT bookkeeping write; the provider call itself succeeds.
+    // Manual patch/restore: vi.spyOn does not reliably wrap Prisma's delegate methods.
+    const eventDelegate = prisma.bluePassInquiryEvent as unknown as {
+      create: (args: { data?: { type?: string } }) => Promise<unknown>;
+    };
+    const originalCreate = eventDelegate.create;
+    let sabotageArmed = true;
+    eventDelegate.create = async (args: { data?: { type?: string } }) => {
+      if (sabotageArmed && args?.data?.type === "TRAVELLER_WHATSAPP_NOTIFICATION_SENT") {
+        sabotageArmed = false;
+        throw new Error("simulated DB hiccup on SENT bookkeeping write");
+      }
+      return originalCreate.call(prisma.bluePassInquiryEvent, args);
+    };
+
+    try {
+      const payload = [acceptButton(created.inquiry.id, "wamid.operator.accept.bookkeeping", operatorPhone)];
+      const firstResponse = await webhookPost(payload);
+      const first = await firstResponse.json();
+      expect(firstResponse.status).toBe(200);
+      expect(first).toMatchObject({ ok: true, handled: 1, notificationFailed: 0 });
+      expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(1);
+
+      // No FAILED event was written over the unresolved ATTEMPT: the truthful
+      // "provider accepted, bookkeeping incomplete" state stays durable.
+      const types = (
+        await prisma.bluePassInquiryEvent.findMany({
+          where: { bluePassInquiryId: created.inquiry.id, type: { startsWith: "TRAVELLER_WHATSAPP" } },
+          select: { type: true }
+        })
+      ).map((event) => event.type);
+      expect(types).toContain("TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT");
+      expect(types).not.toContain("TRAVELLER_WHATSAPP_NOTIFICATION_FAILED");
+
+      // The redelivery skips as an ordinary duplicate: no second provider send.
+      const secondResponse = await webhookPost(payload);
+      const second = await secondResponse.json();
+      expect(secondResponse.status).toBe(200);
+      expect(second).toMatchObject({ ok: true, duplicates: 1, handled: 0, notificationFailed: 0 });
+      expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(1);
+    } finally {
+      eventDelegate.create = originalCreate;
+    }
+  }, 20_000);
+
+  it("fails closed without a provider send when pre-send bookkeeping is unavailable, then recovers", async () => {
+    enableTravellerWhatsApp();
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const operatorPhone = "6285337211316";
+    const travellerPhone = "6281998877116";
+    const { created } = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877116",
+      slugPrefix: "bluepass-webhook-failclosed"
+    });
+    // Bookkeeping outage: pre-send ATTEMPT (and SENT) writes fail. CLAIM markers are written
+    // inside the claim transaction and stay durable, as they would in reality.
+    const eventDelegate = prisma.bluePassInquiryEvent as unknown as {
+      create: (args: { data?: { type?: string } }) => Promise<unknown>;
+    };
+    const originalCreate = eventDelegate.create;
+    let bookkeepingDown = true;
+    eventDelegate.create = async (args: { data?: { type?: string } }) => {
+      const type = args?.data?.type;
+      if (
+        bookkeepingDown &&
+        (type === "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT" || type === "TRAVELLER_WHATSAPP_NOTIFICATION_SENT")
+      ) {
+        throw new Error("simulated bookkeeping outage (ATTEMPT/SENT writes)");
+      }
+      return originalCreate.call(prisma.bluePassInquiryEvent, args);
+    };
+
+    try {
+      const wamid = "wamid.operator.accept.failclosed";
+      const payload = [acceptButton(created.inquiry.id, wamid, operatorPhone)];
+
+      // Without durable pre-send intent, NO provider call happens: the cap (counted on
+      // ATTEMPT rows) cannot be defeated by an outage.
+      const firstResponse = await webhookPost(payload);
+      const first = await firstResponse.json();
+      expect(firstResponse.status).toBe(500);
+      expect(first).toMatchObject({ ok: true, handled: 1, notificationFailed: 1 });
+      expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(0);
+      const receiptAfterFirst = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+        where: { providerMessageId: wamid }
+      });
+      expect(receiptAfterFirst.outcome).toBeNull();
+
+      // Once bookkeeping is healthy, the redelivery reclaims and sends exactly once.
+      bookkeepingDown = false;
+      const secondResponse = await webhookPost(payload);
+      const second = await secondResponse.json();
+      expect(secondResponse.status).toBe(200);
+      expect(second).toMatchObject({ ok: true, handled: 1, reclaimed: 1, notificationFailed: 0 });
+      expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(1);
+      const types = (
+        await prisma.bluePassInquiryEvent.findMany({
+          where: { bluePassInquiryId: created.inquiry.id, type: { startsWith: "TRAVELLER_WHATSAPP" } },
+          select: { type: true }
+        })
+      ).map((event) => event.type);
+      expect(types.filter((type) => type === "TRAVELLER_WHATSAPP_NOTIFICATION_ATTEMPT")).toHaveLength(1);
+      expect(types).toContain("TRAVELLER_WHATSAPP_NOTIFICATION_SENT");
+    } finally {
+      eventDelegate.create = originalCreate;
+    }
+  }, 20_000);
+
+  it("scopes the context-handling lookup by tenant: the same message id under another tenant is not processed here", async () => {
+    const operatorPhone = "6285337211317";
+    const first = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877117",
+      slugPrefix: "bluepass-webhook-scope-a"
+    });
+    const second = await createDispatchedInquiry({
+      operatorPhone,
+      travellerPhone: "081998877118",
+      slugPrefix: "bluepass-webhook-scope-b"
+    });
+    const sharedWamid = `wamid.context.shared.${randomUUID()}`;
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: first.tenant.id,
+        conversationId: first.conversation.id,
+        bluePassInquiryId: first.created.inquiry.id,
+        type: "WHATSAPP_CONTEXT_MESSAGE_RECEIVED",
+        metadata: { providerMessageId: sharedWamid }
+      }
+    });
+
+    expect(await hasBluePassContextMessageBeenProcessed(sharedWamid, first.tenant.id)).toBe(true);
+    expect(await hasBluePassContextMessageBeenProcessed(sharedWamid, second.tenant.id)).toBe(false);
+    expect(await hasBluePassContextMessageBeenProcessed(`wamid.context.fresh.${randomUUID()}`, first.tenant.id)).toBe(false);
+  }, 20_000);
+
+  it("skips a reclaimed conversational message whose first attempt already recorded its handling", async () => {
+    enableTravellerWhatsApp();
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ messages: [{ id: `wamid.out.${randomUUID()}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const travellerPhone = "6281998877114";
+    const { tenant, conversation, created } = await createDispatchedInquiry({
+      operatorPhone: "6285337211314",
+      travellerPhone: "081998877114",
+      slugPrefix: "bluepass-webhook-ctxskip"
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "WHATSAPP_CONTEXT_MESSAGE_RECEIVED",
+        metadata: { providerMessageId: "wamid.context.redelivered" }
+      }
+    });
+    await prisma.bluePassInquiryEvent.create({
+      data: {
+        tenantId: tenant.id,
+        conversationId: conversation.id,
+        bluePassInquiryId: created.inquiry.id,
+        type: "WHATSAPP_CONTEXT_REPLY_SENT",
+        metadata: { providerMessageId: "wamid.context.redelivered" }
+      }
+    });
+    await prisma.whatsAppInboundMessageReceipt.create({
+      data: {
+        providerMessageId: "wamid.context.redelivered",
+        fromPhone: travellerPhone,
+        claimToken: "stale-token",
+        heartbeatAt: new Date(Date.now() - 120_000)
+      }
+    });
+    fetchMock.mockClear();
+
+    const response = await webhookPost([
+      { from: travellerPhone, id: "wamid.context.redelivered", type: "text", text: { body: "what is my booking status?" } }
+    ]);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, contextHandled: 0, contextFailed: 0, reclaimed: 1 });
+    // The handler never ran again: no typing indicator, no second reply send.
+    expect(sendsTo(fetchMock, travellerPhone)).toHaveLength(0);
+    const replyEvents = await prisma.bluePassInquiryEvent.findMany({
+      where: { bluePassInquiryId: created.inquiry.id, type: "WHATSAPP_CONTEXT_REPLY_SENT" }
+    });
+    expect(replyEvents).toHaveLength(1);
+    const receipt = await prisma.whatsAppInboundMessageReceipt.findUniqueOrThrow({
+      where: { providerMessageId: "wamid.context.redelivered" }
+    });
+    expect(receipt.outcome).toBe("context_redelivery_skipped");
+  }, 20_000);
 });
