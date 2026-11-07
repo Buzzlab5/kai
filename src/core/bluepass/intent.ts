@@ -103,22 +103,8 @@ export function extractBluePassInquiryIntent(
   const dateWindow = extractDateWindow(text, lowerText);
   if (dateWindow) intent.dateWindow = dateWindow;
 
-  // An explicit currency code (prefix or suffix) is preserved as stated; only genuinely ambiguous
-  // amounts (no currency mentioned at all) fall back to the existing USD default.
-  const budgetMatch = text.match(/\b(USD|IDR|EUR|AUD)?\s*(\$?\s?\d{3,7}(?:,\d{3})?)(?:\s*(USD|IDR|EUR|AUD))?\b/i);
-  if (
-    budgetMatch &&
-    // Pre-existing bug fixed in passing: this used to be Math.max(0, index) - 20, which for a
-    // short string with index < 20 produces a NEGATIVE slice start (e.g. index 13 -> -7), and
-    // a negative slice start counts from the END of the string, not "20 chars before the match" -
-    // silently checking the wrong substring entirely. Only went unnoticed because the one existing
-    // test's string was long enough for the (wrong) slice to still contain a trigger word by luck.
-    /\b(?:budget|around|usd|aud|idr|eur|\$)\b/i.test(text.slice(Math.max(0, (budgetMatch.index ?? 0) - 20)))
-  ) {
-    const amount = budgetMatch[2].replace("$", "").trim();
-    const currency = (budgetMatch[1] ?? budgetMatch[3])?.toUpperCase() ?? "USD";
-    intent.budget = `${currency} ${amount}`;
-  }
+  const budget = findBudget(text);
+  if (budget) intent.budget = budget;
 
   const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   if (emailMatch) intent.travellerEmail = emailMatch[0];
@@ -156,6 +142,28 @@ export function getMissingBluePassInquiryFields(intent: BluePassInquiryIntent) {
     const value = intent[field];
     return value === undefined || value === null || value === "";
   });
+}
+
+// The first number with money evidence right next to it: a "$", a currency code (before or after),
+// or a budget word shortly before. A year ("December 2026") is only money with a "$" or currency
+// code. The old single regex took the first 3+ digit number anywhere (a year, or the "000" tail of
+// "8,000") and then looked for a cue anywhere after it, so "December 2026 ... around $8,000"
+// stored "USD 2026" and "budget $8,000" stored "USD 000". An explicit currency code is kept as
+// stated; a bare "$" or cue falls back to USD, as before.
+function findBudget(text: string) {
+  for (const match of text.matchAll(/(?<![\d,.+-])(\d{1,3}(?:,\d{3})+|\d{3,9})(?!\d)/g)) {
+    const amount = match[1];
+    const start = match.index ?? 0;
+    const before = text.slice(Math.max(0, start - 24), start);
+    const after = text.slice(start + amount.length, start + amount.length + 8);
+    const code = (before.match(/\b(USD|IDR|EUR|AUD)\s*\$?\s*$/i) ?? after.match(/^\s*(USD|IDR|EUR|AUD)\b/i))?.[1];
+    const hasCurrency = Boolean(code) || /\$\s*$/.test(before);
+    const hasCue = /\b(?:budget|around|about|approx(?:imately)?|under|up to|max(?:imum)?|total)\b/i.test(before);
+    const isYear = /^(?:19|20)\d{2}$/.test(amount);
+
+    if (isYear ? !hasCurrency : !hasCurrency && !hasCue) continue;
+    return `${code?.toUpperCase() ?? "USD"} ${amount}`;
+  }
 }
 
 function extractDateWindow(text: string, lowerText: string) {

@@ -23,6 +23,18 @@ describe("BluePass inquiry intent", () => {
     });
   });
 
+  it("reads the budget, not a year or the tail of a comma amount", () => {
+    const budget = (...messages: string[]) => extractBluePassInquiryIntent(messages).budget;
+
+    expect(budget("Komodo, dive-focused", "4 guests", "First two weeks of December 2026", "Around $8,000 total")).toBe("USD 8,000");
+    expect(budget("budget around $8,000 for 4 guests")).toBe("USD 8,000");
+    expect(budget("our budget is 5000 AUD")).toBe("AUD 5000");
+    expect(budget("up to IDR 15000000")).toBe("IDR 15000000");
+    expect(budget("December 2026, 4 guests")).toBeUndefined();
+    expect(budget("around 2026 sometime")).toBeUndefined();
+    expect(budget("my phone is 0400111222, email a@b.co")).toBeUndefined();
+  });
+
   it("preserves full day month year date windows", () => {
     const intent = extractBluePassInquiryIntent([
       "for 29th june 2026, 4 people my name is Eka, email is eka@gmail.com, and phone is 0876634231987"
