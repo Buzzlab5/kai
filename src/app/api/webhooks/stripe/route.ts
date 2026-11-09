@@ -41,10 +41,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Always ack with 200 once the signature is verified - one handler failure should not make Stripe
-  // retry-storm the whole event; failures are logged and surfaced in the response body instead.
-  const failures: string[] = [];
-
+  // A handler failure answers 500 so Stripe redelivers the event (with backoff, for days). That is
+  // safe because every handler is idempotent: a redelivery of a finished event is a no-op. Answering
+  // 200 here would mean a transient DB error leaves a paid booking's ledger never finalized.
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -63,9 +62,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    failures.push(message);
     console.error("bluepass_stripe_webhook.handler_failed", { eventType: event.type, error: message });
+    return NextResponse.json({ received: false, error: message }, { status: 500 });
   }
 
-  return NextResponse.json({ received: true, ...(failures.length > 0 ? { failures } : {}) });
+  return NextResponse.json({ received: true });
 }

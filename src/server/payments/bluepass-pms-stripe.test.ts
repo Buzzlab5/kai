@@ -285,11 +285,14 @@ describe("releasePmsBookingLedgerEntryPayoutViaStripe", () => {
       { stripeClient: { transfers: { create: transfersCreate } } as never }
     );
 
-    expect(transfersCreate).toHaveBeenCalledWith({
-      amount: payoutEntry.amountCents,
-      currency: payoutEntry.currency.toLowerCase(),
-      destination: "acct_operator_release"
-    });
+    expect(transfersCreate).toHaveBeenCalledWith(
+      {
+        amount: payoutEntry.amountCents,
+        currency: payoutEntry.currency.toLowerCase(),
+        destination: "acct_operator_release"
+      },
+      { idempotencyKey: `kai-pms-payout-${payoutEntry.id}` }
+    );
     expect(result).toMatchObject({ paidOutReference: transferId, paidOutBy: "admin@bluepass.co" });
 
     const payoutRecord = await prisma.pmsBookingOperatorPayout.findUnique({
@@ -489,7 +492,8 @@ describe("cancelPmsBookingPaymentAttempt", () => {
     expect(result.refundTierPercent).toBe(100);
     expect(result.refundAmountCents).toBe(10000);
     expect(refundsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ payment_intent: attempt.stripePaymentIntentId, amount: 10000 })
+      expect.objectContaining({ payment_intent: attempt.stripePaymentIntentId, amount: 10000 }),
+      { idempotencyKey: `kai-pms-refund-${attempt.id}` }
     );
     expect(result.attempt.status).toBe("CANCELLED_REFUNDED");
     expect(result.attempt.cancelledBy).toBe("OPERATOR");
@@ -514,7 +518,7 @@ describe("cancelPmsBookingPaymentAttempt", () => {
     expect(result.refundTierPercent).toBe(50);
     expect(result.refundAmountCents).toBe(5000);
     expect(result.retainedCents).toBe(5000);
-    expect(refundsCreate).toHaveBeenCalledWith(expect.objectContaining({ amount: 5000 }));
+    expect(refundsCreate).toHaveBeenCalledWith(expect.objectContaining({ amount: 5000 }), expect.anything());
 
     const entries = await prisma.pmsBookingLedgerEntry.findMany({ where: { pmsBookingPaymentAttemptId: attempt.id } });
     const conservation = entries.filter((e) => e.kind === "CONSERVATION_ALLOCATION");
@@ -649,7 +653,8 @@ describe("settlePmsBookingPaymentAttempt", () => {
     const [url] = fetcher.mock.calls[0] as unknown as [string];
     expect(url).toContain(`tenantSlug=${tenant.slug}`);
     expect(transfersCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ destination: "acct_auto_lookup" })
+      expect.objectContaining({ destination: "acct_auto_lookup" }),
+      expect.anything()
     );
     expect(result.method).toBe("STRIPE");
     expect(result.attempt.status).toBe("SETTLED");
@@ -667,7 +672,7 @@ describe("settlePmsBookingPaymentAttempt", () => {
     );
 
     expect(fetcher).not.toHaveBeenCalled();
-    expect(transfersCreate).toHaveBeenCalledWith(expect.objectContaining({ destination: "acct_manual_override" }));
+    expect(transfersCreate).toHaveBeenCalledWith(expect.objectContaining({ destination: "acct_manual_override" }), expect.anything());
     expect(result.method).toBe("STRIPE");
   }, 30000);
 

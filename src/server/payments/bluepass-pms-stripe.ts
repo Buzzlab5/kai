@@ -9,7 +9,7 @@ import { parseAttemptTravelDate } from "@/core/settlement/rules";
 import { createAssistantMessage } from "@/server/conversation/conversation-repository";
 import { getPmsAdapter } from "@/server/pms/pms-adapter-registry";
 import { resolveTenantPmsEnv } from "@/server/pms/tenant-pms-credentials";
-import { getBluePassStripeClient, type BluePassStripeEnv } from "./bluepass-stripe";
+import { getBluePassStripeClient, payoutIdempotencyKey, type BluePassStripeEnv } from "./bluepass-stripe";
 import { resolveOperatorPayoutAccount } from "./operator-payout-account-client";
 
 export const PMS_BOOKING_DIRECT_CHECKOUT_FLOW = "PMS_BOOKING_DIRECT";
@@ -186,13 +186,22 @@ export async function releasePmsBookingLedgerEntryPayoutViaStripe(
 
   const stripe = deps.stripeClient ?? getBluePassStripeClient(deps.env);
 
-  let transfer: Stripe.Transfer;
+  const priorPayout = await prisma.pmsBookingOperatorPayout.findUnique({ where: { pmsBookingLedgerEntryId: entry.id } });
+
+  let transfer: { id: string };
   try {
-    transfer = await stripe.transfers.create({
-      amount: entry.amountCents,
-      currency: entry.currency.toLowerCase(),
-      destination: input.stripeConnectAccountId
-    });
+    // See payoutIdempotencyKey: one key per entry, and a TRANSFERRED row is never transferred twice.
+    transfer =
+      priorPayout?.status === "TRANSFERRED" && priorPayout.stripeTransferId
+        ? { id: priorPayout.stripeTransferId }
+        : await stripe.transfers.create(
+            {
+              amount: entry.amountCents,
+              currency: entry.currency.toLowerCase(),
+              destination: input.stripeConnectAccountId
+            },
+            { idempotencyKey: payoutIdempotencyKey("pms", entry.id, priorPayout?.status === "FAILED" ? priorPayout : null) }
+          );
   } catch (error) {
     await prisma.pmsBookingOperatorPayout.upsert({
       where: { pmsBookingLedgerEntryId: entry.id },
@@ -490,10 +499,15 @@ export async function cancelPmsBookingPaymentAttempt(
   const stripe = deps.stripeClient ?? getBluePassStripeClient(deps.env);
   let stripeRefundId: string | null = null;
   if (refundAmountCents > 0 && attempt.stripePaymentIntentId) {
-    const refund = await stripe.refunds.create({
-      payment_intent: attempt.stripePaymentIntentId,
-      amount: refundAmountCents
-    });
+    // Keyed on the attempt: a double click or retry cannot refund the traveller twice. Stripe
+    // rejects the same key with different params, so a changed amount fails loudly instead.
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: attempt.stripePaymentIntentId,
+        amount: refundAmountCents
+      },
+      { idempotencyKey: `kai-pms-refund-${attempt.id}` }
+    );
     stripeRefundId = refund.id;
   }
 

@@ -301,11 +301,14 @@ describe("BluePass Stripe payment collection", () => {
       { stripeClient }
     );
 
-    expect(transfersCreate).toHaveBeenCalledWith({
-      amount: payoutEntry.amountCents,
-      currency: payoutEntry.currency.toLowerCase(),
-      destination: "acct_operator_release"
-    });
+    expect(transfersCreate).toHaveBeenCalledWith(
+      {
+        amount: payoutEntry.amountCents,
+        currency: payoutEntry.currency.toLowerCase(),
+        destination: "acct_operator_release"
+      },
+      { idempotencyKey: `kai-bluepass-payout-${payoutEntry.id}` }
+    );
     expect(result).toMatchObject({ paidOutReference: transferId, paidOutBy: "admin@bluepass.co" });
 
     const payoutRecord = await prisma.bluePassOperatorPayout.findUnique({

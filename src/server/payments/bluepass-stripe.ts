@@ -113,7 +113,11 @@ export async function handleBluePassCheckoutSessionCompleted(session: Stripe.Che
     return;
   }
   if (paymentIntent.status === "SUCCEEDED") {
-    // Stripe can redeliver the same event - already processed, nothing more to do.
+    // Stripe redelivers on a non-2xx answer. The status flips before the ledger is finalized below,
+    // so a first run that died in between must still get its ledger on redelivery. Finalizing is
+    // idempotent, so for a fully processed event this is a cheap no-op.
+    const inquiry = await prisma.bluePassInquiry.findUnique({ where: { id: paymentIntent.bluePassInquiryId } });
+    if (inquiry) await finalizeBluePassLedgerForConfirmedBooking(inquiry);
     return;
   }
 
@@ -190,6 +194,17 @@ export async function createOrRefreshBluePassOperatorStripeConnectAccount(
 }
 
 /**
+ * Stripe replays the first result for the same key (24h), so two overlapping releases of one ledger
+ * entry - cron plus an admin click, or a double click - make one transfer, not two. A payout that
+ * FAILED gets a fresh key derived from when the failure was recorded, otherwise Stripe would replay
+ * that same failure and the operator could never be retried inside the 24h window; two retries that
+ * read the same failed row still share one key.
+ */
+export function payoutIdempotencyKey(kind: "bluepass" | "pms", entryId: string, failedPayout?: { updatedAt: Date } | null) {
+  return `kai-${kind}-payout-${entryId}${failedPayout ? `-retry-${failedPayout.updatedAt.getTime()}` : ""}`;
+}
+
+/**
  * Releases one FINALIZED ledger entry's operator share as a real Stripe transfer, then delegates to
  * the existing markBluePassLedgerEntryPaid so the audit trail/idempotency stays a single source of
  * truth regardless of whether an entry was paid manually or via Stripe. The destination Connect
@@ -223,13 +238,23 @@ export async function releaseBluePassLedgerEntryPayoutViaStripe(
 
   const stripe = deps.stripeClient ?? getBluePassStripeClient(deps.env);
 
-  let transfer: Stripe.Transfer;
+  const priorPayout = await prisma.bluePassOperatorPayout.findUnique({ where: { bluePassLedgerEntryId: entry.id } });
+
+  let transfer: { id: string };
   try {
-    transfer = await stripe.transfers.create({
-      amount: entry.amountCents,
-      currency: entry.currency.toLowerCase(),
-      destination: input.stripeConnectAccountId
-    });
+    // The key only dedupes for 24h; a row already TRANSFERRED means the money moved even if the
+    // entry was never marked paid (crash in between), so reuse it and never transfer again.
+    transfer =
+      priorPayout?.status === "TRANSFERRED" && priorPayout.stripeTransferId
+        ? { id: priorPayout.stripeTransferId }
+        : await stripe.transfers.create(
+            {
+              amount: entry.amountCents,
+              currency: entry.currency.toLowerCase(),
+              destination: input.stripeConnectAccountId
+            },
+            { idempotencyKey: payoutIdempotencyKey("bluepass", entry.id, priorPayout?.status === "FAILED" ? priorPayout : null) }
+          );
   } catch (error) {
     await prisma.bluePassOperatorPayout.upsert({
       where: { bluePassLedgerEntryId: entry.id },

@@ -102,7 +102,7 @@ describe("POST /api/webhooks/stripe", () => {
     expect(handleBluePassCheckoutSessionExpiredMock).toHaveBeenCalledWith(session);
   });
 
-  it("still acknowledges with 200 and reports the failure when the handler throws", async () => {
+  it("answers 500 so Stripe redelivers when the handler throws", async () => {
     const session = { id: "cs_test_789" };
     resolveBluePassStripeWebhookSecretMock.mockReturnValue("whsec_test");
     getBluePassStripeClientMock.mockReturnValue({
@@ -115,8 +115,8 @@ describe("POST /api/webhooks/stripe", () => {
     const response = await POST(webhookRequest(JSON.stringify(session)));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ received: true, failures: ["DB unavailable"] });
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ received: false, error: "DB unavailable" });
   });
 
   it("routes a checkout.session.completed event with kaiFlow PMS_BOOKING_DIRECT metadata to the PMS booking handler, not the BluePass marketplace handler", async () => {
