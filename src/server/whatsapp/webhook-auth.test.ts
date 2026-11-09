@@ -31,8 +31,10 @@ describe("authorizeWhatsAppWebhook", () => {
 
   it("accepts unsigned requests only while no app secret exists and the override is on", () => {
     const noSecret = { NODE_ENV: "production", KAI_ADMIN_TOKEN: "admin-token" };
-    expect(authorizeWhatsAppWebhook({ ...base, env: { ...noSecret, WHATSAPP_ALLOW_UNSIGNED: "true" } })).toEqual({ ok: true, via: "unsigned_override" });
-    for (const flag of [undefined, "", "false", "1", "yes"]) {
+    for (const flag of ["true", "True", "TRUE", " true "]) {
+      expect(authorizeWhatsAppWebhook({ ...base, env: { ...noSecret, WHATSAPP_ALLOW_UNSIGNED: flag } })).toEqual({ ok: true, via: "unsigned_override" });
+    }
+    for (const flag of [undefined, "", "false", "1", "yes", '"true"']) {
       expect(authorizeWhatsAppWebhook({ ...base, env: { ...noSecret, WHATSAPP_ALLOW_UNSIGNED: flag } })).toEqual({ ok: false, reason: "missing_app_secret" });
     }
   });

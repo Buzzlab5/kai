@@ -36,7 +36,7 @@ export function authorizeWhatsAppWebhook(input: {
     // Stopgap for when the Meta app secret is not available yet: an explicit opt-in that only
     // applies while no secret is set. Once WHATSAPP_APP_SECRET exists it does nothing, so a
     // wrong signature is still refused. The route logs every message accepted this way.
-    if (env.WHATSAPP_ALLOW_UNSIGNED?.trim() === "true") return { ok: true, via: "unsigned_override" };
+    if (env.WHATSAPP_ALLOW_UNSIGNED?.trim().toLowerCase() === "true") return { ok: true, via: "unsigned_override" };
     return env.NODE_ENV === "production"
       ? { ok: false, reason: "missing_app_secret" }
       : { ok: true, via: "dev_unverified" };
