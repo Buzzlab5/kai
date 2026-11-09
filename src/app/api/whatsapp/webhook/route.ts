@@ -48,7 +48,12 @@ export async function POST(request: Request) {
     authorizationHeader: request.headers.get("authorization")
   });
   if (!auth.ok) {
-    console.warn("whatsapp.webhook.rejected", { reason: auth.reason });
+    const override = process.env.WHATSAPP_ALLOW_UNSIGNED;
+    console.warn("whatsapp.webhook.rejected", {
+      reason: auth.reason,
+      // The flag is not a secret: its presence and length show a quoted or padded value ("true" is 4 characters).
+      allowUnsigned: override === undefined ? "unset" : `set, ${override.length} chars`
+    });
     return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
   }
   if (auth.via === "unsigned_override") {
