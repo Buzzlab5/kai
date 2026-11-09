@@ -29,6 +29,21 @@ describe("authorizeWhatsAppWebhook", () => {
     expect(authorizeWhatsAppWebhook({ ...base, authorizationHeader: "Bearer admin-token", env })).toMatchObject({ ok: true });
   });
 
+  it("accepts unsigned requests only while no app secret exists and the override is on", () => {
+    const noSecret = { NODE_ENV: "production", KAI_ADMIN_TOKEN: "admin-token" };
+    expect(authorizeWhatsAppWebhook({ ...base, env: { ...noSecret, WHATSAPP_ALLOW_UNSIGNED: "true" } })).toEqual({ ok: true, via: "unsigned_override" });
+    for (const flag of [undefined, "", "false", "1", "yes"]) {
+      expect(authorizeWhatsAppWebhook({ ...base, env: { ...noSecret, WHATSAPP_ALLOW_UNSIGNED: flag } })).toEqual({ ok: false, reason: "missing_app_secret" });
+    }
+  });
+
+  it("the override does nothing once an app secret is set: a wrong signature is still refused", () => {
+    const env = { ...prod, WHATSAPP_ALLOW_UNSIGNED: "true" };
+    expect(authorizeWhatsAppWebhook({ ...base, signatureHeader: sign(body, "wrong"), env })).toMatchObject({ ok: false });
+    expect(authorizeWhatsAppWebhook({ ...base, env })).toMatchObject({ ok: false });
+    expect(authorizeWhatsAppWebhook({ ...base, signatureHeader: sign(body, "app-secret"), env })).toEqual({ ok: true, via: "signature" });
+  });
+
   it("outside production with no app secret skips the check", () => {
     expect(authorizeWhatsAppWebhook({ ...base, env: { NODE_ENV: "test" } })).toEqual({ ok: true, via: "dev_unverified" });
   });
