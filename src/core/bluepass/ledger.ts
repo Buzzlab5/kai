@@ -31,7 +31,7 @@ export type BluePassLedgerEstimate = {
   };
 };
 
-export type BluePassLedgerMarket = "AUSTRALIA" | "INDONESIA";
+export type BluePassLedgerMarket = "AUSTRALIA" | "INDONESIA" | "BARBADOS";
 
 export type BluePassLedgerSplitInput = {
   inquiryId: string;
@@ -43,40 +43,55 @@ export type BluePassLedgerSplitInput = {
   referralCode?: string | null;
   referralRole?: string | null;
   /**
-   * Region for the commission split. Accepted but currently INERT - kept in the type only so
-   * callers that already pass it (bluepass-inquiry-repository.ts) don't need a signature change,
-   * and so a future region-specific split doesn't require re-adding this field.
+   * Which market's commission rate applies. Omitted (or unknown) means AUSTRALIA, 20%/80%.
    *
-   * History, in case a future divergence needs it: AU moved to 20%/80% on 2026-08-05; Indonesia was
-   * corrected to the same 20%/80% on 2026-08-24 ("Indonesia ternyata 20% juga, bukan 18%"); a code
-   * comment at the time claimed Boattime (confirm-bluepass-pms-payment.ts, which never passes this
-   * field) had to stay frozen on the old 18%/82% split "per a 2026-08-06 instruction" - but that
-   * claim couldn't be traced to any real source (the docs it cited, e.g. kai-persona-triage.md,
-   * don't exist anywhere in this workspace, and Bluepass's own real pitch deck has stated a 20%
-   * commission all along, with no Boattime exception). Explicitly corrected 2026-08-24: every
-   * market, AU/Indonesia/no-market-at-all alike, is now the same 20%/80% split. Don't reintroduce a
-   * market-specific carve-out without a real, checkable source for it this time.
+   * History: AU moved to 20%/80% on 2026-08-05; Indonesia was set to the same split on 2026-08-24
+   * ("Indonesia ternyata 20% juga, bukan 18%"), which also ended a Boattime carve-out that had no
+   * checkable source. On 2026-11-10 Tony (the founder) said the rate is 20% for Australia and 18% for
+   * Indonesia and Barbados, named markets only, never a blanket rate - so a market-specific rate is
+   * back, this time on his word. Callers pass the market only when they can really tell it
+   * (see marketForCurrency); anything else gets the 20% default.
    */
   market?: BluePassLedgerMarket;
 };
 
-// The real split, confirmed against Bluepass's own pitch deck ("We charge a 20% commission... we
-// keep ~12% of every booking" - the unreferred case: 5% reef + 3% payments + 12% BluePass net = 20%).
-// Already live in Kai's own chat copy (reply.ts's buildBluePassCommissionReply, triage.ts, and
-// market.ts's bluePassCommissionSummary). Conservation and payment-processing always apply; partner
-// commission only applies when a referral is attached, in which case BluePass's own platform-fee
-// bucket is smaller so the operator's net share never depends on whether a referral happened to be
-// attached. No dollar cap.
+// The split, confirmed against Bluepass's own pitch deck ("We charge a 20% commission... we keep
+// ~12% of every booking" - the unreferred case: 5% reef + 3% payments + 12% BluePass net = 20%).
+// Conservation and payment-processing always apply; partner commission only applies when a referral
+// is attached, in which case BluePass's own platform-fee bucket is smaller so the operator's net
+// share never depends on whether a referral happened to be attached. No dollar cap.
 //
-// One flat rate for every market as of 2026-08-24 - AU, Indonesia, and Boattime (previously believed
-// frozen on an old 18%/82% figure that turned out to have no real source - see
-// BluePassLedgerSplitInput.market's comment) all resolve here now, regardless of whether a market is
-// passed at all.
+// The markets Tony named at 18% (Indonesia, Barbados) lower only the platform fee by two points
+// (5% referred / 10% unreferred), which is the same 5/5/3/5 and 5/3/10 shape the earlier 18% split
+// had: the operator still keeps 82%, and conservation stays 5%. Mirrored in the website repo's
+// lib/constants/economics.ts - change both together.
 const conservationPct = 0.05;
 const partnerCommissionPct = 0.05;
 const paymentProcessingPct = 0.03;
-const platformFeePctReferred = 0.07;
-const platformFeePctUnreferred = 0.12;
+const platformFeePct: Record<BluePassLedgerMarket, { referred: number; unreferred: number }> = {
+  AUSTRALIA: { referred: 0.07, unreferred: 0.12 },
+  INDONESIA: { referred: 0.05, unreferred: 0.1 },
+  BARBADOS: { referred: 0.05, unreferred: 0.1 }
+};
+
+/**
+ * The market a booking is in, when its currency says so unambiguously. Bookings carry no market of
+ * their own yet, and USD is quoted in every market, so USD (and anything else) returns undefined and
+ * the caller gets the 20% default rather than a guess. shortcut: replace with a stored market on the
+ * inquiry / payment attempt once one exists.
+ */
+export function marketForCurrency(currency?: string | null): BluePassLedgerMarket | undefined {
+  switch (currency?.toUpperCase()) {
+    case "AUD":
+      return "AUSTRALIA";
+    case "IDR":
+      return "INDONESIA";
+    case "BBD":
+      return "BARBADOS";
+    default:
+      return undefined;
+  }
+}
 
 // Core split, operating directly on a real amount in cents - shared by the pre-booking PENDING
 // estimate (parsed from operator free text, see calculateBluePassLedgerEstimate below) and the
@@ -86,12 +101,11 @@ const platformFeePctUnreferred = 0.12;
 export function calculateBluePassLedgerSplit(input: BluePassLedgerSplitInput): BluePassLedgerEstimate[] {
   const budgetAmount = input.grossAmountCents / 100;
   const hasReferral = Boolean(input.referralPartnerId);
-  // input.market is accepted but unused here - every market resolves to the same flat rate now, see
-  // BluePassLedgerSplitInput.market's comment for why this isn't a market-keyed lookup anymore.
+  const fees = platformFeePct[input.market ?? "AUSTRALIA"];
   const conservation = budgetAmount * conservationPct;
   const partnerCommission = hasReferral ? budgetAmount * partnerCommissionPct : 0;
   const paymentProcessing = budgetAmount * paymentProcessingPct;
-  const platformFee = budgetAmount * (hasReferral ? platformFeePctReferred : platformFeePctUnreferred);
+  const platformFee = budgetAmount * (hasReferral ? fees.referred : fees.unreferred);
   // Derived as the remainder (not a separate budgetAmount * 0.82) so the four ledger rows always
   // sum to exactly budgetAmount, with no rounding-cent leakage between buckets.
   const operatorNet = budgetAmount - conservation - partnerCommission - paymentProcessing - platformFee;
@@ -135,7 +149,7 @@ export function calculateBluePassLedgerEstimate(input: BluePassLedgerEstimateInp
     referralLinkId: input.referralLinkId,
     referralCode: input.referralCode,
     referralRole: input.referralRole,
-    market: input.market
+    market: input.market ?? marketForCurrency(currency)
   });
 }
 

@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { calculateBluePassLedgerEstimate, calculateConservationContributionCents } from "./ledger";
+import { calculateBluePassLedgerEstimate, calculateBluePassLedgerSplit, calculateConservationContributionCents, marketForCurrency } from "./ledger";
 
-// One flat 20%/80% split for every market as of 2026-08-24 (see BluePassLedgerSplitInput.market's
-// comment for the full history: AU moved first on 2026-08-05, Indonesia was corrected on 2026-08-24,
-// and an earlier belief that Boattime had to stay frozen on an old 18%/82% figure turned out to have
-// no real source and was folded into the same rate the same day). `market` is still accepted on the
-// input but no longer changes the numbers - these tests assert that explicitly.
+// Australia (and any booking whose market is unknown) is 20%/80%; per Tony (2026-11-10) Indonesia and
+// Barbados are 18%/82%, a lower platform fee only. See ledger.ts's BluePassLedgerSplitInput.market.
 describe("calculateBluePassLedgerEstimate", () => {
   it("splits a referred booking into the real 20% (5/5/3/7) breakdown, operator keeps 80%", () => {
     const entries = calculateBluePassLedgerEstimate({
@@ -77,13 +74,9 @@ describe("calculateBluePassLedgerEstimate", () => {
     );
   });
 
-  it("gives the identical split whether market is omitted, AUSTRALIA, or INDONESIA - all 20%/80% now", () => {
+  it("is 20%/80% for Australia and when no market is given", () => {
     const base = { inquiryId: "inquiry_market", budget: "USD 10000" } as const;
-    const noMarket = calculateBluePassLedgerEstimate(base);
-    const australia = calculateBluePassLedgerEstimate({ ...base, market: "AUSTRALIA" });
-    const indonesia = calculateBluePassLedgerEstimate({ ...base, market: "INDONESIA" });
-
-    for (const entries of [noMarket, australia, indonesia]) {
+    for (const entries of [calculateBluePassLedgerEstimate(base), calculateBluePassLedgerEstimate({ ...base, market: "AUSTRALIA" })]) {
       expect(entries).toEqual([
         expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
         expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
@@ -91,6 +84,42 @@ describe("calculateBluePassLedgerEstimate", () => {
         expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 })
       ]);
     }
+  });
+
+  it("is 18%/82% for Indonesia and Barbados: only the platform fee drops, 10% unreferred and 5% referred", () => {
+    for (const market of ["INDONESIA", "BARBADOS"] as const) {
+      const unreferred = calculateBluePassLedgerEstimate({ inquiryId: "i", budget: "USD 10000", market });
+      expect(unreferred).toEqual([
+        expect.objectContaining({ kind: "CONSERVATION_ALLOCATION", amountCents: 50000 }),
+        expect.objectContaining({ kind: "PAYMENT_PROCESSING_ALLOCATION", amountCents: 30000 }),
+        expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 100000 }),
+        expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 })
+      ]);
+
+      const referred = calculateBluePassLedgerEstimate({ inquiryId: "i", budget: "USD 10000", market, referralPartnerId: "p1" });
+      expect(referred).toContainEqual(expect.objectContaining({ kind: "BLUEPASS_PLATFORM_COMMISSION", amountCents: 50000 }));
+      expect(referred).toContainEqual(expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 }));
+      expect(referred).toContainEqual(expect.objectContaining({ kind: "PARTNER_COMMISSION_ESTIMATE", amountCents: 50000 }));
+      expect(referred.reduce((sum, e) => sum + e.amountCents, 0)).toBe(1_000_000);
+    }
+  });
+
+  it("reads the market from an unambiguous currency, and leaves USD at the 20% default", () => {
+    expect(marketForCurrency("AUD")).toBe("AUSTRALIA");
+    expect(marketForCurrency("idr")).toBe("INDONESIA");
+    expect(marketForCurrency("BBD")).toBe("BARBADOS");
+    expect(marketForCurrency("USD")).toBeUndefined();
+    expect(marketForCurrency(null)).toBeUndefined();
+
+    const idr = calculateBluePassLedgerEstimate({ inquiryId: "i", budget: "IDR 1000000" });
+    expect(idr).toContainEqual(expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 82000000 }));
+    const usd = calculateBluePassLedgerEstimate({ inquiryId: "i", budget: "USD 10000" });
+    expect(usd).toContainEqual(expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 800000 }));
+  });
+
+  it("an explicit market beats the currency", () => {
+    const entries = calculateBluePassLedgerSplit({ inquiryId: "i", grossAmountCents: 1_000_000, currency: "USD", status: "FINALIZED", market: "INDONESIA" });
+    expect(entries).toContainEqual(expect.objectContaining({ kind: "OPERATOR_PAYOUT_PLACEHOLDER", amountCents: 820000 }));
   });
 });
 

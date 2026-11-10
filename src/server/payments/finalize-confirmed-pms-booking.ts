@@ -1,6 +1,6 @@
 import type { PmsBookingPaymentAttempt, Tenant, TenantConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { calculateBluePassLedgerSplit, type BluePassLedgerCurrency } from "@/core/bluepass/ledger";
+import { calculateBluePassLedgerSplit, marketForCurrency, type BluePassLedgerCurrency } from "@/core/bluepass/ledger";
 import { createAssistantMessage, upsertConversationBookingState } from "@/server/conversation/conversation-repository";
 import { sendWhatsAppText } from "@/server/whatsapp/client";
 
@@ -20,12 +20,11 @@ export async function finalizeConfirmedPmsBooking(updated: PmsBookingPaymentAtte
     referralPartnerId: updated.referralPartnerId,
     referralLinkId: updated.referralLinkId,
     referralCode: updated.referralCode,
-    referralRole: updated.referralRole
-    // No `market` here - harmless now that every market (including no market at all) resolves to
-    // the same 20%/80% split (see ledger.ts's BluePassLedgerSplitInput.market comment for why the
-    // 18%/82% figure this comment used to cite turned out to have no real source). Referral role
-    // only adds the PARTNER_COMMISSION_ESTIMATE line when one is actually attached; it doesn't
-    // change the platform-fee percentage.
+    referralRole: updated.referralRole,
+    // The attempt carries no market, so the currency decides it where it can (AUD, IDR); USD and the
+    // rest get the 20% default. The referral role only adds the partner line; it never changes the
+    // platform-fee percentage.
+    market: marketForCurrency(updated.currency)
   });
 
   await prisma.pmsBookingLedgerEntry.createMany({

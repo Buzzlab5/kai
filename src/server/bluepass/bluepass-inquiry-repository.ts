@@ -2,7 +2,7 @@ import type { BluePassInquiry, Prisma } from "@prisma/client";
 import { findBluePassAlternativeYachts, type BluePassYachtCard } from "@/core/bluepass/catalog";
 import { buildBluePassDispatchText } from "@/core/bluepass/dispatch";
 import type { BluePassInquiryIntent } from "@/core/bluepass/intent";
-import { calculateBluePassLedgerEstimate, calculateBluePassLedgerSplit, type BluePassLedgerCurrency } from "@/core/bluepass/ledger";
+import { calculateBluePassLedgerEstimate, calculateBluePassLedgerSplit, marketForCurrency, type BluePassLedgerCurrency } from "@/core/bluepass/ledger";
 import type { BluePassPersonaLead } from "@/core/bluepass/persona-lead";
 import { composeAssistantReply } from "@/core/llm/assistant-reply-composer";
 import { prisma } from "@/lib/prisma";
@@ -263,15 +263,17 @@ export async function finalizeBluePassLedgerForConfirmedBooking(inquiry: BluePas
     return [];
   }
 
+  const currency = (quote?.currency as BluePassLedgerCurrency | undefined) ?? "USD";
   const finalized = calculateBluePassLedgerSplit({
     inquiryId: inquiry.id,
     grossAmountCents,
-    currency: (quote?.currency as BluePassLedgerCurrency | undefined) ?? "USD",
+    currency,
     status: "FINALIZED",
     referralPartnerId: inquiry.referralPartnerId,
     referralLinkId: inquiry.referralLinkId,
     referralCode: inquiry.referralCode,
-    referralRole: inquiry.referralRole
+    referralRole: inquiry.referralRole,
+    market: marketForCurrency(currency)
   });
 
   await prisma.bluePassLedgerEntry.createMany({

@@ -226,28 +226,19 @@ export function bluePassFlagshipVessel(market?: BluePassMarket): string {
 }
 
 /**
- * Commission numbers, for internal use only. Kai's chat copy no longer quotes them: per Tony
+ * Commission numbers, for internal use only. Kai's chat copy does not quote them: per Tony
  * (2026-09-21), travellers and operators hear only the 5% to conservation (and where it goes) and
- * that guests pay the same as booking direct. History: AU moved to 20%/80% (7% platform fee) on
- * 2026-08-05; Indonesia was corrected to the same split on 2026-08-24 ("Indonesia ternyata 20% juga,
- * bukan 18%"); Boattime (previously believed frozen on an old 18%/82% figure that turned out to have
- * no real, checkable source) was folded into the same 20%/80% rate the same day - see ledger.ts's
- * BluePassLedgerSplitInput.market comment for the full history. Every market now returns identical
- * numbers here. Kept as a market-aware function signature rather than collapsed to a bare constant
- * only so a real future region-specific split doesn't require touching call sites again. The
- * platformFee figure quoted is the referred-booking one (conservation 5% + partner 5% + processing
- * 3% + this), matching what the existing copy already showed - it never mentions the higher
- * unreferred platform-fee bucket (12%) that ledger.ts absorbs the unused partner slice into.
+ * that guests pay the same as booking direct. Australia is 20%/80% (7% platform fee referred); per
+ * Tony (2026-11-10) Indonesia is 18%/82% (5%). See ledger.ts for the split itself, which this mirrors.
+ * The platformFee figure is the referred-booking one (conservation 5% + partner 5% + processing 3% +
+ * this); it never mentions the higher unreferred bucket ledger.ts absorbs the unused partner slice into.
  */
-export function bluePassCommissionSummary(
-  // Unused now that both markets return the same numbers - kept in the signature so call sites
-  // (and ledger.ts's own market-aware shape) don't need to change if a region's rate diverges again.
-  _market?: BluePassMarket,
-): {
+export function bluePassCommissionSummary(market?: BluePassMarket): {
   total: number;
   operatorNet: number;
   platformFee: number;
 } {
+  if (market === "INDONESIA") return { total: 18, operatorNet: 82, platformFee: 5 };
   return { total: 20, operatorNet: 80, platformFee: 7 };
 }
 

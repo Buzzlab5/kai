@@ -81,7 +81,10 @@ describe("runSettlementSweep", () => {
     });
 
     expect(result.settled).toContain(attempt.id);
-    expect(transfersCreate).toHaveBeenCalledWith(expect.objectContaining({ destination: "acct_auto_lookup" }));
+    expect(transfersCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: "acct_auto_lookup" }),
+      { idempotencyKey: expect.stringMatching(/^kai-pms-payout-/) }
+    );
 
     const settled = await prisma.pmsBookingPaymentAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
     expect(settled.status).toBe("SETTLED");
