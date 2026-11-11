@@ -22,7 +22,12 @@ import { createAssistantLlmClient } from "@/server/llm/assistant-llm-client";
 import { createBluePassRouterClient } from "@/server/llm/bluepass-router-client";
 import type { WhatsAppInboundTextMessage } from "@/server/whatsapp/webhook";
 import { normalizeLocalPhone } from "@/server/phone/normalize-local-phone";
-import { sendWhatsAppImage, sendWhatsAppInteractiveButtons, sendWhatsAppText } from "@/server/whatsapp/client";
+import {
+  canSendWhatsAppImage,
+  sendWhatsAppImage,
+  sendWhatsAppInteractiveButtons,
+  sendWhatsAppText
+} from "@/server/whatsapp/client";
 import { handleBluePassMarketplaceMessage, readBluePassTeamSignals } from "./bluepass-message-flow";
 import type { BluePassPersona } from "@/core/bluepass/triage";
 import {
@@ -273,14 +278,17 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
       });
 
   const featuredYacht = result?.bluepassMatches?.[0];
+  const featuredImageUrl =
+    featuredYacht?.imageUrl && (await canSendWhatsAppImage(featuredYacht.imageUrl)) ? featuredYacht.imageUrl : null;
   console.log("bluepass_whatsapp.image_send_decision", {
     replyMode: result?.replyMode ?? null,
     matchCount: result?.bluepassMatches?.length ?? 0,
     featuredYachtSlug: featuredYacht?.slug ?? null,
-    hasImageUrl: Boolean(featuredYacht?.imageUrl)
+    hasImageUrl: Boolean(featuredYacht?.imageUrl),
+    imageSendable: Boolean(featuredImageUrl)
   });
 
-  if (featuredYacht?.imageUrl) {
+  if (featuredYacht && featuredImageUrl) {
     const caption = featuredYacht.productUrl
       ? `${featuredYacht.name}: ${featuredYacht.productUrl}`
       : featuredYacht.name;
@@ -288,7 +296,7 @@ async function handleBluePassTravellerMarketplaceWhatsAppMessage(
     await sendWhatsAppImage({
       to: input.from,
       role: "kai",
-      imageUrl: featuredYacht.imageUrl,
+      imageUrl: featuredImageUrl,
       caption
     })
       .then((imageResult) => {
@@ -421,7 +429,15 @@ async function fetchBluePassCatalogSnapshot(): Promise<BluePassCatalogSnapshotIt
     if (!response.ok) return [];
 
     const payload = (await response.json()) as { catalog?: BluePassCatalogSnapshotItem[] };
-    return Array.isArray(payload.catalog) ? payload.catalog : [];
+    if (!Array.isArray(payload.catalog)) return [];
+
+    // The snapshot's photos are paths on bluepass-app (/yachts/<slug>/card.webp), and WhatsApp can
+    // only fetch a photo from a full address, so they resolve against the app they came from.
+    return payload.catalog.map((item) =>
+      typeof item.imageUrl === "string" && item.imageUrl.startsWith("/")
+        ? { ...item, imageUrl: new URL(item.imageUrl, baseUrl).toString() }
+        : item
+    );
   } catch (error) {
     console.log("bluepass_whatsapp.catalog_snapshot_fetch_failed", {
       message: error instanceof Error ? error.message : String(error)

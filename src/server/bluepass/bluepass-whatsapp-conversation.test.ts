@@ -14,7 +14,8 @@ const isolatedEnvKeys = [
   "LLM_PROVIDER",
   "OPENAI_API_KEY",
   "BLUEPASS_APP_URL",
-  "BLUEPASS_APP_SERVICE_TOKEN"
+  "BLUEPASS_APP_SERVICE_TOKEN",
+  "BLUEPASS_WHATSAPP_CATALOG_FETCH_ENABLED"
 ];
 
 beforeEach(() => {
@@ -843,11 +844,122 @@ describe("getting a person into the chat on WhatsApp", () => {
   }, 30_000);
 });
 
+// bluepass.co has no boat pages until the January 2027 launch, and WhatsApp only shows a JPEG or PNG
+// photo it can fetch, so Kai sends a boat's photo only when it loads and never links its /yachts page.
+describe("BluePass boat photos and links on WhatsApp", () => {
+  // What bluepass-app's /api/kai/catalog-snapshot sends: a photo path on the app, and a link to a
+  // /yachts page the app doesn't have.
+  const calicoJackSnapshot = {
+    catalog: [
+      {
+        slug: "calico-jack",
+        name: "Calico Jack",
+        region: "Komodo",
+        tier: "Premium",
+        maxGuests: 10,
+        cabins: 5,
+        priceSignal: "from USD 3,200 per cabin",
+        charterPriceSignal: "from USD 46,000 private charter",
+        productUrl: "https://bluepass.co/yachts/calico-jack",
+        imageUrl: "/yachts/calico-jack/card.jpg",
+        interests: ["dive", "phinisi"]
+      }
+    ]
+  };
+
+  async function createBoatPhotoTenant(options: { catalogSnapshot?: boolean } = {}) {
+    const tenantSlug = `bluepass-whatsapp-boat-photo-${randomUUID()}`;
+    process.env.WHATSAPP_BLUEPASS_TENANT_SLUG = tenantSlug;
+    if (options.catalogSnapshot) {
+      process.env.BLUEPASS_WHATSAPP_CATALOG_FETCH_ENABLED = "true";
+      process.env.BLUEPASS_APP_URL = "https://bluepass.test";
+    }
+    await prisma.tenant.create({
+      data: {
+        slug: tenantSlug,
+        name: "BluePass WhatsApp Boat Photo Test",
+        widgetPublicKey: `pk_${randomUUID()}`,
+        allowedOrigins: ["https://bluepass.co"],
+        status: "ACTIVE"
+      }
+    });
+  }
+
+  function sentImages(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }) {
+    return fetchMock.mock.calls
+      .filter((call) => String(call[0]).includes("graph.facebook.com"))
+      .map((call) => JSON.parse(String((call[1] as RequestInit).body)))
+      .filter((payload) => payload.type === "image")
+      .map((payload) => payload.image);
+  }
+
+  it("sends the boat's photo, captioned with just its name, when it is a JPEG that loads", async () => {
+    await createBoatPhotoTenant({ catalogSnapshot: true });
+    const fetchMock = stubWhatsAppSend("wamid.boat.photo.reply", {
+      catalogSnapshot: calicoJackSnapshot,
+      photoResponse: { status: 200, contentType: "image/jpeg" }
+    });
+
+    await handleBluePassWhatsAppInboundMessage({
+      from: "6281111100031",
+      providerMessageId: "wamid.boat.photo",
+      body: "liveaboards in komodo"
+    });
+    const sentBody = getLastWhatsAppTextBody(fetchMock);
+
+    expect(sentBody).toContain("Calico Jack");
+    expect(sentBody).not.toContain("/yachts/");
+    expect(sentImages(fetchMock)).toEqual([
+      { link: "https://bluepass.test/yachts/calico-jack/card.jpg", caption: "Calico Jack" }
+    ]);
+  }, 20_000);
+
+  it("skips a photo that doesn't load rather than send a dead one", async () => {
+    await createBoatPhotoTenant({ catalogSnapshot: true });
+    const fetchMock = stubWhatsAppSend("wamid.boat.missing-photo.reply", {
+      catalogSnapshot: calicoJackSnapshot,
+      photoResponse: { status: 404, contentType: "text/html; charset=utf-8" }
+    });
+
+    await handleBluePassWhatsAppInboundMessage({
+      from: "6281111100032",
+      providerMessageId: "wamid.boat.missing-photo",
+      body: "liveaboards in komodo"
+    });
+    const sentBody = getLastWhatsAppTextBody(fetchMock);
+
+    expect(sentBody).toContain("Calico Jack");
+    expect(sentBody).not.toContain("/yachts/");
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/card.jpg") && init?.method === "HEAD")).toBe(true);
+    expect(sentImages(fetchMock)).toEqual([]);
+  }, 20_000);
+
+  it("sends no photo and no boat page link from the preview catalog, whose photos are WebP", async () => {
+    await createBoatPhotoTenant();
+    const fetchMock = stubWhatsAppSend("wamid.boat.preview.reply");
+
+    await handleBluePassWhatsAppInboundMessage({
+      from: "6281111100033",
+      providerMessageId: "wamid.boat.preview",
+      body: "liveaboards in komodo"
+    });
+    const sentBody = getLastWhatsAppTextBody(fetchMock);
+
+    expect(sentBody).toContain("Alila Purnama");
+    expect(sentBody).not.toContain("/yachts/");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "HEAD")).toBe(false);
+    expect(sentImages(fetchMock)).toEqual([]);
+  }, 20_000);
+});
+
 function stubWhatsAppSend(
   providerMessageId: string,
   options: {
     directoryResponse?: unknown;
     partnerDirectoryResponse?: unknown;
+    catalogSnapshot?: unknown;
+    /** What a boat photo's address answers when Kai checks it before sending. */
+    photoResponse?: { status: number; contentType: string };
   } = {}
 ) {
   process.env.META_GRAPH_VERSION = "v20.0";
@@ -855,7 +967,7 @@ function stubWhatsAppSend(
   process.env.WHATSAPP_PHONE_ID_KAI = "1115079071692326";
   process.env.WHATSAPP_PHONE_ID_OPS = "1115079071692326";
 
-  const fetchMock = vi.fn<typeof fetch>(async (input) => {
+  const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.includes("/api/kai/operator-directory")) {
@@ -864,6 +976,15 @@ function stubWhatsAppSend(
 
     if (url.includes("/api/kai/partner-directory")) {
       return Response.json(options.partnerDirectoryResponse ?? { partners: [] });
+    }
+
+    if (url.includes("/api/kai/catalog-snapshot")) {
+      return Response.json(options.catalogSnapshot ?? { catalog: [] });
+    }
+
+    if (init?.method === "HEAD") {
+      const photo = options.photoResponse ?? { status: 404, contentType: "text/html; charset=utf-8" };
+      return new Response(null, { status: photo.status, headers: { "content-type": photo.contentType } });
     }
 
     return Response.json({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findBluePassAlternativeYachts, searchBluePassYachts } from "./catalog";
+import { bluePassPreviewCatalog, findBluePassAlternativeYachts, searchBluePassYachts } from "./catalog";
 
 describe("searchBluePassYachts", () => {
   it("returns ranked preview catalog matches with truth labels", () => {
@@ -64,5 +64,29 @@ describe("searchBluePassYachts", () => {
     expect(results.every((result) => result.region === "Komodo")).toBe(true);
     expect(results.every((result) => result.maxGuests >= 4)).toBe(true);
     expect(results.length).toBeLessThanOrEqual(3);
+  });
+});
+
+// bluepass.co has no boat pages until the January 2027 launch, so a /yachts/<slug> link 404s.
+describe("BluePass yacht links", () => {
+  it("never links a preview catalog yacht to a boat page", () => {
+    const cards = searchBluePassYachts({}, undefined, bluePassPreviewCatalog.length);
+
+    expect(cards).toHaveLength(bluePassPreviewCatalog.length);
+    expect(cards.every((card) => !card.productUrl)).toBe(true);
+  });
+
+  it("drops the catalog snapshot's /yachts links and anything that isn't a full address, keeping other links", () => {
+    const cards = searchBluePassYachts({ destination: "Komodo" }, [
+      { slug: "calico-jack", name: "Calico Jack", region: "Komodo", productUrl: "https://bluepass.co/yachts/calico-jack" },
+      { slug: "dunia-baru", name: "Dunia Baru", region: "Komodo", productUrl: "/operators/dunia-baru" },
+      { slug: "sea-dragon", name: "Sea Dragon", region: "Komodo", productUrl: " https://seadragon.example/charters " }
+    ]);
+
+    expect(Object.fromEntries(cards.map((card) => [card.slug, card.productUrl]))).toEqual({
+      "calico-jack": null,
+      "dunia-baru": null,
+      "sea-dragon": "https://seadragon.example/charters"
+    });
   });
 });

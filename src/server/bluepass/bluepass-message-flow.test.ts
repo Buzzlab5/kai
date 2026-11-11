@@ -1345,7 +1345,7 @@ describe("handleBluePassMarketplaceMessage", () => {
     expect(result.assistantContent).toContain("Alila Purnama");
   });
 
-  it("includes the product link when answering selected yacht questions from the Discover catalog", async () => {
+  it("answers selected yacht questions from the Discover catalog without its link to a boat page that doesn't exist yet", async () => {
     const result = await handleBluePassMarketplaceMessage({
       tenantId: `tenant_${randomUUID()}`,
       conversationId: `conversation_${randomUUID()}`,
@@ -1368,11 +1368,13 @@ describe("handleBluePassMarketplaceMessage", () => {
     });
 
     expect(result.bluepassInquiry).toBeNull();
+    // bluepass.co is a waitlist until the January 2027 launch, so /yachts/calico-jack 404s.
     expect(result.bluepassMatches[0]).toMatchObject({
       slug: "calico-jack",
-      productUrl: "https://bluepass.co/yachts/calico-jack"
+      productUrl: null
     });
     expect(result.assistantContent).toContain("Calico Jack");
+    expect(result.assistantContent).not.toContain("/yachts/");
   });
 
   it("asks for booking details for a selected yacht without showing inquiry cards too early", async () => {

@@ -72,6 +72,9 @@ const previewTruth: TruthPolicy = {
   bookingConfirmationSource: "operator_admin"
 };
 
+// No productUrl: bluepass.co has no boat pages yet (a waitlist until the January 2027 launch), so a
+// bluepass.co/yachts/<slug> link would 404. The photos are the card shots bluepass.co actually serves;
+// the other boats have none there yet. Both checked 11 Nov 2026.
 export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
   {
     slug: "alila-purnama",
@@ -85,8 +88,7 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_alila_purnama",
     operatorName: "Alila Purnama",
     operatorPhone: "+6281234567001",
-    productUrl: "https://bluepass.co/yachts/alila-purnama",
-    imageUrl: "https://bluepass.co/yachts/alila-purnama/hero.jpg",
+    imageUrl: "https://bluepass.co/yachts/alila-purnama/card.webp",
     interests: ["dive", "luxury", "phinisi", "private"]
   },
   {
@@ -101,8 +103,7 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_alexa",
     operatorName: "Alexa Charters",
     operatorPhone: "+6281234567890",
-    productUrl: "https://bluepass.co/yachts/alexa",
-    imageUrl: "https://bluepass.co/yachts/alexa/hero.jpg",
+    imageUrl: "https://bluepass.co/yachts/alexa/card.webp",
     interests: ["private", "couples", "luxury"]
   },
   {
@@ -117,8 +118,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_calico_jack",
     operatorName: "Calico Jack",
     operatorPhone: "+6281234567004",
-    productUrl: "https://bluepass.co/yachts/calico-jack",
-    imageUrl: "https://bluepass.co/yachts/calico-jack/hero.jpg",
     interests: ["dive", "phinisi", "private", "cabin"]
   },
   {
@@ -133,8 +132,7 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_anne_bonny",
     operatorName: "Anne Bonny",
     operatorPhone: "+6281234567005",
-    productUrl: "https://bluepass.co/yachts/anne-bonny",
-    imageUrl: "https://bluepass.co/yachts/anne-bonny/hero.jpg",
+    imageUrl: "https://bluepass.co/yachts/anne-bonny/card.webp",
     interests: ["dive", "phinisi", "private", "explorer"],
     about:
       "Anne Bonny is a 30-metre liveaboard with 3 cabins for up to 8 guests, focused on accessible private charter adventures in Komodo with seasonal Raja Ampat itineraries."
@@ -151,8 +149,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_celestia",
     operatorName: "Celestia",
     operatorPhone: "+6281234567006",
-    productUrl: "https://bluepass.co/yachts/celestia",
-    imageUrl: "https://bluepass.co/yachts/celestia/hero.jpg",
     interests: ["dive", "phinisi", "luxury", "cabin"]
   },
   {
@@ -167,8 +163,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_dunia_baru",
     operatorName: "Dunia Baru",
     operatorPhone: "+6281234567007",
-    productUrl: "https://bluepass.co/yachts/dunia-baru",
-    imageUrl: "https://bluepass.co/yachts/dunia-baru/hero.jpg",
     interests: ["dive", "luxury", "phinisi", "private"]
   },
   {
@@ -183,8 +177,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_jakare",
     operatorName: "Jakare",
     operatorPhone: "+6281234567008",
-    productUrl: "https://bluepass.co/yachts/jakare",
-    imageUrl: "https://bluepass.co/yachts/jakare/hero.jpg",
     interests: ["dive", "phinisi", "explorer", "cabin"]
   },
   {
@@ -199,8 +191,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_katharina",
     operatorName: "Katharina",
     operatorPhone: "+6281234567009",
-    productUrl: "https://bluepass.co/yachts/katharina",
-    imageUrl: "https://bluepass.co/yachts/katharina/hero.jpg",
     interests: ["dive", "phinisi", "cabin"]
   },
   {
@@ -215,8 +205,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_mischief",
     operatorName: "Mischief",
     operatorPhone: "+6281234567010",
-    productUrl: "https://bluepass.co/yachts/mischief",
-    imageUrl: "https://bluepass.co/yachts/mischief/hero.jpg",
     interests: ["private", "luxury", "phinisi"]
   },
   {
@@ -231,8 +219,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_mutiara_laut",
     operatorName: "Mutiara Laut",
     operatorPhone: "+6281234567011",
-    productUrl: "https://bluepass.co/yachts/mutiara-laut",
-    imageUrl: "https://bluepass.co/yachts/mutiara-laut/hero.jpg",
     interests: ["dive", "phinisi", "private"]
   },
   {
@@ -247,8 +233,7 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_aliikai",
     operatorName: "Aliikai Expeditions",
     operatorPhone: "+6281234567002",
-    productUrl: "https://bluepass.co/yachts/aliikai",
-    imageUrl: "https://bluepass.co/yachts/aliikai/hero.jpg",
+    imageUrl: "https://bluepass.co/yachts/aliikai/card.webp",
     interests: ["dive", "phinisi", "cabin"]
   },
   {
@@ -263,8 +248,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_carpe_diem",
     operatorName: "Carpe Diem",
     operatorPhone: "+6281234567012",
-    productUrl: "https://bluepass.co/yachts/carpe-diem",
-    imageUrl: "https://bluepass.co/yachts/carpe-diem/hero.jpg",
     interests: ["dive", "phinisi", "explorer", "cabin"]
   },
   {
@@ -279,8 +262,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_fenides",
     operatorName: "Fenides",
     operatorPhone: "+6281234567013",
-    productUrl: "https://bluepass.co/yachts/fenides",
-    imageUrl: "https://bluepass.co/yachts/fenides/hero.jpg",
     interests: ["dive", "phinisi", "cabin"]
   },
   {
@@ -295,8 +276,6 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_majik",
     operatorName: "Majik",
     operatorPhone: "+6281234567014",
-    productUrl: "https://bluepass.co/yachts/majik",
-    imageUrl: "https://bluepass.co/yachts/majik/hero.jpg",
     interests: ["dive", "private", "explorer"]
   },
   {
@@ -311,8 +290,7 @@ export const bluePassPreviewCatalog: BluePassYachtCatalogItem[] = [
     operatorId: "operator_amandira",
     operatorName: "Amandira",
     operatorPhone: "+6281234567003",
-    productUrl: "https://bluepass.co/yachts/amandira",
-    imageUrl: "https://bluepass.co/yachts/amandira/hero.jpg",
+    imageUrl: "https://bluepass.co/yachts/amandira/card.webp",
     interests: ["dive", "luxury", "private"]
   }
 ];
@@ -442,7 +420,7 @@ function normalizeBluePassCatalogSnapshot(catalogInput?: BluePassCatalogSnapshot
         operatorId: item.operatorId?.trim() || `operator_${slug.replace(/-/g, "_")}`,
         operatorName: item.operatorName?.trim() || name,
         operatorPhone: item.operatorPhone?.trim() || "",
-        productUrl: item.productUrl?.trim() || null,
+        productUrl: liveProductUrl(item.productUrl),
         imageUrl: item.imageUrl?.trim() || null,
         interests: Array.isArray(item.interests) ? item.interests.filter(Boolean) : [],
         cabinBookable: item.cabinBookable,
@@ -454,6 +432,16 @@ function normalizeBluePassCatalogSnapshot(catalogInput?: BluePassCatalogSnapshot
       } satisfies BluePassYachtCatalogItem;
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
+// bluepass-app's catalog snapshot links every yacht to <site>/yachts/<slug>, but the app has no such
+// page (bluepass.co is a waitlist until the January 2027 launch), so those links 404. Kai leaves them
+// out until the boat pages go live, along with any link that isn't a full address a traveller can open.
+function liveProductUrl(value?: string | null) {
+  const url = value?.trim();
+  if (!url || !URL.canParse(url)) return null;
+
+  return new URL(url).pathname.startsWith("/yachts/") ? null : url;
 }
 
 // Keeps the existing Komodo/Raja Ampat spelling-variant normalization (Labuan Bajo, Flores,

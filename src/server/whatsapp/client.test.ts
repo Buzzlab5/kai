@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildWhatsAppTemplatePayload, sendWhatsAppInteractiveButtons, sendWhatsAppTypingIndicator } from "./client";
+import {
+  buildWhatsAppTemplatePayload,
+  canSendWhatsAppImage,
+  sendWhatsAppInteractiveButtons,
+  sendWhatsAppTypingIndicator
+} from "./client";
 
 const originalEnv = { ...process.env };
 
@@ -123,5 +128,41 @@ describe("WhatsApp client", () => {
       text: { preview_url: false, body: "No buttons here" }
     });
     expect(result).toEqual({ providerMessageId: "wamid.out.text" });
+  });
+
+  it("only clears a photo WhatsApp can show: a JPEG or PNG that loads", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/card.jpg")) {
+        return new Response(null, { status: 200, headers: { "content-type": "image/jpeg" } });
+      }
+      // bluepass.co's 404 page, and the same page served with a 200
+      return new Response(null, {
+        status: url.endsWith("/soft-404.png") ? 200 : 404,
+        headers: { "content-type": "text/html; charset=utf-8" }
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(canSendWhatsAppImage("https://bluepass.co/yachts/alexa/card.jpg")).resolves.toBe(true);
+    await expect(canSendWhatsAppImage("https://bluepass.co/yachts/alexa/hero.jpg")).resolves.toBe(false);
+    await expect(canSendWhatsAppImage("https://bluepass.co/yachts/alexa/soft-404.png")).resolves.toBe(false);
+    // WhatsApp won't show a WebP, and a bare path is no address to fetch from: neither is even tried.
+    await expect(canSendWhatsAppImage("https://bluepass.co/yachts/alexa/card.webp")).resolves.toBe(false);
+    await expect(canSendWhatsAppImage("/yachts/alexa/card.jpg")).resolves.toBe(false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([, init]) => init?.method === "HEAD")).toBe(true);
+  });
+
+  it("does not clear a photo it can't reach", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => {
+        throw new TypeError("fetch failed");
+      })
+    );
+
+    await expect(canSendWhatsAppImage("https://bluepass.co/yachts/alexa/card.jpg")).resolves.toBe(false);
   });
 });

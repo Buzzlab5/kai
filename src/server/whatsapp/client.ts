@@ -148,6 +148,29 @@ export async function sendWhatsAppText(message: WhatsAppTextMessage): Promise<Wh
 }
 
 const supportedWhatsAppImageExtensions = [".jpg", ".jpeg", ".png"];
+const supportedWhatsAppImageTypes = ["image/jpeg", "image/png"];
+const imageCheckTimeoutMs = 3000;
+
+function hasSupportedWhatsAppImageExtension(imageUrl: string) {
+  const lowerCaseUrl = imageUrl.toLowerCase();
+  return supportedWhatsAppImageExtensions.some((extension) => lowerCaseUrl.endsWith(extension));
+}
+
+// WhatsApp fetches an image message's photo from the link itself, so a link that 404s, or a photo
+// that isn't a JPEG or PNG, just never arrives. Checking first lets the caller skip a photo the
+// traveller would never see. Never throws: anything short of a JPEG or PNG that loads is a no.
+export async function canSendWhatsAppImage(imageUrl: string): Promise<boolean> {
+  const url = imageUrl.trim();
+  if (!URL.canParse(url) || !hasSupportedWhatsAppImageExtension(url)) return false;
+
+  try {
+    const response = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(imageCheckTimeoutMs) });
+    const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
+    return response.ok && supportedWhatsAppImageTypes.includes(contentType);
+  } catch {
+    return false;
+  }
+}
 
 export async function sendWhatsAppImage(message: WhatsAppImageMessage): Promise<WhatsAppSendResult> {
   const imageUrl = message.imageUrl.trim();
@@ -155,8 +178,7 @@ export async function sendWhatsAppImage(message: WhatsAppImageMessage): Promise<
     throw new Error("WhatsApp image URL is required.");
   }
 
-  const lowerCaseUrl = imageUrl.toLowerCase();
-  if (!supportedWhatsAppImageExtensions.some((extension) => lowerCaseUrl.endsWith(extension))) {
+  if (!hasSupportedWhatsAppImageExtension(imageUrl)) {
     throw new Error(
       `WhatsApp only accepts JPEG or PNG images for image messages (unsupported format: ${imageUrl}).`
     );
